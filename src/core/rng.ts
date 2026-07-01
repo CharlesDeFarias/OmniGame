@@ -2,6 +2,9 @@ export interface RNG {
   next(): number;
   int(maxExclusive: number): number;
   pick<T>(items: readonly T[]): T;
+  /** Opaque serializable state (uint32) for snapshots/branching simulations. */
+  getState(): number;
+  setState(state: number): void;
 }
 
 export function createRng(seed: number): RNG {
@@ -19,5 +22,7 @@ export function createRng(seed: number): RNG {
     if (item === undefined && items.length === 0) throw new Error('pick from empty array');
     return item as T;
   };
-  return { next, int, pick };
+  const getState = (): number => a;
+  const setState = (state: number): void => { a = state >>> 0; };
+  return { next, int, pick, getState, setState };
 }

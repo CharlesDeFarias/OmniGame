@@ -39,3 +39,21 @@ describe('createRng', () => {
     for (let i = 0; i < 100; i++) expect(arr).toContain(rng.pick(arr));
   });
 });
+
+  it('getState/setState round-trips the sequence', () => {
+    const rng = createRng(42);
+    rng.next();
+    rng.next();
+    const s = rng.getState();
+    const expected = [rng.next(), rng.next()];
+    rng.setState(s);
+    expect([rng.next(), rng.next()]).toEqual(expected);
+  });
+
+  it('setState transplants state across instances', () => {
+    const a = createRng(1);
+    a.next();
+    const b = createRng(999);
+    b.setState(a.getState());
+    expect(b.next()).toBe(a.next());
+  });
