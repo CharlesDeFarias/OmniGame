@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { startLevel, applyMove } from './game';
 import type { LevelDef } from './level';
-import { canSwap } from './swap';
+import { findValidMoves } from './moves';
 
 const level: LevelDef = {
   id: 'test-1',
@@ -12,19 +12,11 @@ const level: LevelDef = {
   goals: [{ type: 'collect', color: 'red', count: 200 }],
 };
 
-/** Find any valid move by brute force so tests don't depend on a specific layout. */
+/** Find any valid move so tests don't depend on a specific layout. */
 function findValidMove(state: ReturnType<typeof startLevel>): { a: { x: number; y: number }; b: { x: number; y: number } } {
-  const b = state.board;
-  for (let y = 0; y < b.height; y++) {
-    for (let x = 0; x < b.width; x++) {
-      for (const d of [{ x: 1, y: 0 }, { x: 0, y: 1 }]) {
-        const to = { x: x + d.x, y: y + d.y };
-        if (to.x >= b.width || to.y >= b.height) continue;
-        if (canSwap(b, { x, y }, to).valid) return { a: { x, y }, b: to };
-      }
-    }
-  }
-  throw new Error('no valid move found');
+  const moves = findValidMoves(state.board);
+  if (moves.length === 0) throw new Error('no valid move found');
+  return moves[0]!;
 }
 
 describe('game', () => {

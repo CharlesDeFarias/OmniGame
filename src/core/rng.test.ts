@@ -38,7 +38,6 @@ describe('createRng', () => {
     const arr = ['a', 'b', 'c'] as const;
     for (let i = 0; i < 100; i++) expect(arr).toContain(rng.pick(arr));
   });
-});
 
   it('getState/setState round-trips the sequence', () => {
     const rng = createRng(42);
@@ -57,3 +56,4 @@ describe('createRng', () => {
     b.setState(a.getState());
     expect(b.next()).toBe(a.next());
   });
+});
