@@ -1,0 +1,8 @@
+{
+  "id": "kitchen-004",
+  "seed": 1004,
+  "board": { "width": 7, "height": 7, "colorCount": 5 },
+  "moves": 9,
+  "giftMoves": 5,
+  "goals": [{ "type": "collect", "color": "green", "count": 26 }]
+}
