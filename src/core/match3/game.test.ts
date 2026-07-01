@@ -71,4 +71,17 @@ describe('game', () => {
     const after = applyMove(s, { x: 0, y: 0 }, { x: 1, y: 0 });
     expect(after.invalid).toBe(true);
   });
+
+  it('startLevel auto-shuffles a deadlocked opening board', () => {
+    const dl: LevelDef = {
+      id: 'deadlock-1',
+      seed: 4424,
+      board: { width: 4, height: 4, colorCount: 3 },
+      moves: 5,
+      giftMoves: 0,
+      goals: [{ type: 'collect', color: 'red', count: 5 }],
+    };
+    const s = startLevel(dl);
+    expect(findValidMoves(s.board).length).toBeGreaterThan(0);
+  });
 });
