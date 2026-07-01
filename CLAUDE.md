@@ -8,7 +8,7 @@ A personal omnibus of ad-free, non-exploitative casual games. First MVP: a Royal
 
 ## Current state
 
-- **Phase:** spec approved by Charles → writing implementation plan (superpowers writing-plans).
+- **Phase:** plan 1 of 4 written (`docs/superpowers/plans/2026-07-01-match3-logic-core.md`) — awaiting execution. Plans 2-4 (simulator, Phaser+PWA, meta-layer) not yet written.
 - **Luana narrative skin:** famous influencer managed by brother Charles (personal layer only; decision #19).
 - **Spec:** `docs/superpowers/specs/2026-07-01-omnigame-match3-design.md`
 - **Code:** none yet.
