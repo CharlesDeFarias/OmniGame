@@ -40,4 +40,15 @@ describe('parseLevel', () => {
     expect(level.id).toBe('kitchen-001');
     expect(level.board.width).toBeLessThanOrEqual(7);
   });
+
+  it('rejects NaN and non-integer numerics', () => {
+    expect(() => parseLevel({ ...good, board: { ...good.board, width: NaN } })).toThrow(/width/);
+    expect(() => parseLevel({ ...good, moves: 19.5 })).toThrow(/moves/);
+  });
+
+  it('rejects goal colors outside the level palette', () => {
+    expect(() =>
+      parseLevel({ ...good, goals: [{ type: 'collect', color: 'purple', count: 3 }] }),
+    ).toThrow(/palette/);
+  });
 });

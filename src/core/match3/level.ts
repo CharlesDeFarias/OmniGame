@@ -10,7 +10,9 @@ export interface LevelDef {
   goals: Goal[];
 }
 
-class LevelError extends Error {}
+export class LevelError extends Error {
+  override name = 'LevelError';
+}
 
 function fail(msg: string): never {
   throw new LevelError(msg);
@@ -23,26 +25,28 @@ export function parseLevel(input: unknown): LevelDef {
   if (typeof o.seed !== 'number' || !Number.isInteger(o.seed)) fail('seed must be an integer');
   const b = o.board as Record<string, unknown> | null | undefined;
   if (typeof b !== 'object' || b === null) fail('board must be an object');
-  if (typeof b.width !== 'number' || b.width < 3 || b.width > 9) fail('board.width must be 3-9');
-  if (typeof b.height !== 'number' || b.height < 3 || b.height > 9) fail('board.height must be 3-9');
-  if (typeof b.colorCount !== 'number' || b.colorCount < 3 || b.colorCount > 6) fail('board.colorCount must be 3-6');
-  if (typeof o.moves !== 'number' || o.moves < 1) fail('moves must be >= 1');
-  if (typeof o.giftMoves !== 'number' || o.giftMoves < 0) fail('giftMoves must be >= 0');
+  if (!Number.isInteger(b.width) || (b.width as number) < 3 || (b.width as number) > 9) fail('board.width must be an integer 3-9');
+  if (!Number.isInteger(b.height) || (b.height as number) < 3 || (b.height as number) > 9) fail('board.height must be an integer 3-9');
+  if (!Number.isInteger(b.colorCount) || (b.colorCount as number) < 3 || (b.colorCount as number) > 6) fail('board.colorCount must be an integer 3-6');
+  if (!Number.isInteger(o.moves) || (o.moves as number) < 1) fail('moves must be an integer >= 1');
+  if (!Number.isInteger(o.giftMoves) || (o.giftMoves as number) < 0) fail('giftMoves must be an integer >= 0');
   if (!Array.isArray(o.goals) || o.goals.length === 0) fail('goals must be a non-empty array');
   const goals: Goal[] = o.goals.map((g: unknown) => {
     if (typeof g !== 'object' || g === null) fail('goal must be an object');
     const go = g as Record<string, unknown>;
     if (go.type !== 'collect') fail('goal.type must be "collect"');
-    if (!ALL_COLORS.includes(go.color as PieceColor)) fail(`goal.color invalid: ${String(go.color)}`);
-    if (typeof go.count !== 'number' || go.count < 1) fail('goal.count must be >= 1');
-    return { type: 'collect', color: go.color as PieceColor, count: go.count };
+    const colorIdx = ALL_COLORS.indexOf(go.color as PieceColor);
+    if (colorIdx === -1) fail(`goal.color invalid: ${String(go.color)}`);
+    if (colorIdx >= (b.colorCount as number)) fail(`goal.color outside level palette: ${String(go.color)}`);
+    if (!Number.isInteger(go.count) || (go.count as number) < 1) fail('goal.count must be an integer >= 1');
+    return { type: 'collect', color: go.color as PieceColor, count: go.count as number };
   });
   return {
     id: o.id,
     seed: o.seed,
-    board: { width: b.width, height: b.height, colorCount: b.colorCount },
-    moves: o.moves,
-    giftMoves: o.giftMoves,
+    board: { width: b.width as number, height: b.height as number, colorCount: b.colorCount as number },
+    moves: o.moves as number,
+    giftMoves: o.giftMoves as number,
     goals,
   };
 }
