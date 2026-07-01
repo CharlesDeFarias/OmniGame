@@ -10,6 +10,8 @@ OmniGame is a personal omnibus of casual games, free of ads and exploitative mon
 
 **Theme anchor:** for Luana-focused games (match-3, later cooking), the theme is *an adult living their life, being an adult, and leveling up* — subtle, constant nudges toward independence. Fun and playability always outrank the message.
 
+**Luana's personal narrative (her profile's story skin):** she is becoming a famous influencer, managed by her brother Charles. Adult-life progression is framed through that career — her apartment doubles as her studio, milestones become influencer beats (filming a cooking video in her new kitchen), and side games she likes are themed around learning, improving, and performing as an influencer. This narrative lives in her personal profile/theme layer; the generic public layer keeps the plain adult-life framing.
+
 ## MVP scope
 
 Match-3 only, playable on Luana's Android phone (and tablet) as an installable web app (PWA). Hub shell exists but may open directly into match-3.
@@ -28,7 +30,7 @@ One repeated pattern per game, plugged into a shared shell:
 - **Content packs + profiles (key system):** the engine never hardcodes content or tone. It reads:
   - *Theme pack:* art + sounds for pieces, board, meta-layer. MVP ships the classic gems/candies pack; the everyday-adult-objects pack (groceries, coins, keys, socks, coffee cups) is built progressively underneath as the second pack. Users can eventually switch themes.
   - *Text tier:* none / minimal / full. Luana's build runs at near-zero text (she reads at ~2nd-grade level, strong comprehension once read). Textier tiers are built underneath for other users.
-  - *Profile:* name, personal details, avatar, difficulty. Luana's build is deeply personal (her name, tailored details, a friendly avatar who grows her adult life); a generic public-facing profile layer is built in parallel.
+  - *Profile:* name, personal details, avatar, difficulty, narrative skin. Luana's build is deeply personal: her name, tailored details, an avatar growing into a famous influencer managed by her brother. A generic public-facing profile layer (plain adult-life framing) is built in parallel.
   - Luana's version = a configuration (gems pack + no-text tier + personal profile + forgiving difficulty), not a fork.
 
 ## Match-3 game design
@@ -56,9 +58,4 @@ One repeated pattern per game, plugged into a shared shell:
   - `src/core/` — pure logic per game (`match3/` first)
   - `src/render/` — Phaser scenes
   - `src/shell/` — hub
-  - `src/services/` — saves, settings, audio, celebrations
-  - `packs/` — theme packs (art, sounds, text tiers)
-  - `docs/` — CLAUDE.md ledger, decision log, superpowers specs/plans
-- **Testing:** TDD on the logic core (match detection, booster creation/combination, cascades, goal tracking, difficulty math). Presentation verified via playable builds; Charles and Luana are QA.
-- **Saves:** on-device (localStorage/IndexedDB), no accounts or servers, offline-capable, saved after every level. **Save schema is versioned from day one** with migrations, since the PWA auto-updates. Export/backup later.
-- **Assets:** CC0 packs
+  - `src/services/` — saves, settings, audio

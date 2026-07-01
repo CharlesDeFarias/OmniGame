@@ -8,7 +8,8 @@ A personal omnibus of ad-free, non-exploitative casual games. First MVP: a Royal
 
 ## Current state
 
-- **Phase:** design approved; awaiting user spec review → implementation plan (superpowers writing-plans).
+- **Phase:** spec approved by Charles → writing implementation plan (superpowers writing-plans).
+- **Luana narrative skin:** famous influencer managed by brother Charles (personal layer only; decision #19).
 - **Spec:** `docs/superpowers/specs/2026-07-01-omnigame-match3-design.md`
 - **Code:** none yet.
 
@@ -23,5 +24,4 @@ A personal omnibus of ad-free, non-exploitative casual games. First MVP: a Royal
 - Logic cores are pure TypeScript, zero Phaser imports. Presentation is a thin, swappable Phaser layer.
 - All randomness through a seeded RNG (deterministic core). Levels are JSON data, calibrated by a headless simulator.
 - MVP cut: kitchen chapter + one furnishable room. Assets: CC0 (tracked in LICENSES.md). Perf target: mid-range Android 2022+.
-- Nothing in core may ever depend on monetization.
-- Never strand the player: errors recover to hub, prog
+- Not
