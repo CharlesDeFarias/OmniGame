@@ -15,3 +15,11 @@ One line of context per decision; newest last. Full reasoning lives in the specs
 | 9 | 2026-07-01 | MVP theme: classic gems pack; adult-objects pack built underneath | Familiarity for Luana now, theme switching later |
 | 10 | 2026-07-01 | Meta-progression: apartment furnishing + life-milestone chapters | Direct Royal Match analog; embodies independence theme |
 | 11 | 2026-07-01 | Near-zero text UI; pointing-hand tutorials | Luana reads at ~2nd-grade level; textier tiers configurable later |
+| 12 | 2026-07-01 | Deterministic seeded RNG in logic core | Reproducible tests, replayable bugs, enables simulator |
+| 13 | 2026-07-01 | Levels as JSON + headless simulator for difficulty calibration | "Losing makes winning fun" needs measured win rates, not guesses |
+| 14 | 2026-07-01 | MVP assets: CC0 packs (Kenney etc.), licenses tracked in LICENSES.md | Fastest to playable; clean IP for future commercial use |
+| 15 | 2026-07-01 | MVP cut = kitchen chapter + one room; perf target mid-range Android 2022+ | Ship to Luana early; later chapters are content, not code |
+| 16 | 2026-07-01 | Motor accessibility: board size as difficulty lever (~7×7 start), drag + tap-tap swap, haptics | Touch-target size may matter more than any other choice for Luana |
+| 17 | 2026-07-01 | Private on-device stats screen (hidden parent corner, never uploaded) | See where she struggles; seed difficulty tuning |
+| 18 | 2026-07-01 | GitHub = git source of truth; sandbox commits/pushes; local folder is synced copy; CI runs tests on push | Cowork sandbox can't host .git in the mounted folder; CI protects against cross-session regressions |
+| 19 | 2026-07-01 | Luana's narrative skin: becoming a famous influencer managed by brother Charles; side games themed around influencer learning/performing | Personal profile layer only; public layer keeps plain adult-life framing |
