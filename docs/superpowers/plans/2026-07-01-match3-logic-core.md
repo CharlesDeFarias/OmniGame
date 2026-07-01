@@ -1244,6 +1244,35 @@ describe('resolveTurn', () => {
     expect(r1.events).toEqual(r2.events);
     expect(r1.board).toEqual(r2.board);
   });
+
+  it('throws on colorCount < 3 instead of cascading forever', () => {
+    const b = boardFrom(['rbr', 'brg', 'ygb', 'rgy']);
+    expect(() => resolveTurn(b, { x: 1, y: 1 }, { x: 1, y: 0 }, createRng(1), 2)).toThrow(/colorCount/);
+  });
+
+  it('lightball swapped with a normal fires once: first clear is exactly that color plus itself', () => {
+    const b = boardFrom(['rbg', 'gry', 'yob']);
+    set(b, 1, 1, { kind: 'special', special: 'lightball' });
+    const r = resolveTurn(b, { x: 1, y: 1 }, { x: 0, y: 1 }, createRng(5), 5);
+    const clears = r.events.filter((e): e is Extract<typeof e, { type: 'clear' }> => e.type === 'clear');
+    expect(clears[0]!.cells).toHaveLength(3);
+  });
+
+  it('rocket+rocket combo fires once: first clear is exactly the cross', () => {
+    const b = boardFrom(['rbg', 'gry', 'yob']);
+    set(b, 1, 1, { kind: 'special', special: 'rocketH' });
+    set(b, 2, 1, { kind: 'special', special: 'rocketV' });
+    const r = resolveTurn(b, { x: 1, y: 1 }, { x: 2, y: 1 }, createRng(6), 5);
+    const clears = r.events.filter((e): e is Extract<typeof e, { type: 'clear' }> => e.type === 'clear');
+    expect(clears[0]!.cells).toHaveLength(5);
+  });
+
+  it('spawns the special where the dragged piece landed', () => {
+    const b = boardFrom(['rbrr', 'brgg', 'ygby', 'rgyo']);
+    const r = resolveTurn(b, { x: 1, y: 1 }, { x: 1, y: 0 }, createRng(2), 5);
+    const spawns = r.events.filter((e): e is Extract<typeof e, { type: 'spawn' }> => e.type === 'spawn');
+    expect(spawns[0]!.coord).toEqual({ x: 1, y: 0 });
+  });
 });
 ```
 
@@ -1280,8 +1309,10 @@ export interface TurnResult {
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
 
-/** BFS closure: specials inside the set activate and extend it. Each cell activates once. */
-function expandWithSpecials(board: Board, initial: Coord[], rng: RNG): Coord[] {
+/** Set closure (DFS via pop): specials inside the set activate and extend it; each cell once.
+ *  Cells in `noExpand` are cleared but never re-fire — used for swapped specials whose targeted
+ *  or combo effect was already computed, preventing double-activation. */
+function expandWithSpecials(board: Board, initial: Coord[], rng: RNG, noExpand?: Set<string>): Coord[] {
   const seen = new Map<string, Coord>();
   const queue = [...initial];
   while (queue.length > 0) {
@@ -1289,6 +1320,7 @@ function expandWithSpecials(board: Board, initial: Coord[], rng: RNG): Coord[] {
     const k = key(c);
     if (seen.has(k)) continue;
     seen.set(k, c);
+    if (noExpand?.has(k)) continue;
     const p = at(board, c.x, c.y);
     if (p?.kind === 'special') {
       for (const t of boosterTargets(board, c, p.special, rng)) queue.push(t);
@@ -1311,6 +1343,7 @@ export function resolveTurn(
   rng: RNG,
   colorCount: number,
 ): TurnResult {
+  if (colorCount < 3) throw new Error(`colorCount must be >= 3, got ${colorCount}`);
   const check = canSwap(board, a, b);
   if (!check.valid) return { valid: false, board, events: [], clearedByColor: {} };
 
@@ -1323,8 +1356,8 @@ export function resolveTurn(
   swapPieces(work, a, b);
   events.push({ type: 'swap', a, b });
 
-  const clearWave = (cells: Coord[], spawns: { coord: Coord; piece: Piece }[]): void => {
-    const expanded = expandWithSpecials(work, cells, rng);
+  const clearWave = (cells: Coord[], spawns: { coord: Coord; piece: Piece }[], noExpand?: Set<string>): void => {
+    const expanded = expandWithSpecials(work, cells, rng, noExpand);
     countColors(work, expanded, clearedByColor);
     for (const c of expanded) set(work, c.x, c.y, null);
     events.push({ type: 'clear', cells: expanded });
@@ -1346,7 +1379,7 @@ export function resolveTurn(
       { coord: a, special: pb.special },
       rng,
     );
-    clearWave([...targets, a, b], []);
+    clearWave([...targets, a, b], [], new Set([key(a), key(b)]));
   } else if (pa.kind === 'special' || pb.kind === 'special') {
     const specialAt = pa.kind === 'special' ? b : a;
     const special = pa.kind === 'special' ? pa.special : (pb as Extract<Piece, { kind: 'special' }>).special;
@@ -1355,11 +1388,14 @@ export function resolveTurn(
       special === 'lightball' && partner.kind === 'normal'
         ? cellsOfColor(work, partner.color)
         : boosterTargets(work, specialAt, special, rng);
-    clearWave([...targets, specialAt], []);
+    clearWave([...targets, specialAt], [], new Set([key(specialAt)]));
   }
 
-  let swappedHint: Coord | null = a;
+  let swappedHint: Coord | null = b;
+  const MAX_WAVES = 50;
+  let waves = 0;
   for (;;) {
+    if (++waves > MAX_WAVES) throw new Error('cascade did not settle within 50 waves');
     const groups = findMatchGroups(work, swappedHint);
     swappedHint = null;
     if (groups.length === 0) break;
@@ -1380,7 +1416,7 @@ export function resolveTurn(
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/core/match3/resolve.test.ts`
-Expected: PASS (7 tests)
+Expected: PASS (11 tests)
 
 - [ ] **Step 5: Run the whole suite**
 
@@ -1392,6 +1428,9 @@ Expected: PASS, no regressions
 ```bash
 git add -A && git commit -m "feat(core): full turn resolution with chains and cascades"
 ```
+
+**Amendment (2026-07-01, from Task 8 code review):** three defects fixed in the code above. (1) Swapped specials double-fired — their targeted/combo effect was computed AND `expandWithSpecials` re-activated them with default semantics (lightball+green also wiped the most common color; rocket+rocket cleared 13 cells instead of the 9-cell cross). Fixed via the `noExpand` set: initiating cells clear but never re-fire. (2) `swappedHint` used `a`, but the dragged piece lands at `b` — specials spawned at the wrong cell. Fixed: hint is `b`. (3) No termination guard — `colorCount < 3` cascaded forever. Fixed: input validation + MAX_WAVES=50 cap. Four regression tests added (exact first-clear sizes and spawn coordinate — beware weak `>=` assertions, they let defect 1 through). Known cosmetic limitation (accepted for MVP): when the STATIONARY piece's cell completes the match, the hint (`b`) misses the group and the special spawns at the group's first cell rather than at `a`; deterministic and inside the run. Possible future fix: fallback chain b → a → cells[0].
+
 
 ---
 
