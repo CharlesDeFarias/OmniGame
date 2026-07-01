@@ -59,4 +59,18 @@ describe('findMatchGroups', () => {
     expect(g[0]!.special).toBeNull();
     expect(g[0]!.cells).toHaveLength(5);
   });
+
+  it('transitively merges bridged groups: I-shape becomes one tnt group', () => {
+    const g = findMatchGroups(boardFrom(['rrr', 'brb', 'rrr']), null);
+    expect(g).toHaveLength(1);
+    expect(g[0]!.special).toBe('tnt');
+    expect(g[0]!.cells).toHaveLength(7);
+  });
+
+  it('merges a solid 3x2 block into one plain group with no duplicate cells', () => {
+    const g = findMatchGroups(boardFrom(['rrr', 'rrr', 'byg']), null);
+    expect(g).toHaveLength(1);
+    expect(g[0]!.special).toBeNull();
+    expect(g[0]!.cells).toHaveLength(6);
+  });
 });

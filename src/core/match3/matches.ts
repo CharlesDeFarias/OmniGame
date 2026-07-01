@@ -101,6 +101,29 @@ export function findMatchGroups(board: Board, swapped: Coord | null): MatchGroup
     }
   }
 
+  let merged = true;
+  while (merged) {
+    merged = false;
+    outer: for (let i = 0; i < groups.length; i++) {
+      for (let j = i + 1; j < groups.length; j++) {
+        const gi = groups[i]!;
+        const gj = groups[j]!;
+        if (gi.color !== gj.color) continue;
+        let overlap = false;
+        for (const k of gj.cellSet.keys()) {
+          if (gi.cellSet.has(k)) { overlap = true; break; }
+        }
+        if (overlap) {
+          gi.runs.push(...gj.runs);
+          for (const [k, c] of gj.cellSet) gi.cellSet.set(k, c);
+          groups.splice(j, 1);
+          merged = true;
+          break outer;
+        }
+      }
+    }
+  }
+
   return groups.map((g) => {
     const cells = [...g.cellSet.values()];
     const maxRunLen = Math.max(0, ...g.runs.map((r) => r.cells.length));
