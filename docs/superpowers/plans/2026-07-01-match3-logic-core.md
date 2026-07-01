@@ -580,10 +580,27 @@ describe('findMatchGroups', () => {
     expect(g[0]!.special).toBeNull();
     expect(g[0]!.cells).toHaveLength(5);
   });
+
+  it('transitively merges bridged groups: I-shape becomes one tnt group', () => {
+    const g = findMatchGroups(boardFrom(['rrr', 'brb', 'rrr']), null);
+    expect(g).toHaveLength(1);
+    expect(g[0]!.special).toBe('tnt');
+    expect(g[0]!.cells).toHaveLength(7);
+  });
+
+  it('merges a solid 3x2 block into one plain group with no duplicate cells', () => {
+    const g = findMatchGroups(boardFrom(['rrr', 'rrr', 'byg']), null);
+    expect(g).toHaveLength(1);
+    expect(g[0]!.special).toBeNull();
+    expect(g[0]!.cells).toHaveLength(6);
+  });
 });
 ```
 
 Rule (fixed for this project): a 2×2 square overlapping a run merges its cells into that run's group without changing the group's classification. Only standalone 2×2 squares make propellers.
+
+**Amendment (2026-07-01, from Task 4 code review):** group merging must be transitive. The original merge attached each run/square to the *first* overlapping group only, so a bridging run could leave the same cell in two groups (double-clear + phantom special in Task 8). The fixpoint merge loop above and the two extra tests (I-shape, 3x2 block) close this. No group may share a cell with another group in the returned array.
+
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -649,6 +666,29 @@ export function findMatchGroups(board: Board, swapped: Coord | null): MatchGroup
     }
   }
 
+  let merged = true;
+  while (merged) {
+    merged = false;
+    outer: for (let i = 0; i < groups.length; i++) {
+      for (let j = i + 1; j < groups.length; j++) {
+        const gi = groups[i]!;
+        const gj = groups[j]!;
+        if (gi.color !== gj.color) continue;
+        let overlap = false;
+        for (const k of gj.cellSet.keys()) {
+          if (gi.cellSet.has(k)) { overlap = true; break; }
+        }
+        if (overlap) {
+          gi.runs.push(...gj.runs);
+          for (const [k, c] of gj.cellSet) gi.cellSet.set(k, c);
+          groups.splice(j, 1);
+          merged = true;
+          break outer;
+        }
+      }
+    }
+  }
+
   return groups.map((g) => {
     const cells = [...g.cellSet.values()];
     const maxRunLen = Math.max(0, ...g.runs.map((r) => r.cells.length));
@@ -668,7 +708,7 @@ export function findMatchGroups(board: Board, swapped: Coord | null): MatchGroup
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/core/match3/groups.test.ts`
-Expected: PASS (7 tests)
+Expected: PASS (9 tests)
 
 - [ ] **Step 5: Run the whole suite**
 
