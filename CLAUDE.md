@@ -8,10 +8,11 @@ A personal omnibus of ad-free, non-exploitative casual games. First MVP: a Royal
 
 ## Current state
 
-- **Phase:** plan 1 of 4 written (`docs/superpowers/plans/2026-07-01-match3-logic-core.md`) — awaiting execution. Plans 2-4 (simulator, Phaser+PWA, meta-layer) not yet written.
+- **Phase:** plan 1 of 4 EXECUTED and merged to main (CI green). Match-3 logic core complete: 68 tests, deterministic, pure TS. Next: write plan 2 (headless simulator + level calibration). Plans 2-4 not yet written.
+- **Plan 2 must-dos (from final review):** findValidMoves + deadlock shuffle as first task (promote game.test.ts helper into core); RNG getState/setState; barrel export src/core/match3/index.ts; batch runner playLevel(level, policy). Plan 3: surface swap-rejection reason in MoveOutcome. Plan 4: scoring/stars metric.
 - **Luana narrative skin:** famous influencer managed by brother Charles (personal layer only; decision #19).
 - **Spec:** `docs/superpowers/specs/2026-07-01-omnigame-match3-design.md`
-- **Code:** none yet.
+- **Code:** src/core/ (rng + match3: types, board, matches, swap, gravity, boosters, resolve, goals, level, game) + levels/kitchen/001.json. npm test / npm run typecheck. CI runs both on push.
 
 ## How Charles works
 
