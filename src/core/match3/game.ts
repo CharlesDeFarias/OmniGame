@@ -2,6 +2,7 @@ import { createRng, type RNG } from '../rng';
 import { createBoard } from './board';
 import { applyCleared, goalsComplete, initGoals, type GoalState } from './goals';
 import type { LevelDef } from './level';
+import { hasValidMove, shuffleBoard } from './moves';
 import { resolveTurn, type ResolveEvent } from './resolve';
 import type { Board, Coord } from './types';
 
@@ -10,7 +11,7 @@ export type GameStatus = 'playing' | 'won' | 'lost';
 export interface GameState {
   level: LevelDef;
   board: Board;
-  /** Shared and mutated across moves — GameStates are forward-only, not replayable snapshots. */
+  /** Shared and mutated across moves — GameStates are forward-only, not replayable snapshots unless you capture rng.getState() alongside. */
   rng: RNG;
   movesLeft: number;
   goals: GoalState[];
@@ -29,6 +30,7 @@ export interface MoveOutcome {
 export function startLevel(level: LevelDef): GameState {
   const rng = createRng(level.seed);
   const board = createBoard(level.board.width, level.board.height, rng, level.board.colorCount);
+  if (!hasValidMove(board)) shuffleBoard(board, rng);
   return {
     level,
     board,
@@ -63,6 +65,12 @@ export function applyMove(state: GameState, a: Coord, b: Coord): MoveOutcome {
     }
   }
 
+  let events = result.events;
+  if (status === 'playing' && !hasValidMove(result.board)) {
+    shuffleBoard(result.board, state.rng);
+    events = [...events, { type: 'shuffle' }];
+  }
+
   const next: GameState = {
     level: state.level,
     board: result.board,
@@ -72,5 +80,5 @@ export function applyMove(state: GameState, a: Coord, b: Coord): MoveOutcome {
     giftUsed,
     status,
   };
-  return gift === undefined ? { state: next, events: result.events } : { state: next, events: result.events, gift };
+  return gift === undefined ? { state: next, events } : { state: next, events, gift };
 }

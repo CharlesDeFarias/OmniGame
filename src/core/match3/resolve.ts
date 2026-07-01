@@ -11,7 +11,8 @@ export type ResolveEvent =
   | { type: 'clear'; cells: Coord[] }
   | { type: 'spawn'; coord: Coord; piece: Piece }
   | { type: 'fall'; moves: FallMove[] }
-  | { type: 'refill'; fills: { coord: Coord; piece: Piece }[] };
+  | { type: 'refill'; fills: { coord: Coord; piece: Piece }[] }
+  | { type: 'shuffle' };
 
 export interface TurnResult {
   valid: boolean;
