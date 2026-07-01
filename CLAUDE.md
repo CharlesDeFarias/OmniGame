@@ -8,11 +8,13 @@ A personal omnibus of ad-free, non-exploitative casual games. First MVP: a Royal
 
 ## Current state
 
-- **Phase:** plan 1 of 4 EXECUTED and merged to main (CI green). Match-3 logic core complete: 68 tests, deterministic, pure TS. Next: write plan 2 (headless simulator + level calibration). Plans 2-4 not yet written.
-- **Plan 2 must-dos (from final review):** findValidMoves + deadlock shuffle as first task (promote game.test.ts helper into core); RNG getState/setState; barrel export src/core/match3/index.ts; batch runner playLevel(level, policy). Plan 3: surface swap-rejection reason in MoveOutcome. Plan 4: scoring/stars metric.
+- **Phase:** plans 1 AND 2 of 4 EXECUTED and merged to main (CI green). Logic core + simulator complete: 94 tests. Kitchen levels 001-010 authored and calibrated (see docs/superpowers/calibration/). Next: write plan 3 (Phaser presentation + PWA).
+- **Plan 3 must-dos (from reviews):** render the `shuffle` ResolveEvent (fires in 12-17% of runs on 6-color levels — load-bearing); handle escaped ShuffleError as level-regenerate (never strand the player); surface swap-rejection reason in MoveOutcome for wiggle feedback; startLevel's opening shuffle is silent (just render resulting board). Plan 4: scoring/stars metric.
+- **Calibration caveats:** current 7-10-move budgets are an artifact of collect-only goals — valid ONLY until obstacles land, then re-author longer levels. giftMoves 5 is proportionally huge (~60% of budget): most level endings are decided in gift territory — deliberate comeback mechanic, confirm feel with Charles/Luana playtest. Levels 004/010 sit at the random-band floor (fragile to any engine change). Lever hierarchy: colorCount > moves; 4-color levels cannot satisfy both win-rate bands.
+- **Simulator CLI:** `npm run simulate -- <level.json> [runs]`.
 - **Luana narrative skin:** famous influencer managed by brother Charles (personal layer only; decision #19).
 - **Spec:** `docs/superpowers/specs/2026-07-01-omnigame-match3-design.md`
-- **Code:** src/core/ (rng + match3: types, board, matches, swap, gravity, boosters, resolve, goals, level, game) + levels/kitchen/001.json. npm test / npm run typecheck. CI runs both on push.
+- **Code:** src/core/ (rng + match3 incl. moves/shuffle + barrel index.ts) + src/sim/ (policies, run, simulate) + scripts/simulate.ts + levels/kitchen/001-010.json. npm test / npm run typecheck / npm run simulate. CI runs typecheck+tests on push.
 
 ## How Charles works
 

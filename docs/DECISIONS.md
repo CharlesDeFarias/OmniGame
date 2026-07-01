@@ -15,3 +15,7 @@ One line of context per decision; newest last. Full reasoning lives in the specs
 | 9 | 2026-07-01 | MVP theme: classic gems pack; adult-objects pack built underneath | Familiarity for Luana now, theme switching later |
 | 10 | 2026-07-01 | Meta-progression: apartment furnishing + life-milestone chapters | Direct Royal Match analog; embodies independence theme |
 | 11 | 2026-07-01 | Near-zero text UI; pointing-hand tutorials | Luana reads at ~2nd-grade level; textier tiers configurable later |
+| 20 | 2026-07-01 | Difficulty bands: greedy-policy win 60-95%, random ≥15%, per level | Measurable definition of "losing makes winning fun" |
+| 21 | 2026-07-01 | Kitchen 001-010 use 5-6 colors, 7-10 moves (not draft 4 colors/20-30 moves) | 4-color levels mathematically can't satisfy both bands; simulator-proven |
+| 22 | 2026-07-01 | Current short move budgets are provisional — valid only for collect-only goals; re-author when obstacles land | Obstacles are what make 20-30-move levels possible |
+| 23 | 2026-07-01 | Deadlock auto-shuffle in core; ShuffleError crash-loud in core, renderer must regenerate level | Never strand the player (plan-3 must-do) |
