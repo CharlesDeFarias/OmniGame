@@ -84,4 +84,33 @@ describe('resolveTurn', () => {
     expect(r1.events).toEqual(r2.events);
     expect(r1.board).toEqual(r2.board);
   });
+
+  it('throws on colorCount < 3 instead of cascading forever', () => {
+    const b = boardFrom(['rbr', 'brg', 'ygb', 'rgy']);
+    expect(() => resolveTurn(b, { x: 1, y: 1 }, { x: 1, y: 0 }, createRng(1), 2)).toThrow(/colorCount/);
+  });
+
+  it('lightball swapped with a normal fires once: first clear is exactly that color plus itself', () => {
+    const b = boardFrom(['rbg', 'gry', 'yob']);
+    set(b, 1, 1, { kind: 'special', special: 'lightball' });
+    const r = resolveTurn(b, { x: 1, y: 1 }, { x: 0, y: 1 }, createRng(5), 5);
+    const clears = r.events.filter((e): e is Extract<typeof e, { type: 'clear' }> => e.type === 'clear');
+    expect(clears[0]!.cells).toHaveLength(3);
+  });
+
+  it('rocket+rocket combo fires once: first clear is exactly the cross', () => {
+    const b = boardFrom(['rbg', 'gry', 'yob']);
+    set(b, 1, 1, { kind: 'special', special: 'rocketH' });
+    set(b, 2, 1, { kind: 'special', special: 'rocketV' });
+    const r = resolveTurn(b, { x: 1, y: 1 }, { x: 2, y: 1 }, createRng(6), 5);
+    const clears = r.events.filter((e): e is Extract<typeof e, { type: 'clear' }> => e.type === 'clear');
+    expect(clears[0]!.cells).toHaveLength(5);
+  });
+
+  it('spawns the special where the dragged piece landed', () => {
+    const b = boardFrom(['rbrr', 'brgg', 'ygby', 'rgyo']);
+    const r = resolveTurn(b, { x: 1, y: 1 }, { x: 1, y: 0 }, createRng(2), 5);
+    const spawns = r.events.filter((e): e is Extract<typeof e, { type: 'spawn' }> => e.type === 'spawn');
+    expect(spawns[0]!.coord).toEqual({ x: 1, y: 0 });
+  });
 });

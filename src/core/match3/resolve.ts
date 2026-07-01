@@ -22,8 +22,10 @@ export interface TurnResult {
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
 
-/** BFS closure: specials inside the set activate and extend it. Each cell activates once. */
-function expandWithSpecials(board: Board, initial: Coord[], rng: RNG): Coord[] {
+/** Set closure (DFS via pop): specials inside the set activate and extend it; each cell once.
+ *  Cells in `noExpand` are cleared but never re-fire — used for swapped specials whose targeted
+ *  or combo effect was already computed, preventing double-activation. */
+function expandWithSpecials(board: Board, initial: Coord[], rng: RNG, noExpand?: Set<string>): Coord[] {
   const seen = new Map<string, Coord>();
   const queue = [...initial];
   while (queue.length > 0) {
@@ -31,6 +33,7 @@ function expandWithSpecials(board: Board, initial: Coord[], rng: RNG): Coord[] {
     const k = key(c);
     if (seen.has(k)) continue;
     seen.set(k, c);
+    if (noExpand?.has(k)) continue;
     const p = at(board, c.x, c.y);
     if (p?.kind === 'special') {
       for (const t of boosterTargets(board, c, p.special, rng)) queue.push(t);
@@ -53,6 +56,7 @@ export function resolveTurn(
   rng: RNG,
   colorCount: number,
 ): TurnResult {
+  if (colorCount < 3) throw new Error(`colorCount must be >= 3, got ${colorCount}`);
   const check = canSwap(board, a, b);
   if (!check.valid) return { valid: false, board, events: [], clearedByColor: {} };
 
@@ -65,8 +69,8 @@ export function resolveTurn(
   swapPieces(work, a, b);
   events.push({ type: 'swap', a, b });
 
-  const clearWave = (cells: Coord[], spawns: { coord: Coord; piece: Piece }[]): void => {
-    const expanded = expandWithSpecials(work, cells, rng);
+  const clearWave = (cells: Coord[], spawns: { coord: Coord; piece: Piece }[], noExpand?: Set<string>): void => {
+    const expanded = expandWithSpecials(work, cells, rng, noExpand);
     countColors(work, expanded, clearedByColor);
     for (const c of expanded) set(work, c.x, c.y, null);
     events.push({ type: 'clear', cells: expanded });
@@ -88,7 +92,7 @@ export function resolveTurn(
       { coord: a, special: pb.special },
       rng,
     );
-    clearWave([...targets, a, b], []);
+    clearWave([...targets, a, b], [], new Set([key(a), key(b)]));
   } else if (pa.kind === 'special' || pb.kind === 'special') {
     const specialAt = pa.kind === 'special' ? b : a;
     const special = pa.kind === 'special' ? pa.special : (pb as Extract<Piece, { kind: 'special' }>).special;
@@ -97,11 +101,14 @@ export function resolveTurn(
       special === 'lightball' && partner.kind === 'normal'
         ? cellsOfColor(work, partner.color)
         : boosterTargets(work, specialAt, special, rng);
-    clearWave([...targets, specialAt], []);
+    clearWave([...targets, specialAt], [], new Set([key(specialAt)]));
   }
 
-  let swappedHint: Coord | null = a;
+  let swappedHint: Coord | null = b;
+  const MAX_WAVES = 50;
+  let waves = 0;
   for (;;) {
+    if (++waves > MAX_WAVES) throw new Error('cascade did not settle within 50 waves');
     const groups = findMatchGroups(work, swappedHint);
     swappedHint = null;
     if (groups.length === 0) break;
