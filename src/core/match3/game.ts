@@ -11,7 +11,7 @@ export type GameStatus = 'playing' | 'won' | 'lost';
 export interface GameState {
   level: LevelDef;
   board: Board;
-  /** Shared and mutated across moves — GameStates are forward-only, not replayable snapshots. */
+  /** Shared and mutated across moves — GameStates are forward-only, not replayable snapshots unless you capture rng.getState() alongside. */
   rng: RNG;
   movesLeft: number;
   goals: GoalState[];
