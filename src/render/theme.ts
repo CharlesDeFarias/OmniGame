@@ -129,6 +129,15 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillTriangle(c + r * 0.75, c - r * 0.45, c + r * 0.2, c - r * 0.55, c + r * 0.55, c - r * 0.05);
   });
   ui('ui-pip', (g) => { g.fillStyle(0xffffff); g.fillCircle(c, c, r * 0.3); });
+  // Tutorial pointer: white hand (palm circle + one finger) on transparent bg.
+  ui('ui-hand', (g) => {
+    g.lineStyle(s * 0.04, 0x2c2c54);
+    g.fillStyle(0xffffff);
+    g.fillCircle(c, s * 0.64, r * 0.6);
+    g.strokeCircle(c, s * 0.64, r * 0.6);
+    g.fillRoundedRect(c - r * 0.55, s * 0.06, r * 0.38, s * 0.48, r * 0.19);
+    g.strokeRoundedRect(c - r * 0.55, s * 0.06, r * 0.38, s * 0.48, r * 0.19);
+  });
   // Trophy on the same light badge circle the specials use.
   sp('ui-trophy', (g) => {
     g.fillStyle(0xf1c40f);
@@ -137,6 +146,28 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     });
     g.fillRect(c - r * 0.1, c + r * 0.05, r * 0.2, r * 0.35);
     g.fillRect(c - r * 0.45, c + r * 0.4, r * 0.9, r * 0.18);
+  });
+  // Speaker glyph shared by the two sound-toggle badges.
+  const speaker = (g: Phaser.GameObjects.Graphics): void => {
+    g.fillStyle(0x2c2c54);
+    g.fillRect(c - r * 0.75, c - r * 0.28, r * 0.38, r * 0.56);
+    g.fillTriangle(c - r * 0.42, c, c + r * 0.02, c - r * 0.58, c + r * 0.02, c + r * 0.58);
+    g.lineStyle(s * 0.05, 0x2c2c54);
+    g.beginPath();
+    g.arc(c + r * 0.14, c, r * 0.34, -Math.PI / 3, Math.PI / 3, false);
+    g.strokePath();
+    g.beginPath();
+    g.arc(c + r * 0.14, c, r * 0.62, -Math.PI / 3, Math.PI / 3, false);
+    g.strokePath();
+  };
+  sp('ui-sound-on', (g) => { speaker(g); });
+  sp('ui-sound-off', (g) => {
+    speaker(g);
+    g.lineStyle(s * 0.06, 0xe74c3c);
+    g.beginPath();
+    g.moveTo(c - r * 0.85, c - r * 0.85);
+    g.lineTo(c + r * 0.85, c + r * 0.85);
+    g.strokePath();
   });
   ui('ui-tile', (g) => { g.fillStyle(0xffffff); g.fillRoundedRect(s * 0.02, s * 0.02, s * 0.96, s * 0.96, s * 0.16); });
   ui('ui-panel', (g) => { g.fillStyle(0x000000); g.fillRoundedRect(0, 0, s, s, s * 0.2); });

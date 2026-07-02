@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { applyMove, startLevel, starsFor, ShuffleError } from '../core/match3/index';
+import { applyMove, findValidMoves, startLevel, starsFor, ShuffleError } from '../core/match3/index';
 import type { Coord, GameState, LevelDef, MoveOutcome, PieceColor } from '../core/match3/index';
 import { createJournal, type Journal } from '../services/journal';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
+import { summarize } from '../services/stats';
 import { createBlips, type Blips } from './audio';
 import { planSteps, type Step } from './choreo';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
@@ -34,6 +35,13 @@ export class PlayScene extends Phaser.Scene {
   private backdrop: Phaser.GameObjects.Image[] = [];
   private hudPanels: Phaser.GameObjects.Image[] = [];
   private markerTween: Phaser.Tweens.Tween | null = null;
+  private hand: Phaser.GameObjects.Sprite | null = null;
+  private handTimer: Phaser.Time.TimerEvent | null = null;
+  private movesMadeThisLevel = 0;
+  private tutorialLogged = false;
+  private secretTaps: number[] = [];
+  private statsOverlay: Phaser.GameObjects.GameObject[] = [];
+  private confetti: Phaser.GameObjects.Sprite[] = [];
 
   constructor() {
     super('play');
@@ -51,6 +59,25 @@ export class PlayScene extends Phaser.Scene {
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.progress = loadProgress(window.localStorage);
     this.blips = createBlips();
+    // Keep the screen awake during play (best effort; re-request when the tab returns).
+    const requestWake = () => { try { void (navigator as Navigator & { wakeLock?: { request(type: string): Promise<unknown> } }).wakeLock?.request('screen').then(undefined, () => {}); } catch { /* ignore */ } };
+    requestWake();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') requestWake();
+    });
+    const startMuted = window.localStorage.getItem('omnigame.muted.v1') === '1';
+    this.blips.setMuted(startMuted);
+    const muteBtn = this.add
+      .sprite(GAME_WIDTH - 60, 60, startMuted ? 'ui-sound-off' : 'ui-sound-on')
+      .setDisplaySize(72, 72)
+      .setDepth(8)
+      .setInteractive();
+    muteBtn.on('pointerup', () => {
+      const m = !this.blips.muted();
+      this.blips.setMuted(m);
+      muteBtn.setTexture(m ? 'ui-sound-off' : 'ui-sound-on');
+      window.localStorage.setItem('omnigame.muted.v1', m ? '1' : '0');
+    });
     this.levels = loadLevels();
     this.marker = this.add
       .rectangle(0, 0, 10, 10)
@@ -62,6 +89,12 @@ export class PlayScene extends Phaser.Scene {
       .text(GAME_WIDTH / 2, TOP_RESERVE * 0.72, '', { fontSize: '64px', fontStyle: 'bold', color: '#ffffff' })
       .setOrigin(0.5)
       .setDepth(2);
+    // Hidden parent corner (decision #17): invisible top-left hotspot, 5 quick taps open the stats overlay.
+    this.add
+      .rectangle(45, 45, 90, 90, 0xffffff, 0.001)
+      .setDepth(20)
+      .setInteractive()
+      .on('pointerdown', () => this.onSecretTap());
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onUp(p));
     this.startCurrentLevel();
@@ -75,6 +108,9 @@ export class PlayScene extends Phaser.Scene {
 
   private startCurrentLevel(): void {
     this.select(null);
+    this.killHand();
+    this.movesMadeThisLevel = 0;
+    this.tutorialLogged = false;
     const def = this.currentDef();
     let started: GameState | undefined;
     let lastError: unknown;
@@ -115,6 +151,7 @@ export class PlayScene extends Phaser.Scene {
     this.buildGoalHud();
     this.syncBoard();
     this.updateHud();
+    this.showHand();
   }
 
   private buildGoalHud(): void {
@@ -172,8 +209,120 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  private onSecretTap(): void {
+    const now = Date.now();
+    this.secretTaps = this.secretTaps.filter((t) => now - t < 2500);
+    this.secretTaps.push(now);
+    if (this.secretTaps.length >= 5) {
+      this.secretTaps = [];
+      this.openStats();
+    }
+  }
+
+  /** Parent-only stats overlay (text allowed here: Charles reads it, not Luana). */
+  private openStats(): void {
+    if (this.statsOverlay.length > 0) return;
+    this.journal.log('stats_viewed', {});
+    const stats = summarize(this.journal.read());
+    const objs = this.statsOverlay;
+    const dim = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.75)
+      .setDepth(21)
+      .setInteractive();
+    dim.on('pointerup', () => this.closeStats());
+    objs.push(dim);
+    objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-panel').setDisplaySize(620, 1000).setDepth(22));
+    const textStyle = { fontSize: '32px', color: '#ffffff' };
+    const header: { icon: string | null; value: string }[] = [
+      { icon: 'ui-play', value: String(stats.levelsPlayed) },
+      { icon: 'ui-star', value: String(stats.wins) },
+      { icon: null, value: `${Math.round(stats.winRate * 100)}%` },
+      { icon: 'ui-pip', value: String(stats.gifts) },
+      { icon: 'ui-retry', value: String(stats.retries) },
+      { icon: 'sp-propeller', value: String(stats.shuffles) },
+    ];
+    let y = 230;
+    for (const row of header) {
+      if (row.icon !== null) objs.push(this.add.sprite(250, y, row.icon).setDisplaySize(40, 40).setDepth(23));
+      objs.push(this.add.text(300, y, row.value, textStyle).setOrigin(0, 0.5).setDepth(23));
+      y += 64;
+    }
+    y += 24;
+    for (const [id, lv] of Object.entries(stats.perLevel)) {
+      objs.push(this.add.text(210, y, id.replace(/^kitchen-/, ''), textStyle).setOrigin(0, 0.5).setDepth(23));
+      for (let i = 0; i < 3; i++) {
+        const st = this.add.sprite(340 + i * 52, y, 'ui-star').setDisplaySize(40, 40).setDepth(23);
+        if (i >= lv.bestStars) st.setTint(0x555566);
+        objs.push(st);
+      }
+      y += 56;
+    }
+  }
+
+  private closeStats(): void {
+    for (const o of this.statsOverlay) o.destroy();
+    this.statsOverlay = [];
+  }
+
+  /** Kill the tutorial hand and any pending re-arm timer. */
+  private killHand(): void {
+    if (this.handTimer !== null) {
+      this.handTimer.remove();
+      this.handTimer = null;
+    }
+    if (this.hand !== null) {
+      this.tweens.killTweensOf(this.hand);
+      this.hand.destroy();
+      this.hand = null;
+    }
+  }
+
+  /** Zero-text tutorial: hand loops from a valid move's start cell to its end cell (first level, first session, no moves yet). */
+  private showHand(): void {
+    const idx = Math.min(this.progress.levelIndex, this.levels.length - 1);
+    if (idx !== 0 || Object.keys(this.progress.completed).length !== 0 || this.movesMadeThisLevel !== 0) return;
+    if (this.hand !== null) return;
+    const move = findValidMoves(this.state.board)[0];
+    if (move === undefined) return;
+    if (!this.tutorialLogged) {
+      this.tutorialLogged = true;
+      this.journal.log('tutorial_shown', { level: this.state.level.id });
+    }
+    const ox = this.layout.cell * 0.25;
+    const oy = this.layout.cell * 0.3;
+    const a = cellToXY(this.layout, move.a.x, move.a.y);
+    const b = cellToXY(this.layout, move.b.x, move.b.y);
+    const hand = this.add.sprite(a.px + ox, a.py + oy, 'ui-hand').setDepth(7).setAlpha(0);
+    this.hand = hand;
+    const cycle = (): void => {
+      if (!hand.active || this.hand !== hand) return;
+      hand.setPosition(a.px + ox, a.py + oy).setAlpha(0);
+      this.tweens.chain({
+        targets: hand,
+        tweens: [
+          { alpha: 0.95, duration: 200 },
+          { x: b.px + ox, y: b.py + oy, duration: 650, ease: 'Sine.easeInOut' },
+          { alpha: 0, duration: 200 },
+        ],
+        onComplete: () => {
+          this.time.delayedCall(500, cycle);
+        },
+      });
+    };
+    cycle();
+  }
+
   private onDown(p: Phaser.Input.Pointer): void {
     this.blips.unlock();
+    if (this.statsOverlay.length > 0) return;
+    if (this.hand !== null) {
+      this.killHand();
+      // Re-arm: show again after 8s of inactivity while the condition still holds.
+      this.handTimer = this.time.delayedCall(8000, () => {
+        this.handTimer = null;
+        this.showHand();
+      });
+    }
     if (this.busy || this.state === undefined || this.state.status !== 'playing') return;
     const cell = xyToCell(this.layout, p.x, p.y);
     if (cell === null) return;
@@ -287,6 +436,7 @@ export class PlayScene extends Phaser.Scene {
 
   private async runTurn(out: MoveOutcome): Promise<void> {
     this.busy = true;
+    this.movesMadeThisLevel += 1;
     this.state = out.state;
     this.journal.log('move', { level: this.state.level.id, movesLeft: this.state.movesLeft });
     let wave = 0;
@@ -340,7 +490,7 @@ export class PlayScene extends Phaser.Scene {
           const tint = tintForTexture(src.texture.key);
           const { px, py } = cellToXY(this.layout, c.x, c.y);
           for (let i = 0; i < 4; i++) {
-            const pip = this.add.sprite(px, py, 'ui-pip').setTint(tint).setScale(0.9).setDepth(2);
+            const pip = this.add.sprite(px, py, 'ui-pip').setTint(tint).setScale(0.9).setDepth(1);
             // Fire-and-forget: not awaited; each pip destroys itself on complete.
             this.tweens.add({
               targets: pip,
@@ -437,6 +587,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private async onWin(): Promise<void> {
+    this.killHand();
     const stars = starsFor({
       status: this.state.status,
       giftUsed: this.state.giftUsed,
@@ -487,6 +638,7 @@ export class PlayScene extends Phaser.Scene {
         .setTint(tints[i % tints.length]!)
         .setScale(1.4 + Math.random())
         .setDepth(11);
+      this.confetti.push(pip);
       // Fire-and-forget confetti: not awaited; each pip destroys itself on complete.
       this.tweens.add({
         targets: pip,
@@ -506,6 +658,8 @@ export class PlayScene extends Phaser.Scene {
       saveProgress(window.localStorage, this.progress);
       this.journal.log('chapter_replay', { chapter: 'kitchen' });
       this.retryCount = 0;
+      for (const c of this.confetti) if (c.active) c.destroy();
+      this.confetti = [];
       dim.destroy();
       starSprites.forEach((s) => s.destroy());
       trophy.destroy();
@@ -515,6 +669,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private async onLose(): Promise<void> {
+    this.killHand();
     this.journal.log('level_end', { level: this.state.level.id, won: false, retries: this.retryCount });
     this.blips.lose();
     const dim = this.overlay();
