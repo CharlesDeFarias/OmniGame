@@ -18,14 +18,15 @@ export function loadProgress(storage: JournalStorage): ProgressData {
     if (
       p === null ||
       p.version !== 1 ||
-      typeof p.levelIndex !== 'number' ||
+      !Number.isInteger(p.levelIndex) ||
+      (p.levelIndex as number) < 0 ||
       typeof p.completed !== 'object' ||
       p.completed === null ||
       Array.isArray(p.completed)
     ) {
       return { ...DEFAULT, completed: {} };
     }
-    return { version: 1, levelIndex: p.levelIndex, completed: p.completed };
+    return { version: 1, levelIndex: p.levelIndex as number, completed: p.completed };
   } catch {
     return { ...DEFAULT, completed: {} };
   }

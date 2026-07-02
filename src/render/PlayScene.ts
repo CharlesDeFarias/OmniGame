@@ -59,15 +59,25 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private startCurrentLevel(): void {
+    this.select(null);
     const def = this.currentDef();
-    try {
-      this.state = startLevel(def);
-    } catch (e) {
-      if (e instanceof ShuffleError) {
-        this.journal.log('shuffle_error', { level: def.id, phase: 'start' });
-        this.state = startLevel({ ...def, seed: def.seed + 9999 });
-      } else throw e;
+    let started: GameState | undefined;
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        started = startLevel({ ...def, seed: def.seed + attempt * 9999 });
+        break;
+      } catch (e) {
+        if (e instanceof ShuffleError) {
+          this.journal.log('shuffle_error', { level: def.id, phase: 'start', attempt });
+          lastError = e;
+          continue;
+        }
+        throw e;
+      }
     }
+    if (started === undefined) throw lastError;
+    this.state = started;
     this.layout = boardLayout(
       GAME_WIDTH, GAME_HEIGHT,
       def.board.width, def.board.height,
@@ -121,14 +131,14 @@ export class PlayScene extends Phaser.Scene {
 
   private onDown(p: Phaser.Input.Pointer): void {
     this.blips.unlock();
-    if (this.busy) return;
+    if (this.busy || this.state === undefined || this.state.status !== 'playing') return;
     const cell = xyToCell(this.layout, p.x, p.y);
     if (cell === null) return;
     this.downAt = { cell, px: p.x, py: p.y };
   }
 
   private onUp(p: Phaser.Input.Pointer): void {
-    if (this.busy || this.downAt === null) return;
+    if (this.busy || this.downAt === null || this.state === undefined || this.state.status !== 'playing') return;
     const start = this.downAt;
     this.downAt = null;
     const dx = p.x - start.px;
@@ -138,7 +148,10 @@ export class PlayScene extends Phaser.Scene {
       const dir = Math.abs(dx) > Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
       const target = { x: start.cell.x + dir.x, y: start.cell.y + dir.y };
       this.select(null);
-      void this.attemptSwap(start.cell, target);
+      this.attemptSwap(start.cell, target).catch((e: unknown) => {
+        this.journal.log('error', { where: 'attemptSwap', message: String(e) });
+        this.busy = false;
+      });
       return;
     }
     if (this.selected === null) {
@@ -148,7 +161,10 @@ export class PlayScene extends Phaser.Scene {
     } else if (Math.abs(this.selected.x - start.cell.x) + Math.abs(this.selected.y - start.cell.y) === 1) {
       const a = this.selected;
       this.select(null);
-      void this.attemptSwap(a, start.cell);
+      this.attemptSwap(a, start.cell).catch((e: unknown) => {
+        this.journal.log('error', { where: 'attemptSwap', message: String(e) });
+        this.busy = false;
+      });
     } else {
       this.select(start.cell);
     }
