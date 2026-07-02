@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createRng } from '../rng';
-import { set } from './board';
+import { at, index, set } from './board';
 import { findMatchGroups } from './matches';
 import { resolveTurn } from './resolve';
 import type { Board, Piece, PieceColor } from './types';
@@ -112,5 +112,146 @@ describe('resolveTurn', () => {
     const r = resolveTurn(b, { x: 1, y: 1 }, { x: 1, y: 0 }, createRng(2), 5);
     const spawns = r.events.filter((e): e is Extract<typeof e, { type: 'spawn' }> => e.type === 'spawn');
     expect(spawns[0]!.coord).toEqual({ x: 1, y: 0 });
+  });
+});
+
+describe('resolveTurn with obstacles', () => {
+  /** Box hp1 at (1,1); swapping (0,3) up creates an L-group (col 0 rows 0-2 + row 2)
+   *  whose cleared cells touch the box at BOTH (0,1) and (1,2). */
+  function lShapeBoxBoard(): Board {
+    return boardFrom(['rbgy', 'rXby', 'grrb', 'ryob']);
+  }
+
+  /** Box at (1,1); swapping (0,3) up creates a plain vertical 3-match in col 0
+   *  touching the box only at (0,1). No special spawns, no cascades reach col 1. */
+  function verticalBoxBoard(): Board {
+    return boardFrom(['rbgy', 'rXby', 'gybo', 'rgyb']);
+  }
+
+  it('damages an adjacent box exactly once per wave even when two cleared cells touch it', () => {
+    const b = lShapeBoxBoard();
+    const r = resolveTurn(b, { x: 0, y: 3 }, { x: 0, y: 2 }, createRng(11), 5);
+    expect(r.valid).toBe(true);
+    expect(r.clearedBoxes).toBe(1);
+    const clears = r.events.filter((e): e is Extract<typeof e, { type: 'clear' }> => e.type === 'clear');
+    expect(clears[0]!.cells).toContainEqual({ x: 1, y: 1 });
+    expect(r.board.cells.some((c) => c?.kind === 'blocker')).toBe(false);
+  });
+
+  it('hp2 box survives the first wave with a damage event, then dies to a second turn', () => {
+    const b = verticalBoxBoard();
+    set(b, 1, 1, { kind: 'blocker', hp: 2 });
+    const r1 = resolveTurn(b, { x: 0, y: 3 }, { x: 0, y: 2 }, createRng(12), 5);
+    expect(r1.valid).toBe(true);
+    expect(r1.clearedBoxes).toBe(0);
+    const damages = r1.events.filter((e): e is Extract<typeof e, { type: 'damage' }> => e.type === 'damage');
+    expect(damages.length).toBeGreaterThanOrEqual(1);
+    expect(damages[0]!.cells).toContainEqual({ x: 1, y: 1 });
+    expect(at(r1.board, 1, 1)).toEqual({ kind: 'blocker', hp: 1 });
+    // No clear event may contain a surviving box.
+    const clearedCells1 = r1.events
+      .filter((e): e is Extract<typeof e, { type: 'clear' }> => e.type === 'clear')
+      .flatMap((e) => e.cells);
+    expect(clearedCells1.some((c) => c.x === 1 && c.y === 1)).toBe(false);
+
+    // Rebuild the same deterministic layout around the now-hp1 box and hit it again.
+    const rows = ['rbgy', 'r.by', 'gybo', 'rgyb'];
+    const map: Record<string, PieceColor> = { r: 'red', b: 'blue', g: 'green', y: 'yellow', o: 'orange' };
+    for (let y = 0; y < 4; y++) {
+      for (let x = 0; x < 4; x++) {
+        if (x === 1 && y === 1) continue;
+        set(r1.board, x, y, { kind: 'normal', color: map[rows[y]![x]!]! });
+      }
+    }
+    const r2 = resolveTurn(r1.board, { x: 0, y: 3 }, { x: 0, y: 2 }, createRng(13), 5);
+    expect(r2.valid).toBe(true);
+    expect(r2.clearedBoxes).toBe(1);
+    const clears2 = r2.events.filter((e): e is Extract<typeof e, { type: 'clear' }> => e.type === 'clear');
+    expect(clears2[0]!.cells).toContainEqual({ x: 1, y: 1 });
+    expect(r2.board.cells.some((c) => c?.kind === 'blocker')).toBe(false);
+  });
+
+  it('booster row through a box damages it as a direct hit without nulling it', () => {
+    const b = boardFrom(['rbX', 'gyy', 'oyr']);
+    set(b, 2, 0, { kind: 'blocker', hp: 2 });
+    set(b, 1, 1, { kind: 'special', special: 'rocketH' });
+    const r = resolveTurn(b, { x: 1, y: 1 }, { x: 1, y: 0 }, createRng(14), 5);
+    expect(r.valid).toBe(true);
+    const clears = r.events.filter((e): e is Extract<typeof e, { type: 'clear' }> => e.type === 'clear');
+    // Normals + the rocket in the row cleared; the box is NOT in the clear.
+    expect(clears[0]!.cells).toContainEqual({ x: 0, y: 0 });
+    expect(clears[0]!.cells).toContainEqual({ x: 1, y: 0 });
+    expect(clears[0]!.cells.some((c) => c.x === 2 && c.y === 0)).toBe(false);
+    const damages = r.events.filter((e): e is Extract<typeof e, { type: 'damage' }> => e.type === 'damage');
+    expect(damages[0]!.cells).toEqual([{ x: 2, y: 0 }]);
+    expect(r.clearedBoxes).toBe(0);
+    expect(at(r.board, 2, 0)).toEqual({ kind: 'blocker', hp: 1 });
+  });
+
+  it('breaks ice under a cleared piece: flag off, count, iceClear event', () => {
+    const b = boardFrom(['rbr', 'brg', 'ygb', 'rgy']);
+    b.ice[index(b, 0, 0)] = true;
+    const r = resolveTurn(b, { x: 1, y: 1 }, { x: 1, y: 0 }, createRng(1), 5);
+    expect(r.valid).toBe(true);
+    expect(r.clearedIce).toBe(1);
+    expect(r.board.ice[index(r.board, 0, 0)]).toBe(false);
+    const iceEvents = r.events.filter((e): e is Extract<typeof e, { type: 'iceClear' }> => e.type === 'iceClear');
+    expect(iceEvents.length).toBe(1);
+    expect(iceEvents[0]!.cells).toContainEqual({ x: 0, y: 0 });
+    expect(r.clearedBoxes).toBe(0);
+  });
+
+  it('breaks ice under a destroyed box', () => {
+    const b = verticalBoxBoard();
+    b.ice[index(b, 1, 1)] = true;
+    const r = resolveTurn(b, { x: 0, y: 3 }, { x: 0, y: 2 }, createRng(15), 5);
+    expect(r.valid).toBe(true);
+    expect(r.clearedBoxes).toBe(1);
+    expect(r.clearedIce).toBe(1);
+    expect(r.board.ice[index(r.board, 1, 1)]).toBe(false);
+    const iceEvents = r.events.filter((e): e is Extract<typeof e, { type: 'iceClear' }> => e.type === 'iceClear');
+    expect(iceEvents[0]!.cells).toContainEqual({ x: 1, y: 1 });
+    const clears = r.events.filter((e): e is Extract<typeof e, { type: 'clear' }> => e.type === 'clear');
+    expect(clears[0]!.cells).toContainEqual({ x: 1, y: 1 });
+  });
+
+  it('never counts boxes in clearedByColor and cascades still settle around a surviving box', () => {
+    const b = verticalBoxBoard();
+    set(b, 1, 1, { kind: 'blocker', hp: 2 });
+    const r = resolveTurn(b, { x: 0, y: 3 }, { x: 0, y: 2 }, createRng(16), 5);
+    expect(r.valid).toBe(true);
+    // Only colored normals are counted; totals match at least the initial 3-match.
+    expect(r.clearedByColor.red ?? 0).toBeGreaterThanOrEqual(3);
+    for (const n of Object.values(r.clearedByColor)) expect(n).toBeGreaterThan(0);
+    // Box survived in place; board is settled: full, no matches, blocker intact.
+    expect(r.board.cells.filter((c) => c?.kind === 'blocker').length).toBe(1);
+    expect(at(r.board, 1, 1)).toEqual({ kind: 'blocker', hp: 1 });
+    expect(r.board.cells.every((c) => c !== null)).toBe(true);
+    expect(findMatchGroups(r.board, null).length).toBe(0);
+  });
+
+  it('is deterministic per seed with boxes and ice (damage + iceClear events identical)', () => {
+    const mk = (): Board => {
+      const b = verticalBoxBoard();
+      set(b, 1, 1, { kind: 'blocker', hp: 2 });
+      b.ice[index(b, 0, 0)] = true;
+      return b;
+    };
+    const r1 = resolveTurn(mk(), { x: 0, y: 3 }, { x: 0, y: 2 }, createRng(17), 5);
+    const r2 = resolveTurn(mk(), { x: 0, y: 3 }, { x: 0, y: 2 }, createRng(17), 5);
+    expect(r1.events.some((e) => e.type === 'damage')).toBe(true);
+    expect(r1.events.some((e) => e.type === 'iceClear')).toBe(true);
+    expect(r1.events).toEqual(r2.events);
+    expect(r1.board).toEqual(r2.board);
+    expect(r1.clearedBoxes).toBe(r2.clearedBoxes);
+    expect(r1.clearedIce).toBe(r2.clearedIce);
+  });
+
+  it('returns zero obstacle counts on an invalid swap', () => {
+    const b = boardFrom(['rbg', 'gry', 'yob']);
+    const r = resolveTurn(b, { x: 0, y: 0 }, { x: 1, y: 0 }, createRng(1), 5);
+    expect(r.valid).toBe(false);
+    expect(r.clearedBoxes).toBe(0);
+    expect(r.clearedIce).toBe(0);
   });
 });

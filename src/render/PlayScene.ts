@@ -560,6 +560,19 @@ export class PlayScene extends Phaser.Scene {
         await this.tweenAsync({ targets: [...this.sprites.values()], alpha: 1, duration: step.duration / 2 });
         break;
       }
+      case 'damage': {
+        // Boxes losing hp but surviving: quick sideways shake on their sprites.
+        const jobs = ev.cells
+          .map((c) => this.sprites.get(key(c)))
+          .filter((s): s is Phaser.GameObjects.Sprite => s !== undefined)
+          .map((sp) => this.tweenAsync({ targets: sp, x: sp.x + 7, duration: 50, yoyo: true, repeat: 1 }));
+        await Promise.all(jobs);
+        break;
+      }
+      case 'iceClear': {
+        // Ice plate visuals (crack/fade) land with the obstacle renderer in Task 7.
+        break;
+      }
     }
   }
 
