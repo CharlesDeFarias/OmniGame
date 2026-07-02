@@ -3,6 +3,7 @@ import { applyMove, findValidMoves, startLevel, starsFor, ShuffleError } from '.
 import type { Coord, GameState, LevelDef, MoveOutcome, PieceColor } from '../core/match3/index';
 import { createJournal, type Journal } from '../services/journal';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
+import { summarize } from '../services/stats';
 import { createBlips, type Blips } from './audio';
 import { planSteps, type Step } from './choreo';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
@@ -38,6 +39,8 @@ export class PlayScene extends Phaser.Scene {
   private handTimer: Phaser.Time.TimerEvent | null = null;
   private movesMadeThisLevel = 0;
   private tutorialLogged = false;
+  private secretTaps: number[] = [];
+  private statsOverlay: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super('play');
@@ -66,6 +69,12 @@ export class PlayScene extends Phaser.Scene {
       .text(GAME_WIDTH / 2, TOP_RESERVE * 0.72, '', { fontSize: '64px', fontStyle: 'bold', color: '#ffffff' })
       .setOrigin(0.5)
       .setDepth(2);
+    // Hidden parent corner (decision #17): invisible top-left hotspot, 5 quick taps open the stats overlay.
+    this.add
+      .rectangle(45, 45, 90, 90, 0xffffff, 0.001)
+      .setDepth(20)
+      .setInteractive()
+      .on('pointerdown', () => this.onSecretTap());
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onUp(p));
     this.startCurrentLevel();
@@ -178,6 +187,60 @@ export class PlayScene extends Phaser.Scene {
         this.sprites.set(key({ x, y }), sp);
       }
     }
+  }
+
+  private onSecretTap(): void {
+    const now = Date.now();
+    this.secretTaps = this.secretTaps.filter((t) => now - t < 2500);
+    this.secretTaps.push(now);
+    if (this.secretTaps.length >= 5) {
+      this.secretTaps = [];
+      this.openStats();
+    }
+  }
+
+  /** Parent-only stats overlay (text allowed here: Charles reads it, not Luana). */
+  private openStats(): void {
+    if (this.statsOverlay.length > 0) return;
+    this.journal.log('stats_viewed', {});
+    const stats = summarize(this.journal.read());
+    const objs = this.statsOverlay;
+    const dim = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.75)
+      .setDepth(21)
+      .setInteractive();
+    dim.on('pointerdown', () => this.closeStats());
+    objs.push(dim);
+    objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-panel').setDisplaySize(620, 1000).setDepth(22));
+    const textStyle = { fontSize: '32px', color: '#ffffff' };
+    const header: { icon: string | null; value: string }[] = [
+      { icon: 'ui-play', value: String(stats.levelsPlayed) },
+      { icon: 'ui-star', value: String(stats.wins) },
+      { icon: null, value: `${Math.round(stats.winRate * 100)}%` },
+      { icon: 'ui-pip', value: String(stats.gifts) },
+      { icon: 'ui-retry', value: String(stats.retries) },
+    ];
+    let y = 230;
+    for (const row of header) {
+      if (row.icon !== null) objs.push(this.add.sprite(250, y, row.icon).setDisplaySize(40, 40).setDepth(23));
+      objs.push(this.add.text(300, y, row.value, textStyle).setOrigin(0, 0.5).setDepth(23));
+      y += 64;
+    }
+    y += 24;
+    for (const [id, lv] of Object.entries(stats.perLevel)) {
+      objs.push(this.add.text(210, y, id.replace(/^kitchen-/, ''), textStyle).setOrigin(0, 0.5).setDepth(23));
+      for (let i = 0; i < 3; i++) {
+        const st = this.add.sprite(340 + i * 52, y, 'ui-star').setDisplaySize(40, 40).setDepth(23);
+        if (i >= lv.bestStars) st.setTint(0x555566);
+        objs.push(st);
+      }
+      y += 56;
+    }
+  }
+
+  private closeStats(): void {
+    for (const o of this.statsOverlay) o.destroy();
+    this.statsOverlay = [];
   }
 
   /** Kill the tutorial hand and any pending re-arm timer. */
