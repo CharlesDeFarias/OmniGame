@@ -51,3 +51,41 @@ describe('gravity', () => {
     expect(b1).toEqual(b2);
   });
 });
+
+describe('gravity with blockers', () => {
+  it('a piece falls onto a box, not past it; the gap below the box stays empty', () => {
+    const b = boardFrom(['r', '.', 'X', '.', 'b']);
+    const moves = applyGravity(b);
+    expect(at(b, 0, 1)).toEqual({ kind: 'normal', color: 'red' });
+    expect(at(b, 0, 0)).toBeNull();
+    expect(at(b, 0, 2)).toEqual({ kind: 'blocker', hp: 1 });
+    expect(at(b, 0, 3)).toBeNull(); // sealed under the box until refill
+    expect(at(b, 0, 4)).toEqual({ kind: 'normal', color: 'blue' });
+    expect(moves).toEqual([{ from: { x: 0, y: 0 }, to: { x: 0, y: 1 } }]);
+    // refill still fills every null, including the cell under the box
+    refill(b, createRng(1), 4);
+    expect(b.cells.every((c) => c !== null)).toBe(true);
+  });
+
+  it('the segment below a box compacts independently', () => {
+    const b = boardFrom(['X', '.', 'g']);
+    const moves = applyGravity(b);
+    expect(at(b, 0, 0)).toEqual({ kind: 'blocker', hp: 1 });
+    expect(at(b, 0, 1)).toBeNull();
+    expect(at(b, 0, 2)).toEqual({ kind: 'normal', color: 'green' });
+    expect(moves).toEqual([]);
+  });
+
+  it('boxes never appear in the fall-move list, even with empty cells below them', () => {
+    const b = boardFrom(['rX', '..', '.g']);
+    const moves = applyGravity(b);
+    expect(at(b, 1, 0)).toEqual({ kind: 'blocker', hp: 1 });
+    expect(at(b, 0, 2)).toEqual({ kind: 'normal', color: 'red' });
+    expect(at(b, 1, 2)).toEqual({ kind: 'normal', color: 'green' });
+    for (const m of moves) {
+      expect(m.from).not.toEqual({ x: 1, y: 0 });
+      expect(m.to).not.toEqual({ x: 1, y: 0 });
+    }
+    expect(moves).toEqual([{ from: { x: 0, y: 0 }, to: { x: 0, y: 2 } }]);
+  });
+});

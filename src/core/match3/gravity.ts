@@ -11,6 +11,12 @@ export function applyGravity(board: Board): FallMove[] {
     for (let y = board.height - 1; y >= 0; y--) {
       const p = at(board, x, y);
       if (p === null) continue;
+      if (p.kind === 'blocker') {
+        // Blockers never move: they seal the column, splitting it into independent
+        // compaction segments. Cells below a box stay null for refill to fill.
+        writeY = y - 1;
+        continue;
+      }
       if (y !== writeY) {
         set(board, x, writeY, p);
         set(board, x, y, null);
