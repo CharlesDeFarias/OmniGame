@@ -58,4 +58,32 @@ One repeated pattern per game, plugged into a shared shell:
   - `src/core/` — pure logic per game (`match3/` first)
   - `src/render/` — Phaser scenes
   - `src/shell/` — hub
-  - `src/services/` — saves, settings, audio
+  - `src/services/` — saves, settings, audio, celebrations
+  - `packs/` — theme packs (art, sounds, text tiers)
+  - `docs/` — CLAUDE.md ledger, decision log, superpowers specs/plans
+- **Testing:** TDD on the logic core (match detection, booster creation/combination, cascades, goal tracking, difficulty math). Presentation verified via playable builds; Charles and Luana are QA.
+- **Saves:** on-device (localStorage/IndexedDB), no accounts or servers, offline-capable, saved after every level. **Save schema is versioned from day one** with migrations, since the PWA auto-updates. Export/backup later.
+- **Assets:** CC0 packs (Kenney.nl and similar) for MVP art and sound; every asset's source and license tracked in `LICENSES.md` from file one (clean IP if the project ever goes commercial). Custom/generated art arrives later via the theme-pack system. Royal Match is a mechanics reference only — no copying of its art, characters, or trade dress.
+- **Delivery:** GitHub repo as source of truth (Claude commits/pushes from its sandbox; the local folder is the synced browsable copy). GitHub Actions runs the full test suite on every push — regression protection across LLM sessions. Auto-deploy to GitHub Pages. Luana installs once via "Add to home screen"; updates arrive automatically. Capacitor/TWA wrap for Play Store remains available later.
+- **PWA specifics:** portrait-lock, screen wake-lock during play, audio unlocked on first touch (Android requirement), install prompt flow tested on her device class.
+- **Error handling:** never strand the player on a broken screen — unexpected errors return quietly to the hub with progress intact.
+
+## Process
+
+Full superpowers discipline: written specs → implementation plans → TDD → code review before merge. Canonical ledger (`CLAUDE.md` + `docs/DECISIONS.md`) kept current so any session picks up instantly. Charles's role: decisions + playable builds; he never needs to read code.
+
+## Adaptive difficulty and usage tracking (direction, mostly deferred)
+
+As Luana progresses, obstacles appear and target failure rate rises unless she genuinely improves; if losses pass a threshold, difficulty eases (rubber-band). Player-ability tracking and level adaptation: deferred unless cheap. Play-time tracking with healthy-alternative encouragement (movement breaks): deferred. Heavy usage tracking is a first-class requirement for Luana's build (and possible trial builds): local-only event journal (levels, outcomes, retries, timestamps), never uploaded, hooks installed in the presentation layer from day one; the analysis/adaptation layer comes later. (Decisions #24-26.)
+
+## Future games (not in MVP; architecture must not block them)
+
+- Basic card games
+- Cooking/serving game — genuine recipes and real ingredients, educational where possible, fun first (Luana-focused, adult-life theme)
+- Horizontal-scrolling shooter through multiplier gates
+- Tower conquest (drag arrows between towers to send armies, State.io-style)
+- Casual "arcade bites" (arrow click, bubble paint, similar)
+
+## Out of scope for MVP
+
+Monetization of any kind, accounts/servers, Play Store packaging, the game-picker hub UI (slot exists, UI later), cooking game, additional theme packs beyond gems (adult-objects pack developed underneath but ships when ready), difficulty settings UI (engine supports it; UIs later).
