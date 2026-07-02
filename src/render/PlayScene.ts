@@ -60,7 +60,7 @@ export class PlayScene extends Phaser.Scene {
     this.progress = loadProgress(window.localStorage);
     this.blips = createBlips();
     // Keep the screen awake during play (best effort; re-request when the tab returns).
-    const requestWake = () => { try { void (navigator as Navigator & { wakeLock?: { request(type: string): Promise<unknown> } }).wakeLock?.request('screen'); } catch { /* ignore */ } };
+    const requestWake = () => { try { void (navigator as Navigator & { wakeLock?: { request(type: string): Promise<unknown> } }).wakeLock?.request('screen').then(undefined, () => {}); } catch { /* ignore */ } };
     requestWake();
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') requestWake();
@@ -229,7 +229,7 @@ export class PlayScene extends Phaser.Scene {
       .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.75)
       .setDepth(21)
       .setInteractive();
-    dim.on('pointerdown', () => this.closeStats());
+    dim.on('pointerup', () => this.closeStats());
     objs.push(dim);
     objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-panel').setDisplaySize(620, 1000).setDepth(22));
     const textStyle = { fontSize: '32px', color: '#ffffff' };
@@ -239,6 +239,7 @@ export class PlayScene extends Phaser.Scene {
       { icon: null, value: `${Math.round(stats.winRate * 100)}%` },
       { icon: 'ui-pip', value: String(stats.gifts) },
       { icon: 'ui-retry', value: String(stats.retries) },
+      { icon: 'sp-propeller', value: String(stats.shuffles) },
     ];
     let y = 230;
     for (const row of header) {
@@ -313,6 +314,7 @@ export class PlayScene extends Phaser.Scene {
 
   private onDown(p: Phaser.Input.Pointer): void {
     this.blips.unlock();
+    if (this.statsOverlay.length > 0) return;
     if (this.hand !== null) {
       this.killHand();
       // Re-arm: show again after 8s of inactivity while the condition still holds.
