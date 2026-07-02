@@ -1,0 +1,32 @@
+export interface Blips {
+  unlock(): void;
+  match(): void;
+  booster(): void;
+  gift(): void;
+  win(): void;
+  lose(): void;
+}
+
+export function createBlips(): Blips {
+  const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  const ctx = new Ctx();
+  const tone = (freq: number, start: number, dur: number, type: OscillatorType = 'sine', vol = 0.12): void => {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, ctx.currentTime + start);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start(ctx.currentTime + start);
+    o.stop(ctx.currentTime + start + dur + 0.05);
+  };
+  return {
+    unlock() { if (ctx.state === 'suspended') void ctx.resume(); },
+    match() { tone(520, 0, 0.12); tone(660, 0.05, 0.12); },
+    booster() { tone(220, 0, 0.2, 'square', 0.1); tone(330, 0.08, 0.18, 'square', 0.08); },
+    gift() { tone(440, 0, 0.1); tone(550, 0.09, 0.1); tone(660, 0.18, 0.14); },
+    win() { tone(523, 0, 0.15); tone(659, 0.12, 0.15); tone(784, 0.24, 0.25); },
+    lose() { tone(392, 0, 0.2); tone(330, 0.15, 0.3); },
+  };
+}
