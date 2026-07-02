@@ -28,13 +28,13 @@ export function createJournal(storage: JournalStorage, now: () => number, maxEnt
       return [];
     }
   };
+  const entries = load();
   return {
     log(type, data) {
-      const entries = load();
       entries.push({ t: now(), type, data });
       while (entries.length > maxEntries) entries.shift();
       storage.setItem(KEY, JSON.stringify(entries));
     },
-    read: load,
+    read: () => [...entries],
   };
 }

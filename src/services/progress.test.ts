@@ -30,4 +30,10 @@ describe('progress', () => {
     s.setItem('omnigame.progress.v1', JSON.stringify({ version: 99 }));
     expect(loadProgress(s).levelIndex).toBe(0);
   });
+
+  it('rejects non-object completed', () => {
+    const s = memStorage();
+    s.setItem('omnigame.progress.v1', JSON.stringify({ version: 1, levelIndex: 2, completed: 'oops' }));
+    expect(loadProgress(s)).toEqual({ version: 1, levelIndex: 0, completed: {} });
+  });
 });
