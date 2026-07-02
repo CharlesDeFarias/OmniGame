@@ -1,6 +1,7 @@
 export interface Blips {
   unlock(): void;
   match(): void;
+  matchAt(wave: number): void;
   booster(): void;
   gift(): void;
   win(): void;
@@ -21,9 +22,15 @@ export function createBlips(): Blips {
     o.start(ctx.currentTime + start);
     o.stop(ctx.currentTime + start + dur + 0.05);
   };
+  const matchAt = (wave: number): void => {
+    const m = 1 + Math.min(wave, 6) * 0.12;
+    tone(520 * m, 0, 0.12);
+    tone(660 * m, 0.05, 0.12);
+  };
   return {
     unlock() { if (ctx.state === 'suspended') void ctx.resume(); },
-    match() { tone(520, 0, 0.12); tone(660, 0.05, 0.12); },
+    match() { matchAt(0); },
+    matchAt,
     booster() { tone(220, 0, 0.2, 'square', 0.1); tone(330, 0.08, 0.18, 'square', 0.08); },
     gift() { tone(440, 0, 0.1); tone(550, 0.09, 0.1); tone(660, 0.18, 0.14); },
     win() { tone(523, 0, 0.15); tone(659, 0.12, 0.15); tone(784, 0.24, 0.25); },

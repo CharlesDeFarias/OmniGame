@@ -194,8 +194,13 @@ export class PlayScene extends Phaser.Scene {
       throw e;
     }
     if (out.invalid === true) {
-      this.journal.log('invalid_move', { level: this.state.level.id, reason: out.reason ?? 'unknown' });
-      if (out.reason === 'no-match') await Promise.all([this.wiggle(a), this.wiggle(b)]);
+      this.busy = true;
+      try {
+        this.journal.log('invalid_move', { level: this.state.level.id, reason: out.reason ?? 'unknown' });
+        if (out.reason === 'no-match') await Promise.all([this.wiggle(a), this.wiggle(b)]);
+      } finally {
+        this.busy = false;
+      }
       return;
     }
     await this.runTurn(out);
@@ -219,19 +224,30 @@ export class PlayScene extends Phaser.Scene {
     this.busy = true;
     this.state = out.state;
     this.journal.log('move', { level: this.state.level.id, movesLeft: this.state.movesLeft });
-    for (const step of planSteps(out.events)) await this.animateStep(step);
+    let wave = 0;
+    for (const step of planSteps(out.events)) {
+      if (step.event.type === 'clear') {
+        await this.animateStep(step, wave);
+        wave += 1;
+      } else {
+        await this.animateStep(step);
+      }
+    }
     this.syncBoard();
     this.updateHud();
     if (out.gift !== undefined) {
+      // Stage the move counter: show the pre-gift value while the pips fly in.
+      this.movesText.setText(String(this.state.movesLeft - out.gift));
       this.journal.log('gift', { level: this.state.level.id, moves: out.gift });
       await this.celebrateGift(out.gift);
+      this.updateHud();
     }
     if (this.state.status === 'won') await this.onWin();
     else if (this.state.status === 'lost') await this.onLose();
     this.busy = false;
   }
 
-  private async animateStep(step: Step): Promise<void> {
+  private async animateStep(step: Step, wave = 0): Promise<void> {
     const ev = step.event;
     switch (ev.type) {
       case 'swap': {
@@ -252,7 +268,7 @@ export class PlayScene extends Phaser.Scene {
       case 'clear': {
         const targets = ev.cells.map((c) => this.sprites.get(key(c))).filter((s): s is Phaser.GameObjects.Sprite => s !== undefined);
         if (ev.cells.length >= 6) this.blips.booster();
-        else this.blips.match();
+        else this.blips.matchAt(wave);
         if (targets.length > 0) {
           await this.tweenAsync({ targets, scale: 0, alpha: 0, duration: step.duration, ease: 'Back.easeIn' });
         }
