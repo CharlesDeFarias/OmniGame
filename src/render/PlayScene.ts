@@ -58,6 +58,25 @@ export class PlayScene extends Phaser.Scene {
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.progress = loadProgress(window.localStorage);
     this.blips = createBlips();
+    // Keep the screen awake during play (best effort; re-request when the tab returns).
+    const requestWake = () => { try { void (navigator as Navigator & { wakeLock?: { request(type: string): Promise<unknown> } }).wakeLock?.request('screen'); } catch { /* ignore */ } };
+    requestWake();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') requestWake();
+    });
+    const startMuted = window.localStorage.getItem('omnigame.muted.v1') === '1';
+    this.blips.setMuted(startMuted);
+    const muteBtn = this.add
+      .sprite(GAME_WIDTH - 60, 60, startMuted ? 'ui-sound-off' : 'ui-sound-on')
+      .setDisplaySize(72, 72)
+      .setDepth(8)
+      .setInteractive();
+    muteBtn.on('pointerup', () => {
+      const m = !this.blips.muted();
+      this.blips.setMuted(m);
+      muteBtn.setTexture(m ? 'ui-sound-off' : 'ui-sound-on');
+      window.localStorage.setItem('omnigame.muted.v1', m ? '1' : '0');
+    });
     this.levels = loadLevels();
     this.marker = this.add
       .rectangle(0, 0, 10, 10)
