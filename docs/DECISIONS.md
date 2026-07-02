@@ -27,3 +27,6 @@ One line of context per decision; newest last. Full reasoning lives in the specs
 | 21 | 2026-07-01 | Kitchen 001-010 use 5-6 colors, 7-10 moves (not draft 4 colors/20-30 moves) | 4-color levels mathematically can't satisfy both bands; simulator-proven |
 | 22 | 2026-07-01 | Current short move budgets are provisional — valid only for collect-only goals; re-author when obstacles land | Obstacles are what make 20-30-move levels possible |
 | 23 | 2026-07-01 | Deadlock auto-shuffle in core; ShuffleError crash-loud in core, renderer must regenerate level | Never strand the player (plan-3 must-do) |
+| 24 | 2026-07-01 | Adaptive difficulty (rubber-band): as Luana progresses, obstacles + failure rate increase unless she improves; below a loss threshold, ease off | Charles's direction; calibration bands + stats journal are the machinery; full DDA deferred to plan 4+ |
+| 25 | 2026-07-01 | Deferred: play-time tracking with healthy-alternative nudges (movement breaks etc.) | Charles's direction; design later, don't block MVP |
+| 26 | 2026-07-01 | Heavy LOCAL usage tracking in Luana's build (primary; maybe trial builds later): event journal hooks land in plan 3, analysis/adaptation later. Never uploaded | Adapt the game to her actual usage and needs over time |
