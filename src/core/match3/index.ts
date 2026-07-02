@@ -10,7 +10,7 @@ export type { Move } from './moves';
 export { resolveTurn } from './resolve';
 export type { ResolveEvent, TurnResult } from './resolve';
 export { applyCleared, goalsComplete, initGoals } from './goals';
-export type { CollectGoal, Goal, GoalState } from './goals';
+export type { ClearBoxesGoal, ClearIceGoal, CollectGoal, Goal, GoalState } from './goals';
 export { LevelError, parseLevel } from './level';
 export type { LevelDef } from './level';
 export { applyMove, startLevel } from './game';

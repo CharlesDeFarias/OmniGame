@@ -19,6 +19,7 @@ export function greedyPolicy(rng: RNG): Policy {
       const r = resolveTurn(state.board, m.a, m.b, trialRng, state.level.board.colorCount);
       let score = 0;
       for (const g of state.goals) {
+        if (g.goal.type !== 'collect') continue; // obstacle-goal crediting lands with resolve support (Tasks 3-4)
         const need = g.goal.count - g.collected;
         if (need > 0) score += Math.min(need, r.clearedByColor[g.goal.color] ?? 0);
       }

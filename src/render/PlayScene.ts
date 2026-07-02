@@ -29,7 +29,7 @@ export class PlayScene extends Phaser.Scene {
   private progress!: ProgressData;
   private blips!: Blips;
   private movesText!: Phaser.GameObjects.Text;
-  private goalHud: { icon: Phaser.GameObjects.Sprite; txt: Phaser.GameObjects.Text; color: PieceColor }[] = [];
+  private goalHud: { icon: Phaser.GameObjects.Sprite; txt: Phaser.GameObjects.Text; color: PieceColor | null }[] = [];
   private retryCount = 0;
   private downAt: { cell: Coord; px: number; py: number } | null = null;
   private backdrop: Phaser.GameObjects.Image[] = [];
@@ -175,12 +175,14 @@ export class PlayScene extends Phaser.Scene {
     );
     const x0 = GAME_WIDTH / 2 - ((n - 1) * spacing) / 2;
     this.state.goals.forEach((gs, i) => {
-      const icon = this.add.sprite(x0 + i * spacing - 34, TOP_RESERVE * 0.32, `gem-${gs.goal.color}`).setDisplaySize(64, 64).setDepth(2);
+      // Non-collect goals get a placeholder icon key until Task 7 adds obstacle textures.
+      const color = gs.goal.type === 'collect' ? gs.goal.color : null;
+      const icon = this.add.sprite(x0 + i * spacing - 34, TOP_RESERVE * 0.32, color ? `gem-${color}` : 'ob-box1').setDisplaySize(64, 64).setDepth(2);
       const txt = this.add
         .text(x0 + i * spacing + 14, TOP_RESERVE * 0.32, '', { fontSize: '44px', fontStyle: 'bold', color: '#ffffff' })
         .setOrigin(0, 0.5)
         .setDepth(2);
-      this.goalHud.push({ icon, txt, color: gs.goal.color });
+      this.goalHud.push({ icon, txt, color });
     });
   }
 

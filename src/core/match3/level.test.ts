@@ -52,3 +52,65 @@ describe('parseLevel', () => {
     ).toThrow(/palette/);
   });
 });
+
+describe('parseLevel layout + obstacle goals', () => {
+  const layout7 = [
+    'b......',
+    '.......',
+    '...B...',
+    '.......',
+    '.i.....',
+    '.......',
+    '.......',
+  ];
+
+  it('accepts a valid layout and returns it', () => {
+    const lvl = parseLevel({ ...good, board: { ...good.board, layout: layout7 } });
+    expect(lvl.board.layout).toEqual(layout7);
+  });
+
+  it('rejects layout with wrong row count', () => {
+    expect(() =>
+      parseLevel({ ...good, board: { ...good.board, layout: layout7.slice(0, 6) } }),
+    ).toThrow(/layout/);
+  });
+
+  it('rejects layout with wrong row length', () => {
+    const bad = [...layout7.slice(0, 6), '......'];
+    expect(() => parseLevel({ ...good, board: { ...good.board, layout: bad } })).toThrow(/layout/);
+  });
+
+  it('rejects layout with invalid characters', () => {
+    const bad = [...layout7.slice(0, 6), 'x......'];
+    expect(() => parseLevel({ ...good, board: { ...good.board, layout: bad } })).toThrow(/layout/);
+    expect(() =>
+      parseLevel({ ...good, board: { ...good.board, layout: [...layout7.slice(0, 6), 123] } }),
+    ).toThrow(/layout/);
+  });
+
+  it('parses clearBoxes and clearIce goals', () => {
+    const lvl = parseLevel({
+      ...good,
+      goals: [
+        { type: 'clearBoxes', count: 4 },
+        { type: 'clearIce', count: 6 },
+      ],
+    });
+    expect(lvl.goals).toEqual([
+      { type: 'clearBoxes', count: 4 },
+      { type: 'clearIce', count: 6 },
+    ]);
+  });
+
+  it('rejects clearBoxes with count 0 and unknown goal types', () => {
+    expect(() => parseLevel({ ...good, goals: [{ type: 'clearBoxes', count: 0 }] })).toThrow(/count/);
+    expect(() => parseLevel({ ...good, goals: [{ type: 'clearWindows', count: 1 }] })).toThrow(/type/);
+  });
+
+  it('palette cross-check applies only to collect goals', () => {
+    expect(() =>
+      parseLevel({ ...good, goals: [{ type: 'collect', color: 'purple', count: 3 }] }),
+    ).toThrow(/palette/);
+    expect(() => parseLevel({ ...good, goals: [{ type: 'clearIce', count: 3 }] })).not.toThrow();
+  });
+});

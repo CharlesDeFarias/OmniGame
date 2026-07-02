@@ -6,7 +6,17 @@ export interface CollectGoal {
   count: number;
 }
 
-export type Goal = CollectGoal;
+export interface ClearBoxesGoal {
+  type: 'clearBoxes';
+  count: number;
+}
+
+export interface ClearIceGoal {
+  type: 'clearIce';
+  count: number;
+}
+
+export type Goal = CollectGoal | ClearBoxesGoal | ClearIceGoal;
 
 export interface GoalState {
   goal: Goal;
@@ -22,6 +32,7 @@ export function applyCleared(
   clearedByColor: Partial<Record<PieceColor, number>>,
 ): GoalState[] {
   return states.map((s) => {
+    if (s.goal.type !== 'collect') return s;
     const gained = clearedByColor[s.goal.color] ?? 0;
     return { goal: s.goal, collected: Math.min(s.goal.count, s.collected + gained) };
   });

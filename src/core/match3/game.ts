@@ -31,7 +31,7 @@ export interface MoveOutcome {
 
 export function startLevel(level: LevelDef): GameState {
   const rng = createRng(level.seed);
-  const board = createBoard(level.board.width, level.board.height, rng, level.board.colorCount);
+  const board = createBoard(level.board.width, level.board.height, rng, level.board.colorCount, level.board.layout);
   if (!hasValidMove(board)) shuffleBoard(board, rng);
   return {
     level,

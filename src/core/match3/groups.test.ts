@@ -9,9 +9,9 @@ export function boardFrom(rows: string[]): Board {
   const width = rows[0]!.length;
   const cells: (Piece | null)[] = [];
   for (const row of rows) {
-    for (const ch of row) cells.push(ch === '.' ? null : { kind: 'normal', color: map[ch]! });
+    for (const ch of row) cells.push(ch === '.' ? null : ch === 'X' ? { kind: 'blocker', hp: 1 } : { kind: 'normal', color: map[ch]! });
   }
-  return { width, height, cells };
+  return { width, height, cells, ice: new Array(cells.length).fill(false) };
 }
 
 describe('findMatchGroups', () => {

@@ -11,7 +11,7 @@ export const COLOR_HEX: Record<PieceColor, number> = {
 };
 
 export function textureKeyFor(piece: Piece): string {
-  return piece.kind === 'normal' ? `gem-${piece.color}` : `sp-${piece.special}`;
+  return piece.kind === 'normal' ? `gem-${piece.color}` : piece.kind === 'special' ? `sp-${piece.special}` : 'ob-box1';
 }
 
 // Note: fillPoints is typed as Phaser.Math.Vector2[]; it only reads .x/.y at

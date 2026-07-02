@@ -20,15 +20,36 @@ export function set(board: Board, x: number, y: number, piece: Piece | null): vo
 }
 
 export function cloneBoard(board: Board): Board {
-  return { width: board.width, height: board.height, cells: board.cells.slice() };
+  return { width: board.width, height: board.height, cells: board.cells.slice(), ice: board.ice.slice() };
 }
 
-/** Fill so no 3-in-a-row exists at creation: exclude the color of (x-1,x-2) and (y-1,y-2) runs. */
-export function createBoard(width: number, height: number, rng: RNG, colorCount: number): Board {
+/** Fill so no 3-in-a-row exists at creation: exclude the color of (x-1,x-2) and (y-1,y-2) runs.
+ * Optional layout (row-major strings, validated in parseLevel): 'b' = box hp1, 'B' = box hp2,
+ * 'i' = ice under a normally-spawned piece, '.' = normal spawn. */
+export function createBoard(width: number, height: number, rng: RNG, colorCount: number, layout?: string[]): Board {
   const palette = ALL_COLORS.slice(0, colorCount);
-  const board: Board = { width, height, cells: new Array(width * height).fill(null) };
+  const board: Board = {
+    width,
+    height,
+    cells: new Array(width * height).fill(null),
+    ice: new Array(width * height).fill(false),
+  };
+  if (layout) {
+    if (layout.length !== height || layout.some((row) => row.length !== width)) {
+      throw new Error(`layout must be ${height} rows of ${width} chars`);
+    }
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const ch = layout[y]![x]!;
+        if (ch === 'b') set(board, x, y, { kind: 'blocker', hp: 1 });
+        else if (ch === 'B') set(board, x, y, { kind: 'blocker', hp: 2 });
+        else if (ch === 'i') board.ice[index(board, x, y)] = true;
+      }
+    }
+  }
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
+      if (at(board, x, y) !== null) continue;
       const banned = new Set<PieceColor>();
       const l1 = at(board, x - 1, y);
       const l2 = at(board, x - 2, y);
