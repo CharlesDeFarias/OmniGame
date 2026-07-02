@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { applyMove, startLevel, starsFor, ShuffleError } from '../core/match3/index';
+import { applyMove, findValidMoves, startLevel, starsFor, ShuffleError } from '../core/match3/index';
 import type { Coord, GameState, LevelDef, MoveOutcome, PieceColor } from '../core/match3/index';
 import { createJournal, type Journal } from '../services/journal';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
@@ -34,6 +34,10 @@ export class PlayScene extends Phaser.Scene {
   private backdrop: Phaser.GameObjects.Image[] = [];
   private hudPanels: Phaser.GameObjects.Image[] = [];
   private markerTween: Phaser.Tweens.Tween | null = null;
+  private hand: Phaser.GameObjects.Sprite | null = null;
+  private handTimer: Phaser.Time.TimerEvent | null = null;
+  private movesMadeThisLevel = 0;
+  private tutorialLogged = false;
 
   constructor() {
     super('play');
@@ -75,6 +79,9 @@ export class PlayScene extends Phaser.Scene {
 
   private startCurrentLevel(): void {
     this.select(null);
+    this.killHand();
+    this.movesMadeThisLevel = 0;
+    this.tutorialLogged = false;
     const def = this.currentDef();
     let started: GameState | undefined;
     let lastError: unknown;
@@ -115,6 +122,7 @@ export class PlayScene extends Phaser.Scene {
     this.buildGoalHud();
     this.syncBoard();
     this.updateHud();
+    this.showHand();
   }
 
   private buildGoalHud(): void {
@@ -172,8 +180,64 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  /** Kill the tutorial hand and any pending re-arm timer. */
+  private killHand(): void {
+    if (this.handTimer !== null) {
+      this.handTimer.remove();
+      this.handTimer = null;
+    }
+    if (this.hand !== null) {
+      this.tweens.killTweensOf(this.hand);
+      this.hand.destroy();
+      this.hand = null;
+    }
+  }
+
+  /** Zero-text tutorial: hand loops from a valid move's start cell to its end cell (first level, first session, no moves yet). */
+  private showHand(): void {
+    const idx = Math.min(this.progress.levelIndex, this.levels.length - 1);
+    if (idx !== 0 || Object.keys(this.progress.completed).length !== 0 || this.movesMadeThisLevel !== 0) return;
+    if (this.hand !== null) return;
+    const move = findValidMoves(this.state.board)[0];
+    if (move === undefined) return;
+    if (!this.tutorialLogged) {
+      this.tutorialLogged = true;
+      this.journal.log('tutorial_shown', { level: this.state.level.id });
+    }
+    const ox = this.layout.cell * 0.25;
+    const oy = this.layout.cell * 0.3;
+    const a = cellToXY(this.layout, move.a.x, move.a.y);
+    const b = cellToXY(this.layout, move.b.x, move.b.y);
+    const hand = this.add.sprite(a.px + ox, a.py + oy, 'ui-hand').setDepth(7).setAlpha(0);
+    this.hand = hand;
+    const cycle = (): void => {
+      if (!hand.active || this.hand !== hand) return;
+      hand.setPosition(a.px + ox, a.py + oy).setAlpha(0);
+      this.tweens.chain({
+        targets: hand,
+        tweens: [
+          { alpha: 0.95, duration: 200 },
+          { x: b.px + ox, y: b.py + oy, duration: 650, ease: 'Sine.easeInOut' },
+          { alpha: 0, duration: 200 },
+        ],
+        onComplete: () => {
+          this.time.delayedCall(500, cycle);
+        },
+      });
+    };
+    cycle();
+  }
+
   private onDown(p: Phaser.Input.Pointer): void {
     this.blips.unlock();
+    if (this.hand !== null) {
+      this.killHand();
+      // Re-arm: show again after 8s of inactivity while the condition still holds.
+      this.handTimer = this.time.delayedCall(8000, () => {
+        this.handTimer = null;
+        this.showHand();
+      });
+    }
     if (this.busy || this.state === undefined || this.state.status !== 'playing') return;
     const cell = xyToCell(this.layout, p.x, p.y);
     if (cell === null) return;
@@ -287,6 +351,7 @@ export class PlayScene extends Phaser.Scene {
 
   private async runTurn(out: MoveOutcome): Promise<void> {
     this.busy = true;
+    this.movesMadeThisLevel += 1;
     this.state = out.state;
     this.journal.log('move', { level: this.state.level.id, movesLeft: this.state.movesLeft });
     let wave = 0;
@@ -437,6 +502,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private async onWin(): Promise<void> {
+    this.killHand();
     const stars = starsFor({
       status: this.state.status,
       giftUsed: this.state.giftUsed,
@@ -515,6 +581,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private async onLose(): Promise<void> {
+    this.killHand();
     this.journal.log('level_end', { level: this.state.level.id, won: false, retries: this.retryCount });
     this.blips.lose();
     const dim = this.overlay();

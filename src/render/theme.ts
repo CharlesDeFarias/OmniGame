@@ -129,6 +129,15 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillTriangle(c + r * 0.75, c - r * 0.45, c + r * 0.2, c - r * 0.55, c + r * 0.55, c - r * 0.05);
   });
   ui('ui-pip', (g) => { g.fillStyle(0xffffff); g.fillCircle(c, c, r * 0.3); });
+  // Tutorial pointer: white hand (palm circle + one finger) on transparent bg.
+  ui('ui-hand', (g) => {
+    g.lineStyle(s * 0.04, 0x2c2c54);
+    g.fillStyle(0xffffff);
+    g.fillCircle(c, s * 0.64, r * 0.6);
+    g.strokeCircle(c, s * 0.64, r * 0.6);
+    g.fillRoundedRect(c - r * 0.55, s * 0.06, r * 0.38, s * 0.48, r * 0.19);
+    g.strokeRoundedRect(c - r * 0.55, s * 0.06, r * 0.38, s * 0.48, r * 0.19);
+  });
   // Trophy on the same light badge circle the specials use.
   sp('ui-trophy', (g) => {
     g.fillStyle(0xf1c40f);
