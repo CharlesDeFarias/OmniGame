@@ -15,3 +15,5 @@ export { LevelError, parseLevel } from './level';
 export type { LevelDef } from './level';
 export { applyMove, startLevel } from './game';
 export type { GameState, GameStatus, MoveOutcome } from './game';
+export { starsFor } from './stars';
+export type { StarInput } from './stars';
