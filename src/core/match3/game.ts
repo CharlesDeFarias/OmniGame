@@ -49,7 +49,7 @@ export function applyMove(state: GameState, a: Coord, b: Coord): MoveOutcome {
   const result = resolveTurn(state.board, a, b, state.rng, state.level.board.colorCount);
   if (!result.valid) return { state, events: [], invalid: true, reason: result.reason };
 
-  const goals = applyCleared(state.goals, result.clearedByColor);
+  const goals = applyCleared(state.goals, result.clearedByColor, result.clearedBoxes, result.clearedIce);
   let movesLeft = state.movesLeft - 1;
   let giftUsed = state.giftUsed;
   let status: GameStatus = 'playing';
