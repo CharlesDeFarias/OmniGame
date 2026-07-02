@@ -32,3 +32,5 @@ One line of context per decision; newest last. Full reasoning lives in the specs
 | 26 | 2026-07-01 | Heavy LOCAL usage tracking in Luana's build (primary; maybe trial builds later): event journal hooks land in plan 3, analysis/adaptation later. Never uploaded | Adapt the game to her actual usage and needs over time |
 | 27 | 2026-07-02 | MVP art/sound are procedural (distinct shape per gem color, WebAudio blips) instead of CC0 packs | Zero licensing/network risk; shape+color aids color-blind accessibility; theme-pack system makes swapping later trivial |
 | 28 | 2026-07-02 | Phaser pinned to v3 (npm 'latest' resolves to v4) | Plan and knowledge target the battle-tested v3 API |
+| 29 | 2026-07-02 | Star rules: 1=won via gift, 2=clean win with <25% budget left, 3=clean win with >=25% left | Simple, legible, rewards efficiency without punishing gift use |
+| 30 | 2026-07-02 | Replan: plan 4=polish+stars, plan 5=obstacles+levels, plan 6=meta-layer | Old plan 4 was three plans; polish prioritized after Charles's playtest |
