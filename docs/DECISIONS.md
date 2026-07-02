@@ -30,3 +30,5 @@ One line of context per decision; newest last. Full reasoning lives in the specs
 | 24 | 2026-07-01 | Adaptive difficulty (rubber-band): as Luana progresses, obstacles + failure rate increase unless she improves; below a loss threshold, ease off | Charles's direction; calibration bands + stats journal are the machinery; full DDA deferred to plan 4+ |
 | 25 | 2026-07-01 | Deferred: play-time tracking with healthy-alternative nudges (movement breaks etc.) | Charles's direction; design later, don't block MVP |
 | 26 | 2026-07-01 | Heavy LOCAL usage tracking in Luana's build (primary; maybe trial builds later): event journal hooks land in plan 3, analysis/adaptation later. Never uploaded | Adapt the game to her actual usage and needs over time |
+| 27 | 2026-07-02 | MVP art/sound are procedural (distinct shape per gem color, WebAudio blips) instead of CC0 packs | Zero licensing/network risk; shape+color aids color-blind accessibility; theme-pack system makes swapping later trivial |
+| 28 | 2026-07-02 | Phaser pinned to v3 (npm 'latest' resolves to v4) | Plan and knowledge target the battle-tested v3 API |
