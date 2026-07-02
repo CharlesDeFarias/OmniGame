@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRng, findValidMoves, parseLevel, resolveTurn, startLevel } from '../core/match3/index';
 import { greedyPolicy, randomPolicy } from './policies';
+import { simulateLevel } from './simulate';
 
 const level = parseLevel({
   id: 'sim-test',
@@ -42,5 +43,51 @@ describe('policies', () => {
     };
     const best = Math.max(...moves.map(score));
     expect(score(chosen)).toBe(best);
+  });
+
+  it('greedyPolicy scores obstacle goals: picks a box-damaging move when that is the only goal', () => {
+    const boxLevel = parseLevel({
+      id: 'sim-box-test',
+      seed: 5,
+      board: { width: 5, height: 5, colorCount: 3, layout: ['.....', '.....', '..b..', '.....', '.....'] },
+      moves: 20,
+      giftMoves: 0,
+      goals: [{ type: 'clearBoxes', count: 1 }],
+    });
+    const s = startLevel(boxLevel);
+    const moves = findValidMoves(s.board);
+    const score = (m: (typeof moves)[number]): number => {
+      const trial = createRng(0);
+      trial.setState(s.rng.getState());
+      const r = resolveTurn(s.board, m.a, m.b, trial, boxLevel.board.colorCount);
+      return Math.min(1, r.clearedBoxes);
+    };
+    const best = Math.max(...moves.map(score));
+    expect(best).toBeGreaterThan(0); // this layout+seed guarantees a box-damaging move exists
+    const chosen = greedyPolicy(createRng(4))(s, moves);
+    expect(score(chosen)).toBe(best);
+  });
+
+  it('simulateLevel smoke on a boxy level: deterministic and greedy wins some runs', () => {
+    const boxy = parseLevel({
+      id: 'sim-boxy-smoke',
+      seed: 42,
+      board: {
+        width: 6,
+        height: 6,
+        colorCount: 3,
+        layout: ['......', '......', '..b.b.', '......', '......', '......'],
+      },
+      moves: 20,
+      giftMoves: 0,
+      goals: [
+        { type: 'clearBoxes', count: 2 },
+        { type: 'collect', color: 'red', count: 8 },
+      ],
+    });
+    const s1 = simulateLevel(boxy, 20, greedyPolicy);
+    const s2 = simulateLevel(boxy, 20, greedyPolicy);
+    expect(s1).toEqual(s2);
+    expect(s1.winRate).toBeGreaterThan(0);
   });
 });
