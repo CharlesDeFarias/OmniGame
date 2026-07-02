@@ -41,6 +41,7 @@ export class PlayScene extends Phaser.Scene {
   private tutorialLogged = false;
   private secretTaps: number[] = [];
   private statsOverlay: Phaser.GameObjects.GameObject[] = [];
+  private confetti: Phaser.GameObjects.Sprite[] = [];
 
   constructor() {
     super('play');
@@ -487,7 +488,7 @@ export class PlayScene extends Phaser.Scene {
           const tint = tintForTexture(src.texture.key);
           const { px, py } = cellToXY(this.layout, c.x, c.y);
           for (let i = 0; i < 4; i++) {
-            const pip = this.add.sprite(px, py, 'ui-pip').setTint(tint).setScale(0.9).setDepth(2);
+            const pip = this.add.sprite(px, py, 'ui-pip').setTint(tint).setScale(0.9).setDepth(1);
             // Fire-and-forget: not awaited; each pip destroys itself on complete.
             this.tweens.add({
               targets: pip,
@@ -635,6 +636,7 @@ export class PlayScene extends Phaser.Scene {
         .setTint(tints[i % tints.length]!)
         .setScale(1.4 + Math.random())
         .setDepth(11);
+      this.confetti.push(pip);
       // Fire-and-forget confetti: not awaited; each pip destroys itself on complete.
       this.tweens.add({
         targets: pip,
@@ -654,6 +656,8 @@ export class PlayScene extends Phaser.Scene {
       saveProgress(window.localStorage, this.progress);
       this.journal.log('chapter_replay', { chapter: 'kitchen' });
       this.retryCount = 0;
+      for (const c of this.confetti) if (c.active) c.destroy();
+      this.confetti = [];
       dim.destroy();
       starSprites.forEach((s) => s.destroy());
       trophy.destroy();
