@@ -245,7 +245,15 @@ export class PlayScene extends Phaser.Scene {
       if (e instanceof ShuffleError) {
         this.journal.log('shuffle_error', { level: this.state.level.id, phase: 'move' });
         this.retryCount += 1;
+        // Friendly cue before the silent restart: dim + spinning retry icon.
+        this.busy = true;
+        const dim = this.overlay();
+        const spinner = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-retry').setDepth(11).setScale(2.4);
+        await this.tweenAsync({ targets: spinner, angle: 360, duration: 900, ease: 'Cubic.easeInOut' });
+        dim.destroy();
+        spinner.destroy();
         this.startCurrentLevel();
+        this.busy = false;
         return;
       }
       throw e;
@@ -454,13 +462,54 @@ export class PlayScene extends Phaser.Scene {
     this.progress.stars[this.state.level.id] = Math.max(stars, this.progress.stars[this.state.level.id] ?? 0);
     if (idx < this.levels.length - 1) this.progress.levelIndex = idx + 1;
     saveProgress(window.localStorage, this.progress);
+    if (idx >= this.levels.length - 1) {
+      await this.showChapterComplete(dim, starSprites);
+      return;
+    }
     const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.62, 'ui-play').setDepth(11).setScale(2.4).setInteractive();
     btn.once('pointerup', () => {
       this.retryCount = 0;
       dim.destroy();
       starSprites.forEach((s) => s.destroy());
       btn.destroy();
-      if (idx >= this.levels.length - 1) this.journal.log('chapter_complete', { chapter: 'kitchen' });
+      this.startCurrentLevel();
+    });
+  }
+
+  /** Last level won: trophy + confetti celebration, replay button restarts the chapter. */
+  private async showChapterComplete(dim: Phaser.GameObjects.Rectangle, starSprites: Phaser.GameObjects.Sprite[]): Promise<void> {
+    this.journal.log('chapter_complete', { chapter: 'kitchen' });
+    const trophy = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.55, 'ui-trophy').setDepth(12).setScale(0);
+    const tints = Object.values(COLOR_HEX);
+    for (let i = 0; i < 24; i++) {
+      const pip = this.add
+        .sprite(Math.random() * GAME_WIDTH, -40 - Math.random() * 160, 'ui-pip')
+        .setTint(tints[i % tints.length]!)
+        .setScale(1.4 + Math.random())
+        .setDepth(11);
+      // Fire-and-forget confetti: not awaited; each pip destroys itself on complete.
+      this.tweens.add({
+        targets: pip,
+        y: GAME_HEIGHT + 60,
+        x: pip.x + (Math.random() * 2 - 1) * 140,
+        angle: 360,
+        duration: 1700 + Math.random() * 600,
+        delay: Math.random() * 400,
+        ease: 'Sine.easeIn',
+        onComplete: () => pip.destroy(),
+      });
+    }
+    await this.tweenAsync({ targets: trophy, scale: 3, duration: 420, ease: 'Back.easeOut' });
+    const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.74, 'ui-retry').setDepth(12).setScale(2.4).setInteractive();
+    btn.once('pointerup', () => {
+      this.progress.levelIndex = 0;
+      saveProgress(window.localStorage, this.progress);
+      this.journal.log('chapter_replay', { chapter: 'kitchen' });
+      this.retryCount = 0;
+      dim.destroy();
+      starSprites.forEach((s) => s.destroy());
+      trophy.destroy();
+      btn.destroy();
       this.startCurrentLevel();
     });
   }
