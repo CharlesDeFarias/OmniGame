@@ -84,4 +84,13 @@ describe('game', () => {
     const s = startLevel(dl);
     expect(findValidMoves(s.board).length).toBeGreaterThan(0);
   });
+
+  it('reports why an invalid move was rejected', () => {
+    const s = startLevel(level);
+    const r1 = applyMove(s, { x: 0, y: 0 }, { x: 5, y: 5 });
+    expect(r1.invalid).toBe(true);
+    expect(r1.reason).toBe('not-adjacent');
+    const r2 = applyMove({ ...s, status: 'won' }, { x: 0, y: 0 }, { x: 1, y: 0 });
+    expect(r2.reason).toBe('not-playing');
+  });
 });
