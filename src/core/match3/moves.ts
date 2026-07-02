@@ -53,7 +53,10 @@ export function shuffleBoard(board: Board, rng: RNG, maxAttempts = 50): void {
   const coords: Coord[] = [];
   for (let y = 0; y < board.height; y++) {
     for (let x = 0; x < board.width; x++) {
-      if (at(board, x, y) !== null) coords.push({ x, y });
+      const p = at(board, x, y);
+      // Blockers are fixed obstacles: shuffle only permutes movable pieces around them.
+      // Ice is positional terrain stored in board.ice and is never touched here.
+      if (p !== null && p.kind !== 'blocker') coords.push({ x, y });
     }
   }
   for (let attempt = 0; attempt < maxAttempts; attempt++) {

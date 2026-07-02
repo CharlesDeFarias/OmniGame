@@ -19,7 +19,7 @@ export interface TurnResult {
   board: Board;
   events: ResolveEvent[];
   clearedByColor: Partial<Record<PieceColor, number>>;
-  reason?: 'not-adjacent' | 'no-match' | 'empty-cell';
+  reason?: 'not-adjacent' | 'no-match' | 'empty-cell' | 'blocked';
 }
 
 const key = (c: Coord): string => `${c.x},${c.y}`;

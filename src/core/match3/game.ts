@@ -26,7 +26,7 @@ export interface MoveOutcome {
   gift?: number;
   invalid?: true;
   /** Why the move was rejected (for renderer feedback, e.g. wiggle). */
-  reason?: 'not-adjacent' | 'no-match' | 'empty-cell' | 'not-playing';
+  reason?: 'not-adjacent' | 'no-match' | 'empty-cell' | 'blocked' | 'not-playing';
 }
 
 export function startLevel(level: LevelDef): GameState {

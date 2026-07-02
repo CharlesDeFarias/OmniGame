@@ -4,7 +4,7 @@ import type { Board, Coord } from './types';
 
 export interface SwapCheck {
   valid: boolean;
-  reason?: 'not-adjacent' | 'no-match' | 'empty-cell';
+  reason?: 'not-adjacent' | 'no-match' | 'empty-cell' | 'blocked';
 }
 
 export function isAdjacent(a: Coord, b: Coord): boolean {
@@ -23,6 +23,7 @@ export function canSwap(board: Board, a: Coord, b: Coord): SwapCheck {
   const pa = at(board, a.x, a.y);
   const pb = at(board, b.x, b.y);
   if (pa === null || pb === null) return { valid: false, reason: 'empty-cell' };
+  if (pa.kind === 'blocker' || pb.kind === 'blocker') return { valid: false, reason: 'blocked' };
   if (pa.kind === 'special' || pb.kind === 'special') return { valid: true };
   const test = cloneBoard(board);
   swapPieces(test, a, b);

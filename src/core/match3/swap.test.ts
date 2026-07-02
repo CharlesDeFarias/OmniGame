@@ -48,4 +48,15 @@ describe('swap', () => {
     const b = boardFrom(['.bg', 'gry', 'yob']);
     expect(canSwap(b, { x: 0, y: 0 }, { x: 1, y: 0 })).toEqual({ valid: false, reason: 'empty-cell' });
   });
+  it('rejects swaps involving a blocker on either side', () => {
+    const b = boardFrom(['rXg', 'grr', 'yob']);
+    expect(canSwap(b, { x: 0, y: 0 }, { x: 1, y: 0 })).toEqual({ valid: false, reason: 'blocked' });
+    expect(canSwap(b, { x: 2, y: 0 }, { x: 1, y: 0 })).toEqual({ valid: false, reason: 'blocked' });
+  });
+
+  it('blocks a special from swapping with a blocker (blocked wins over special bypass)', () => {
+    const b = boardFrom(['rXg', 'gry', 'yob']);
+    set(b, 0, 0, { kind: 'special', special: 'rocketH' });
+    expect(canSwap(b, { x: 0, y: 0 }, { x: 1, y: 0 })).toEqual({ valid: false, reason: 'blocked' });
+  });
 });
