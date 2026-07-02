@@ -7,7 +7,7 @@ describe('public barrel', () => {
       'createRng', 'ALL_COLORS', 'createBoard', 'at', 'inBounds',
       'canSwap', 'isAdjacent', 'findValidMoves', 'hasValidMove', 'shuffleBoard',
       'resolveTurn', 'initGoals', 'applyCleared', 'goalsComplete',
-      'parseLevel', 'LevelError', 'startLevel', 'applyMove',
+      'parseLevel', 'LevelError', 'startLevel', 'applyMove', 'starsFor',
     ]) {
       expect(api).toHaveProperty(name);
     }

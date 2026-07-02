@@ -129,4 +129,15 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillTriangle(c + r * 0.75, c - r * 0.45, c + r * 0.2, c - r * 0.55, c + r * 0.55, c - r * 0.05);
   });
   ui('ui-pip', (g) => { g.fillStyle(0xffffff); g.fillCircle(c, c, r * 0.3); });
+  // Trophy on the same light badge circle the specials use.
+  sp('ui-trophy', (g) => {
+    g.fillStyle(0xf1c40f);
+    g.fillRoundedRect(c - r * 0.55, c - r * 0.8, r * 1.1, r * 0.9, {
+      tl: r * 0.12, tr: r * 0.12, bl: r * 0.5, br: r * 0.5,
+    });
+    g.fillRect(c - r * 0.1, c + r * 0.05, r * 0.2, r * 0.35);
+    g.fillRect(c - r * 0.45, c + r * 0.4, r * 0.9, r * 0.18);
+  });
+  ui('ui-tile', (g) => { g.fillStyle(0xffffff); g.fillRoundedRect(s * 0.02, s * 0.02, s * 0.96, s * 0.96, s * 0.16); });
+  ui('ui-panel', (g) => { g.fillStyle(0x000000); g.fillRoundedRect(0, 0, s, s, s * 0.2); });
 }
