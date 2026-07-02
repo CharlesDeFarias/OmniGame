@@ -13,12 +13,12 @@ function memStorage(): JournalStorage & { data: Map<string, string> } {
 
 describe('progress', () => {
   it('defaults to level index 0 with empty completion', () => {
-    expect(loadProgress(memStorage())).toEqual({ version: 1, levelIndex: 0, completed: {} });
+    expect(loadProgress(memStorage())).toEqual({ version: 1, levelIndex: 0, completed: {}, stars: {} });
   });
 
   it('round-trips saves', () => {
     const s = memStorage();
-    const p: ProgressData = { version: 1, levelIndex: 3, completed: { 'kitchen-001': true } };
+    const p: ProgressData = { version: 1, levelIndex: 3, completed: { 'kitchen-001': true }, stars: {} };
     saveProgress(s, p);
     expect(loadProgress(s)).toEqual(p);
   });
@@ -34,7 +34,7 @@ describe('progress', () => {
   it('rejects non-object completed', () => {
     const s = memStorage();
     s.setItem('omnigame.progress.v1', JSON.stringify({ version: 1, levelIndex: 2, completed: 'oops' }));
-    expect(loadProgress(s)).toEqual({ version: 1, levelIndex: 0, completed: {} });
+    expect(loadProgress(s)).toEqual({ version: 1, levelIndex: 0, completed: {}, stars: {} });
   });
 
   it('rejects negative or non-integer levelIndex', () => {
@@ -43,5 +43,12 @@ describe('progress', () => {
     expect(loadProgress(s).levelIndex).toBe(0);
     s.setItem('omnigame.progress.v1', JSON.stringify({ version: 1, levelIndex: 2.5, completed: {} }));
     expect(loadProgress(s).levelIndex).toBe(0);
+  });
+
+  it('defaults stars to empty and round-trips them', () => {
+    const s = memStorage();
+    expect(loadProgress(s).stars).toEqual({});
+    saveProgress(s, { version: 1, levelIndex: 1, completed: { 'kitchen-001': true }, stars: { 'kitchen-001': 3 } });
+    expect(loadProgress(s).stars).toEqual({ 'kitchen-001': 3 });
   });
 });

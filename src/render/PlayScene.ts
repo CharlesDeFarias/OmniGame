@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { applyMove, startLevel, ShuffleError } from '../core/match3/index';
+import { applyMove, startLevel, starsFor, ShuffleError } from '../core/match3/index';
 import type { Coord, GameState, LevelDef, MoveOutcome, PieceColor } from '../core/match3/index';
 import { createJournal, type Journal } from '../services/journal';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
@@ -335,24 +335,36 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private async onWin(): Promise<void> {
-    this.journal.log('level_end', { level: this.state.level.id, won: true, movesLeft: this.state.movesLeft, retries: this.retryCount });
+    const stars = starsFor({
+      status: this.state.status,
+      giftUsed: this.state.giftUsed,
+      movesLeft: this.state.movesLeft,
+      baseMoves: this.state.level.moves,
+    });
+    this.journal.log('level_end', { level: this.state.level.id, won: true, movesLeft: this.state.movesLeft, stars, retries: this.retryCount });
     this.blips.win();
     const dim = this.overlay();
-    const stars: Phaser.GameObjects.Sprite[] = [];
+    const starSprites: Phaser.GameObjects.Sprite[] = [];
     for (let i = 0; i < 3; i++) {
-      const st = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'ui-star').setDepth(11).setScale(0);
-      stars.push(st);
+      const slot = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'ui-star')
+        .setDepth(11).setScale(2.2).setTint(0x555566);
+      starSprites.push(slot);
+    }
+    for (let i = 0; i < stars; i++) {
+      const st = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'ui-star').setDepth(12).setScale(0);
+      starSprites.push(st);
       await this.tweenAsync({ targets: st, scale: 2.2, duration: 260, ease: 'Back.easeOut' });
     }
     const idx = this.progress.levelIndex;
     this.progress.completed[this.state.level.id] = true;
+    this.progress.stars[this.state.level.id] = Math.max(stars, this.progress.stars[this.state.level.id] ?? 0);
     if (idx < this.levels.length - 1) this.progress.levelIndex = idx + 1;
     saveProgress(window.localStorage, this.progress);
     const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.62, 'ui-play').setDepth(11).setScale(2.4).setInteractive();
     btn.once('pointerup', () => {
       this.retryCount = 0;
       dim.destroy();
-      stars.forEach((s) => s.destroy());
+      starSprites.forEach((s) => s.destroy());
       btn.destroy();
       if (idx >= this.levels.length - 1) this.journal.log('chapter_complete', { chapter: 'kitchen' });
       this.startCurrentLevel();
