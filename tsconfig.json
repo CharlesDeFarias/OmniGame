@@ -8,7 +8,8 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "types": [
-      "node"
+      "node",
+      "vite/client"
     ]
   },
   "include": [

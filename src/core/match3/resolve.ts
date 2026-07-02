@@ -19,6 +19,7 @@ export interface TurnResult {
   board: Board;
   events: ResolveEvent[];
   clearedByColor: Partial<Record<PieceColor, number>>;
+  reason?: 'not-adjacent' | 'no-match' | 'empty-cell';
 }
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
@@ -59,7 +60,7 @@ export function resolveTurn(
 ): TurnResult {
   if (colorCount < 3) throw new Error(`colorCount must be >= 3, got ${colorCount}`);
   const check = canSwap(board, a, b);
-  if (!check.valid) return { valid: false, board, events: [], clearedByColor: {} };
+  if (!check.valid) return { valid: false, board, events: [], clearedByColor: {}, reason: check.reason };
 
   const work = cloneBoard(board);
   const events: ResolveEvent[] = [];

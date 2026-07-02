@@ -25,6 +25,8 @@ export interface MoveOutcome {
   /** Number of moves granted by the one-time forgiveness gift, if it fired. */
   gift?: number;
   invalid?: true;
+  /** Why the move was rejected (for renderer feedback, e.g. wiggle). */
+  reason?: 'not-adjacent' | 'no-match' | 'empty-cell' | 'not-playing';
 }
 
 export function startLevel(level: LevelDef): GameState {
@@ -43,9 +45,9 @@ export function startLevel(level: LevelDef): GameState {
 }
 
 export function applyMove(state: GameState, a: Coord, b: Coord): MoveOutcome {
-  if (state.status !== 'playing') return { state, events: [], invalid: true };
+  if (state.status !== 'playing') return { state, events: [], invalid: true, reason: 'not-playing' };
   const result = resolveTurn(state.board, a, b, state.rng, state.level.board.colorCount);
-  if (!result.valid) return { state, events: [], invalid: true };
+  if (!result.valid) return { state, events: [], invalid: true, reason: result.reason };
 
   const goals = applyCleared(state.goals, result.clearedByColor);
   let movesLeft = state.movesLeft - 1;
