@@ -313,12 +313,11 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
 
   // --- Meta-layer textures (plan 6; plan 7 restyles) ---
 
-  // Avatars: outfits [purple, green, orange] x poses 0-2, plus the default alias.
+  // Avatars: outfits [purple, green, orange] x poses 0-2.
   const OUTFITS = [0x9b59b6, 0x2ecc71, 0xe67e22] as const;
   OUTFITS.forEach((color, o) => {
     for (const pose of [0, 1, 2] as const) makeAvatarTexture(scene, `avatar-o${o}-p${pose}`, color, pose);
   });
-  makeAvatarTexture(scene, 'avatar-0', 0x9b59b6, 0);
 
   // Furniture: recognizable silhouette per slot, accent color per style.
   const furnDraw: Record<string, (g: Phaser.GameObjects.Graphics, accent: number) => void> = {

@@ -45,7 +45,7 @@ export class PlayScene extends Phaser.Scene {
   private coinIcon!: Phaser.GameObjects.Sprite;
   private coinText!: Phaser.GameObjects.Text;
   private movesText!: Phaser.GameObjects.Text;
-  private goalHud: { icon: Phaser.GameObjects.Sprite; txt: Phaser.GameObjects.Text; color: PieceColor | null }[] = [];
+  private goalHud: { icon: Phaser.GameObjects.Sprite; txt: Phaser.GameObjects.Text }[] = [];
   private pack: PackId = 'gems';
   private retryCount = 0;
   private downAt: { cell: Coord; px: number; py: number } | null = null;
@@ -206,7 +206,6 @@ export class PlayScene extends Phaser.Scene {
     );
     const x0 = GAME_WIDTH / 2 - ((n - 1) * spacing) / 2;
     this.state.goals.forEach((gs, i) => {
-      const color = gs.goal.type === 'collect' ? gs.goal.color : null;
       const iconKey =
         gs.goal.type === 'collect' ? pieceTextureKey({ kind: 'normal', color: gs.goal.color }, this.pack)
         : gs.goal.type === 'clearBoxes' ? 'ob-box1'
@@ -216,7 +215,7 @@ export class PlayScene extends Phaser.Scene {
         .text(x0 + i * spacing + 14, TOP_RESERVE * 0.32, '', { fontSize: '44px', fontStyle: 'bold', color: '#ffffff' })
         .setOrigin(0, 0.5)
         .setDepth(2);
-      this.goalHud.push({ icon, txt, color });
+      this.goalHud.push({ icon, txt });
     });
   }
 
@@ -311,14 +310,32 @@ export class PlayScene extends Phaser.Scene {
     objs.push(this.add.text(300, y, tier > 0 ? `+${tier}` : String(tier), textStyle).setOrigin(0, 0.5).setDepth(23));
     y += 58;
     y += 16;
-    for (const [id, lv] of Object.entries(stats.perLevel)) {
-      objs.push(this.add.text(210, y, id.replace(/^kitchen-/, ''), textStyle).setOrigin(0, 0.5).setDepth(23));
-      for (let i = 0; i < 3; i++) {
-        const st = this.add.sprite(340 + i * 52, y, 'ui-star').setDisplaySize(40, 40).setDepth(23);
-        if (i >= lv.bestStars) st.setTint(0x555566);
-        objs.push(st);
-      }
-      y += 52;
+    // Per-level results as a compact 5-column grid so up to 50 levels fit the panel:
+    // number + earned stars below; past 25 entries, denser number+star-count text.
+    const label = (id: string): string => id.replace(/^[a-z]+-/, '');
+    const entries = Object.entries(stats.perLevel).sort(
+      ([a], [b]) => parseInt(label(a), 10) - parseInt(label(b), 10),
+    );
+    const gridX = (i: number): number => 116 + (i % 5) * 122;
+    if (entries.length > 25) {
+      entries.forEach(([id, lv], i) => {
+        const gy = y + Math.floor(i / 5) * 44;
+        objs.push(
+          this.add
+            .text(gridX(i), gy, `${label(id)} ★${lv.bestStars}`, { fontSize: '22px', color: '#ffffff' })
+            .setOrigin(0.5)
+            .setDepth(23),
+        );
+      });
+    } else {
+      entries.forEach(([id, lv], i) => {
+        const cx = gridX(i);
+        const gy = y + Math.floor(i / 5) * 66;
+        objs.push(this.add.text(cx, gy, label(id), { fontSize: '24px', color: '#ffffff' }).setOrigin(0.5).setDepth(23));
+        for (let st = 0; st < Math.min(3, lv.bestStars); st++) {
+          objs.push(this.add.sprite(cx - 22 + st * 22, gy + 26, 'ui-star').setDisplaySize(18, 18).setDepth(23));
+        }
+      });
     }
   }
 
