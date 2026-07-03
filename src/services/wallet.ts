@@ -11,7 +11,8 @@ export interface WalletData {
 export interface Wallet {
   data(): WalletData;
   earnWin(stars: 0 | 1 | 2 | 3): void;
-  earnVideo(perf: 0 | 1 | 2): void;
+  /** Video payout scaled by the chapter's payoutMultiplier (kitchen = 1), rounded per currency. */
+  earnVideo(perf: 0 | 1 | 2, multiplier?: number): void;
   spend(cost: number): boolean;
   level(): number;
 }
@@ -73,10 +74,10 @@ export function createWallet(storage: JournalStorage): Wallet {
       state.xp += stars * 10;
       save();
     },
-    earnVideo(perf) {
-      state.followers += 25 + 5 * perf;
-      state.hearts += 15;
-      state.xp += 100;
+    earnVideo(perf, multiplier = 1) {
+      state.followers += Math.round((25 + 5 * perf) * multiplier);
+      state.hearts += Math.round(15 * multiplier);
+      state.xp += Math.round(100 * multiplier);
       save();
     },
     spend(cost) {

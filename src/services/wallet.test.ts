@@ -42,6 +42,14 @@ describe('wallet', () => {
     expect(w.data()).toEqual({ version: 1, coins: 0, followers: 60, hearts: 30, xp: 200 });
   });
 
+  it('earnVideo scales followers/hearts/xp by the chapter multiplier, rounded', () => {
+    const w = createWallet(memStorage());
+    w.earnVideo(2, 1.25);
+    expect(w.data()).toEqual({ version: 1, coins: 0, followers: 44, hearts: 19, xp: 125 });
+    w.earnVideo(0, 1.75);
+    expect(w.data()).toEqual({ version: 1, coins: 0, followers: 44 + 44, hearts: 19 + 26, xp: 125 + 175 });
+  });
+
   it('spend succeeds only with sufficient coins and never goes negative', () => {
     const w = createWallet(memStorage());
     w.earnWin(2); // 40 coins
