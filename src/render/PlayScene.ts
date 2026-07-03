@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import { applyMove, findValidMoves, startLevel, starsFor, ShuffleError } from '../core/match3/index';
 import type { Coord, GameState, LevelDef, MoveOutcome, PieceColor } from '../core/match3/index';
+import { createAdaptive, type Adaptive } from '../services/adaptive';
 import { createJournal, type Journal } from '../services/journal';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
 import { summarize } from '../services/stats';
+import { createWallet, type Wallet } from '../services/wallet';
 import { createBlips, type Blips } from './audio';
 import { planSteps, type Step } from './choreo';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
@@ -31,7 +33,11 @@ export class PlayScene extends Phaser.Scene {
   private busy = false;
   private journal!: Journal;
   private progress!: ProgressData;
+  private wallet!: Wallet;
+  private adaptive!: Adaptive;
   private blips!: Blips;
+  private coinIcon!: Phaser.GameObjects.Sprite;
+  private coinText!: Phaser.GameObjects.Text;
   private movesText!: Phaser.GameObjects.Text;
   private goalHud: { icon: Phaser.GameObjects.Sprite; txt: Phaser.GameObjects.Text; color: PieceColor | null }[] = [];
   private retryCount = 0;
@@ -46,6 +52,7 @@ export class PlayScene extends Phaser.Scene {
   private secretTaps: number[] = [];
   private statsOverlay: Phaser.GameObjects.GameObject[] = [];
   private confetti: Phaser.GameObjects.Sprite[] = [];
+  private wakeHooked = false;
 
   constructor() {
     super('play');
@@ -62,13 +69,18 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(-2);
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.progress = loadProgress(window.localStorage);
+    this.wallet = createWallet(window.localStorage);
+    this.adaptive = createAdaptive(window.localStorage);
     this.blips = createBlips();
     // Keep the screen awake during play (best effort; re-request when the tab returns).
     const requestWake = () => { try { void (navigator as Navigator & { wakeLock?: { request(type: string): Promise<unknown> } }).wakeLock?.request('screen').then(undefined, () => {}); } catch { /* ignore */ } };
     requestWake();
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') requestWake();
-    });
+    if (!this.wakeHooked) {
+      this.wakeHooked = true;
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') requestWake();
+      });
+    }
     const startMuted = window.localStorage.getItem('omnigame.muted.v1') === '1';
     this.blips.setMuted(startMuted);
     const muteBtn = this.add
@@ -99,6 +111,11 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(20)
       .setInteractive()
       .on('pointerdown', () => this.onSecretTap());
+    this.coinIcon = this.add.sprite(90, 170, 'ui-coin').setDisplaySize(40, 40).setDepth(2);
+    this.coinText = this.add
+      .text(120, 170, String(this.wallet.data().coins), { fontSize: '28px', fontStyle: 'bold', color: '#ffffff' })
+      .setOrigin(0, 0.5)
+      .setDepth(2);
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onUp(p));
     this.startCurrentLevel();
@@ -115,7 +132,7 @@ export class PlayScene extends Phaser.Scene {
     this.killHand();
     this.movesMadeThisLevel = 0;
     this.tutorialLogged = false;
-    const def = this.currentDef();
+    const def = this.adaptive.applyTier(this.currentDef());
     let started: GameState | undefined;
     let lastError: unknown;
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -151,7 +168,7 @@ export class PlayScene extends Phaser.Scene {
         this.backdrop.push(tile);
       }
     }
-    this.journal.log('level_start', { level: def.id, retry: this.retryCount });
+    this.journal.log('level_start', { level: def.id, retry: this.retryCount, tier: this.adaptive.state().tier });
     this.buildGoalHud();
     this.syncBoard();
     this.updateHud();
@@ -257,13 +274,33 @@ export class PlayScene extends Phaser.Scene {
       { icon: 'ui-retry', value: String(stats.retries) },
       { icon: 'sp-propeller', value: String(stats.shuffles) },
     ];
-    let y = 230;
+    let y = 210;
     for (const row of header) {
       if (row.icon !== null) objs.push(this.add.sprite(250, y, row.icon).setDisplaySize(40, 40).setDepth(23));
       objs.push(this.add.text(300, y, row.value, textStyle).setOrigin(0, 0.5).setDepth(23));
-      y += 64;
+      y += 58;
     }
-    y += 24;
+    // Currencies + influencer level, read fresh from storage at open time.
+    const walletNow = createWallet(window.localStorage);
+    const w = walletNow.data();
+    const currencies: { icon: string; value: string }[] = [
+      { icon: 'ui-coin', value: String(w.coins) },
+      { icon: 'ui-follower', value: String(w.followers) },
+      { icon: 'ui-heart', value: String(w.hearts) },
+      { icon: 'ui-levelbadge', value: String(walletNow.level()) },
+    ];
+    currencies.forEach((c, i) => {
+      const cx = 130 + i * 150;
+      objs.push(this.add.sprite(cx, y, c.icon).setDisplaySize(40, 40).setDepth(23));
+      objs.push(this.add.text(cx + 30, y, c.value, textStyle).setOrigin(0, 0.5).setDepth(23));
+    });
+    y += 58;
+    // Adaptive difficulty tier (signed), read fresh at open time.
+    const tier = createAdaptive(window.localStorage).state().tier;
+    objs.push(this.add.sprite(250, y, 'ui-levelbadge').setDisplaySize(40, 40).setTint(0x888899).setDepth(23));
+    objs.push(this.add.text(300, y, tier > 0 ? `+${tier}` : String(tier), textStyle).setOrigin(0, 0.5).setDepth(23));
+    y += 58;
+    y += 16;
     for (const [id, lv] of Object.entries(stats.perLevel)) {
       objs.push(this.add.text(210, y, id.replace(/^kitchen-/, ''), textStyle).setOrigin(0, 0.5).setDepth(23));
       for (let i = 0; i < 3; i++) {
@@ -271,7 +308,7 @@ export class PlayScene extends Phaser.Scene {
         if (i >= lv.bestStars) st.setTint(0x555566);
         objs.push(st);
       }
-      y += 56;
+      y += 52;
     }
   }
 
@@ -679,8 +716,16 @@ export class PlayScene extends Phaser.Scene {
       baseMoves: this.state.level.moves,
     });
     this.journal.log('level_end', { level: this.state.level.id, won: true, movesLeft: this.state.movesLeft, stars, retries: this.retryCount });
+    this.wallet.earnWin(stars);
+    this.journal.log('earn', { coins: 20 + 10 * stars });
+    this.coinText.setText(String(this.wallet.data().coins));
+    const outcome = this.adaptive.recordOutcome(true, stars);
+    if (outcome.changed) this.journal.log('difficulty_tier', { tier: outcome.tier });
+    const wins = this.adaptive.recordWin();
+    const offerBreak = wins >= 5;
+    this.flyCoinPips();
     this.blips.win();
-    const dim = this.overlay();
+    this.overlay();
     const starSprites: Phaser.GameObjects.Sprite[] = [];
     for (let i = 0; i < 3; i++) {
       const slot = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'ui-star')
@@ -698,21 +743,93 @@ export class PlayScene extends Phaser.Scene {
     if (idx < this.levels.length - 1) this.progress.levelIndex = idx + 1;
     saveProgress(window.localStorage, this.progress);
     if (idx >= this.levels.length - 1) {
-      await this.showChapterComplete(dim, starSprites);
+      await this.showChapterComplete();
       return;
     }
     const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.62, 'ui-play').setDepth(11).setScale(2.4).setInteractive();
     btn.once('pointerup', () => {
       this.retryCount = 0;
-      dim.destroy();
-      starSprites.forEach((s) => s.destroy());
-      btn.destroy();
-      this.startCurrentLevel();
+      if (offerBreak) this.danceBreak();
+      else this.scene.start('career');
     });
   }
 
+  /** 4-6 gold coin pips fly from board center to the coin counter (fire-and-forget). */
+  private flyCoinPips(): void {
+    const n = 4 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const pip = this.add
+        .sprite(GAME_WIDTH / 2 + (Math.random() * 2 - 1) * 50, GAME_HEIGHT / 2 + (Math.random() * 2 - 1) * 50, 'ui-pip')
+        .setTint(0xf1c40f)
+        .setScale(1.4)
+        .setDepth(12);
+      this.tweens.add({
+        targets: pip,
+        x: this.coinIcon.x,
+        y: this.coinIcon.y,
+        scale: 0.5,
+        duration: 520,
+        delay: i * 80,
+        ease: 'Cubic.easeIn',
+        onComplete: () => pip.destroy(),
+      });
+    }
+  }
+
+  /** Optional dance break after every 5th win: dancing avatar + beat, prominent skip. */
+  private danceBreak(): void {
+    const TOTAL_BEATS = 33; // ~20s at 600ms per beat
+    const dim = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.92)
+      .setDepth(40)
+      .setInteractive();
+    const avatar = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.45, 'avatar-o0-p0').setDepth(41).setScale(3);
+    this.tweens.add({
+      targets: avatar,
+      scaleX: 3.18,
+      scaleY: 3.18,
+      duration: 300,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    const skip = this.add
+      .sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.84, 'ui-play')
+      .setDepth(41)
+      .setScale(2.2)
+      .setTint(0x888899)
+      .setInteractive();
+    let done = false;
+    const finish = (completed: boolean): void => {
+      if (done) return;
+      done = true;
+      timer.remove();
+      this.tweens.killTweensOf(avatar);
+      dim.destroy();
+      avatar.destroy();
+      skip.destroy();
+      this.adaptive.resetBreakCounter();
+      this.journal.log('dance_break', { completed });
+      this.scene.start('career');
+    };
+    let pose = 0;
+    let ticks = 0;
+    const timer = this.time.addEvent({
+      delay: 600,
+      repeat: TOTAL_BEATS - 1,
+      callback: () => {
+        ticks += 1;
+        this.blips.beat();
+        pose = (pose + 1) % 3;
+        avatar.setTexture(`avatar-o0-p${pose}`);
+        if (ticks >= TOTAL_BEATS) finish(true);
+      },
+    });
+    skip.once('pointerup', () => finish(false));
+  }
+
   /** Last level won: trophy + confetti celebration, replay button restarts the chapter. */
-  private async showChapterComplete(dim: Phaser.GameObjects.Rectangle, starSprites: Phaser.GameObjects.Sprite[]): Promise<void> {
+  private async showChapterComplete(): Promise<void> {
     this.journal.log('chapter_complete', { chapter: 'kitchen' });
     const trophy = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.55, 'ui-trophy').setDepth(12).setScale(0);
     const tints = Object.values(COLOR_HEX);
@@ -742,19 +859,16 @@ export class PlayScene extends Phaser.Scene {
       saveProgress(window.localStorage, this.progress);
       this.journal.log('chapter_replay', { chapter: 'kitchen' });
       this.retryCount = 0;
-      for (const c of this.confetti) if (c.active) c.destroy();
       this.confetti = [];
-      dim.destroy();
-      starSprites.forEach((s) => s.destroy());
-      trophy.destroy();
-      btn.destroy();
-      this.startCurrentLevel();
+      this.scene.start('career');
     });
   }
 
   private async onLose(): Promise<void> {
     this.killHand();
     this.journal.log('level_end', { level: this.state.level.id, won: false, retries: this.retryCount });
+    const outcome = this.adaptive.recordOutcome(false, 0);
+    if (outcome.changed) this.journal.log('difficulty_tier', { tier: outcome.tier });
     this.blips.lose();
     const dim = this.overlay();
     const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.5, 'ui-retry').setDepth(11).setScale(0).setInteractive();
