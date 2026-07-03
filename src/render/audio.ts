@@ -6,6 +6,8 @@ export interface Blips {
   gift(): void;
   win(): void;
   lose(): void;
+  beat(): void;
+  ding(): void;
   setMuted(m: boolean): void;
   muted(): boolean;
 }
@@ -39,6 +41,8 @@ export function createBlips(): Blips {
     gift() { tone(440, 0, 0.1); tone(550, 0.09, 0.1); tone(660, 0.18, 0.14); },
     win() { tone(523, 0, 0.15); tone(659, 0.12, 0.15); tone(784, 0.24, 0.25); },
     lose() { tone(392, 0, 0.2); tone(330, 0.15, 0.3); },
+    beat() { tone(880, 0, 0.06, 'square', 0.08); },
+    ding() { tone(1046, 0, 0.25); },
     setMuted(m) { isMuted = m; },
     muted: () => isMuted,
   };
