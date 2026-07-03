@@ -34,8 +34,43 @@ const star = (cx: number, cy: number, rOut: number, rIn: number, n: number): Pha
   return pts as Phaser.Math.Vector2[];
 };
 
-/** Generates all gem/special/UI textures once. size = texture edge in px. */
+/** Simple friendly avatar: head + hair, torso/arms in outfit color. Poses: 0 arms down, 1 one arm up, 2 both up. */
+export function makeAvatarTexture(scene: Phaser.Scene, key: string, outfitColor: number, pose: 0 | 1 | 2): void {
+  const s = 96;
+  const c = s / 2;
+  const g = scene.add.graphics();
+  // Legs.
+  g.fillStyle(0x2c3e50);
+  g.fillRoundedRect(c - s * 0.12, s * 0.62, s * 0.09, s * 0.3, s * 0.03);
+  g.fillRoundedRect(c + s * 0.03, s * 0.62, s * 0.09, s * 0.3, s * 0.03);
+  // Torso + arms in outfit color; arm angles differ per pose.
+  g.fillStyle(outfitColor);
+  g.fillRoundedRect(c - s * 0.15, s * 0.34, s * 0.3, s * 0.32, s * 0.06);
+  const arm = (x: number, up: boolean): void => {
+    g.fillRoundedRect(x, up ? s * 0.13 : s * 0.38, s * 0.07, s * 0.26, s * 0.03);
+  };
+  arm(c - s * 0.23, pose === 2);
+  arm(c + s * 0.16, pose >= 1);
+  // Hair circle behind, skin head over it: leaves a dark fringe arc on top.
+  g.fillStyle(0x4a3222);
+  g.fillCircle(c, s * 0.17, s * 0.145);
+  g.fillStyle(0xf0c8a0);
+  g.fillCircle(c, s * 0.21, s * 0.13);
+  // Eyes + smile keep it friendly.
+  g.fillStyle(0x2c2c54);
+  g.fillCircle(c - s * 0.05, s * 0.2, s * 0.017);
+  g.fillCircle(c + s * 0.05, s * 0.2, s * 0.017);
+  g.fillRoundedRect(c - s * 0.045, s * 0.255, s * 0.09, s * 0.02, s * 0.01);
+  g.generateTexture(key, s, s);
+  g.destroy();
+}
+
+/** Furniture accent colors per style: a woody, b modern blue, c pink. */
+const FURN_ACCENT: Record<string, number> = { a: 0x8e6e53, b: 0x5dade2, c: 0xf5b7b1 };
+
+/** Generates all gem/special/UI textures once. size = texture edge in px. Idempotent across scenes. */
 export function makeTextures(scene: Phaser.Scene, size: number): void {
+  if (scene.textures.exists('gem-red')) return;
   const s = size;
   const c = s / 2;
   const r = s * 0.38;
@@ -217,5 +252,158 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.lineTo(s * 0.72, s * 0.44);
     g.lineTo(s * 0.84, s * 0.64);
     g.strokePath();
+  });
+
+  // --- Meta-layer textures (plan 6; plan 7 restyles) ---
+
+  // Avatars: outfits [purple, green, orange] x poses 0-2, plus the default alias.
+  const OUTFITS = [0x9b59b6, 0x2ecc71, 0xe67e22] as const;
+  OUTFITS.forEach((color, o) => {
+    for (const pose of [0, 1, 2] as const) makeAvatarTexture(scene, `avatar-o${o}-p${pose}`, color, pose);
+  });
+  makeAvatarTexture(scene, 'avatar-0', 0x9b59b6, 0);
+
+  // Furniture: recognizable silhouette per slot, accent color per style.
+  const furnDraw: Record<string, (g: Phaser.GameObjects.Graphics, accent: number) => void> = {
+    counter: (g, accent) => {
+      g.fillStyle(accent);
+      g.fillRect(s * 0.08, s * 0.46, s * 0.84, s * 0.42);
+      g.fillStyle(0xd7dbdd);
+      g.fillRect(s * 0.05, s * 0.38, s * 0.9, s * 0.09);
+      g.fillStyle(0x000000, 0.18);
+      g.fillRect(s * 0.14, s * 0.54, s * 0.32, s * 0.28);
+      g.fillRect(s * 0.54, s * 0.54, s * 0.32, s * 0.28);
+    },
+    fridge: (g, accent) => {
+      g.fillStyle(accent);
+      g.fillRoundedRect(c - s * 0.21, s * 0.08, s * 0.42, s * 0.84, s * 0.07);
+      g.fillStyle(0x000000, 0.2);
+      g.fillRect(c - s * 0.21, s * 0.4, s * 0.42, s * 0.02);
+      g.fillStyle(0xecf0f1);
+      g.fillRoundedRect(c + s * 0.1, s * 0.16, s * 0.045, s * 0.18, s * 0.02);
+      g.fillRoundedRect(c + s * 0.1, s * 0.48, s * 0.045, s * 0.18, s * 0.02);
+    },
+    table: (g, accent) => {
+      g.fillStyle(accent);
+      g.fillRoundedRect(s * 0.08, s * 0.36, s * 0.84, s * 0.1, s * 0.03);
+      g.fillRect(s * 0.16, s * 0.46, s * 0.07, s * 0.42);
+      g.fillRect(s * 0.77, s * 0.46, s * 0.07, s * 0.42);
+    },
+    lamp: (g, accent) => {
+      g.fillStyle(0x555566);
+      g.fillRect(c - s * 0.025, s * 0.32, s * 0.05, s * 0.52);
+      g.fillEllipse(c, s * 0.86, s * 0.3, s * 0.08);
+      g.fillStyle(accent);
+      g.fillTriangle(c, s * 0.06, c - s * 0.2, s * 0.34, c + s * 0.2, s * 0.34);
+    },
+    plant: (g, accent) => {
+      g.fillStyle(0x2ecc71);
+      g.fillEllipse(c, s * 0.3, s * 0.16, s * 0.42);
+      g.fillEllipse(c - s * 0.14, s * 0.42, s * 0.3, s * 0.15);
+      g.fillEllipse(c + s * 0.14, s * 0.42, s * 0.3, s * 0.15);
+      g.fillStyle(accent);
+      g.fillRect(c - s * 0.19, s * 0.55, s * 0.38, s * 0.07);
+      g.fillRoundedRect(c - s * 0.16, s * 0.6, s * 0.32, s * 0.28, s * 0.04);
+    },
+    art: (g, accent) => {
+      g.fillStyle(0x6e4a2f);
+      g.fillRect(s * 0.14, s * 0.14, s * 0.72, s * 0.72);
+      g.fillStyle(0xf8f5f0);
+      g.fillRect(s * 0.2, s * 0.2, s * 0.6, s * 0.6);
+      g.fillStyle(accent);
+      g.fillTriangle(c, s * 0.34, s * 0.28, s * 0.74, s * 0.72, s * 0.74);
+      g.fillCircle(s * 0.68, s * 0.32, s * 0.06);
+    },
+  };
+  for (const slot of ['counter', 'fridge', 'table', 'lamp', 'plant', 'art']) {
+    for (const style of ['a', 'b', 'c']) {
+      ui(`furn-${slot}-${style}`, (g) => furnDraw[slot]!(g, FURN_ACCENT[style]!));
+    }
+  }
+
+  // Career UI icons.
+  ui('ui-coin', (g) => {
+    g.fillStyle(0xf1c40f);
+    g.fillCircle(c, c, r * 1.05);
+    g.lineStyle(s * 0.05, 0xb7950b);
+    g.strokeCircle(c, c, r * 0.68);
+  });
+  ui('ui-follower', (g) => {
+    g.fillStyle(0x3498db);
+    g.fillCircle(c, c, r * 1.05);
+    g.fillStyle(0xffffff);
+    g.fillCircle(c, c - r * 0.3, r * 0.32);
+    g.fillEllipse(c, c + r * 0.48, r * 1.1, r * 0.68);
+  });
+  ui('ui-heart', (g) => {
+    g.fillStyle(0xe74c3c);
+    g.fillCircle(c - r * 0.35, c - r * 0.25, r * 0.42);
+    g.fillCircle(c + r * 0.35, c - r * 0.25, r * 0.42);
+    g.fillTriangle(c - r * 0.72, c - r * 0.05, c + r * 0.72, c - r * 0.05, c, c + r * 0.75);
+  });
+  ui('ui-levelbadge', (g) => {
+    g.fillStyle(0x9b59b6);
+    g.fillPoints([
+      { x: c - r * 0.7, y: c - r * 0.7 },
+      { x: c + r * 0.7, y: c - r * 0.7 },
+      { x: c + r * 0.7, y: c + r * 0.15 },
+      { x: c, y: c + r * 0.85 },
+      { x: c - r * 0.7, y: c + r * 0.15 },
+    ] as Phaser.Math.Vector2[], true);
+    g.fillStyle(0xffffff);
+    g.fillPoints([
+      { x: c - r * 0.4, y: c + r * 0.05 },
+      { x: c, y: c - r * 0.32 },
+      { x: c, y: c - r * 0.06 },
+      { x: c - r * 0.4, y: c + r * 0.31 },
+    ] as Phaser.Math.Vector2[], true);
+    g.fillPoints([
+      { x: c + r * 0.4, y: c + r * 0.05 },
+      { x: c, y: c - r * 0.32 },
+      { x: c, y: c - r * 0.06 },
+      { x: c + r * 0.4, y: c + r * 0.31 },
+    ] as Phaser.Math.Vector2[], true);
+  });
+  ui('ui-video', (g) => {
+    g.fillStyle(0x34495e);
+    g.fillRoundedRect(c - r * 0.35, c - r * 0.78, r * 0.7, r * 0.3, r * 0.1);
+    g.fillRoundedRect(c - r * 0.9, c - r * 0.5, r * 1.8, r, r * 0.15);
+    g.fillStyle(0xecf0f1);
+    g.fillCircle(c - r * 0.25, c, r * 0.32);
+    g.fillStyle(0x2c2c54);
+    g.fillCircle(c - r * 0.25, c, r * 0.18);
+    g.fillStyle(0xe74c3c);
+    g.fillCircle(c + r * 0.5, c - r * 0.25, r * 0.1);
+  });
+  ui('ui-note', (g) => {
+    g.fillStyle(0xffffff);
+    g.fillEllipse(c - r * 0.3, c + r * 0.55, r * 0.62, r * 0.46);
+    g.fillRect(c - r * 0.02, c - r * 0.75, r * 0.1, r * 1.3);
+    g.fillTriangle(c + r * 0.08, c - r * 0.75, c + r * 0.6, c - r * 0.45, c + r * 0.08, c - r * 0.3);
+  });
+  // Empty furnishing slot: dashed-look rounded rect (8 stroke segments), transparent fill.
+  ui('ui-slot', (g) => {
+    g.lineStyle(s * 0.045, 0xffffff, 0.9);
+    const m = s * 0.1;
+    const e = s * 0.9;
+    const d0 = s * 0.08;
+    const d1 = s * 0.32;
+    g.beginPath();
+    for (const [ax, ay, bx, by] of [
+      [m + d0, m, m + d1, m], [e - d1, m, e - d0, m],
+      [m + d0, e, m + d1, e], [e - d1, e, e - d0, e],
+      [m, m + d0, m, m + d1], [m, e - d1, m, e - d0],
+      [e, m + d0, e, m + d1], [e, e - d1, e, e - d0],
+    ] as const) {
+      g.moveTo(ax, ay);
+      g.lineTo(bx, by);
+    }
+    g.strokePath();
+  });
+  ui('ui-dumbbell', (g) => {
+    g.fillStyle(0x95a5a6);
+    g.fillRoundedRect(c - r * 0.85, c - r * 0.09, r * 1.7, r * 0.18, r * 0.05);
+    g.fillRoundedRect(c - r * 0.95, c - r * 0.42, r * 0.3, r * 0.84, r * 0.08);
+    g.fillRoundedRect(c + r * 0.65, c - r * 0.42, r * 0.3, r * 0.84, r * 0.08);
   });
 }
