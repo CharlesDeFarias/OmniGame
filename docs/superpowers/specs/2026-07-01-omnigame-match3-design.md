@@ -76,6 +76,10 @@ Full superpowers discipline: written specs → implementation plans → TDD → 
 
 As Luana progresses, obstacles appear and target failure rate rises unless she genuinely improves; if losses pass a threshold, difficulty eases (rubber-band). Player-ability tracking and level adaptation: deferred unless cheap. Play-time tracking with healthy-alternative encouragement (movement breaks): deferred. Heavy usage tracking is a first-class requirement for Luana's build (and possible trial builds): local-only event journal (levels, outcomes, retries, timestamps), never uploaded, hooks installed in the presentation layer from day one; the analysis/adaptation layer comes later. (Decisions #24-26.)
 
+## Meta-layer design (plan 6, decided 2026-07-02)
+
+**Spine and world:** the influencer career is Luana's primary progression; adulting (apartment furnishing, groceries, shopping, fashion) is the supporting world around it. **Four currencies:** coins (earned per level, scaled by stars; spent ONLY on furnishing/fashion/shopping — never gates play), followers (career growth, never spent), hearts (social celebration per video), influencer level (aggregate; unlocks chapters and studio perks). **Loop:** levels → coins → furnish current room (1-of-3 styled choices) → room complete → "film a video" milestone: visual choices (outfit/pose) + a tiny minigame (tap-to-beat — seed of the dance side-game) → followers + hearts → influencer level rises → next content category unlocks (dance studio → gym → vanity/makeup, per decision #32). At furnishing pause points the coin sink rotates to other adulting: groceries, shopping, and especially fashion (outfit purchases feed the video wardrobe). **Real-world nudges:** optional dance breaks (procedural beat now; her personal playlist later, local-only) tracked in the journal. **Manager panel** (Charles assigns real-world practice tasks): plan 7+. Plan split: 6 = meta core on existing chapters; 6.5 = dance/gym/makeup chapters with their level sets and theme packs; 7 = design/feel pass driven by Charles's references (decision #33).
+
 ## Future games (not in MVP; architecture must not block them)
 
 - Basic card games
