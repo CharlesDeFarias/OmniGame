@@ -42,3 +42,7 @@ One line of context per decision; newest last. Full reasoning lives in the specs
 | 36 | 2026-07-02 | Furnishing pause points rotate the coin sink to groceries/shopping/FASHION (outfits feed video wardrobe) | She loves fashion games; keeps coins meaningful between rooms |
 | 37 | 2026-07-02 | Video milestone = visual choices + tiny minigame; dance breaks ship with procedural beat, her playlist later (local, personal layer) | Combo per Charles; no music licensing on public URL |
 | 38 | 2026-07-02 | Plan split: 6 = meta core (currencies/career screen/furnishing/video moment/adaptive difficulty v1), 6.5 = new themed chapters + packs, 7 = design pass | Keeps each plan shippable |
+| 39 | 2026-07-02 | Chapter design: dance/gym/vanity unlock at influencer level 3/4/5; 10 levels each; per-chapter rooms, payout multipliers (1.25/1.5/1.75) and +5 coins/win per chapter index (economy-probe Option B) | Keeps room completable ~level 8-9 of each chapter with 15-25% leftover |
+| 40 | 2026-07-02 | Wardrobe = the fashion coin sink: 6 outfits (80-220 coins), equipped outfit appears in video moments and dance breaks | Decision #36 realized; groceries/shopping sinks still open |
+| 41 | 2026-07-02 | Vanity unlock threshold 1150 xp (was 1300) | Closes a 125-xp grind gap at 2-star reference pace (gym exhausts at ~1175) |
+| 42 | 2026-07-02 | Storage keys keep .v1 names while carrying v2 payloads | Migration artifact, intentional — old saves are found under the historical keys |
