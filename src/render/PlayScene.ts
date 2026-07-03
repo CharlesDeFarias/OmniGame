@@ -122,7 +122,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private currentDef(): LevelDef {
-    const idx = Math.min(this.progress.levelIndex, this.levels.length - 1);
+    const idx = Math.min(this.progress.levelIndexByChapter.kitchen, this.levels.length - 1);
     const def = this.levels[idx]!;
     return this.retryCount === 0 ? def : { ...def, seed: def.seed + this.retryCount * 101 };
   }
@@ -332,7 +332,7 @@ export class PlayScene extends Phaser.Scene {
 
   /** Zero-text tutorial: hand loops from a valid move's start cell to its end cell (first level, first session, no moves yet). */
   private showHand(): void {
-    const idx = Math.min(this.progress.levelIndex, this.levels.length - 1);
+    const idx = Math.min(this.progress.levelIndexByChapter.kitchen, this.levels.length - 1);
     if (idx !== 0 || Object.keys(this.progress.completed).length !== 0 || this.movesMadeThisLevel !== 0) return;
     if (this.hand !== null) return;
     const move = findValidMoves(this.state.board)[0];
@@ -737,10 +737,10 @@ export class PlayScene extends Phaser.Scene {
       starSprites.push(st);
       await this.tweenAsync({ targets: st, scale: 2.2, duration: 260, ease: 'Back.easeOut' });
     }
-    const idx = this.progress.levelIndex;
+    const idx = this.progress.levelIndexByChapter.kitchen;
     this.progress.completed[this.state.level.id] = true;
     this.progress.stars[this.state.level.id] = Math.max(stars, this.progress.stars[this.state.level.id] ?? 0);
-    if (idx < this.levels.length - 1) this.progress.levelIndex = idx + 1;
+    if (idx < this.levels.length - 1) this.progress.levelIndexByChapter.kitchen = idx + 1;
     saveProgress(window.localStorage, this.progress);
     if (idx >= this.levels.length - 1) {
       await this.showChapterComplete();
@@ -855,7 +855,7 @@ export class PlayScene extends Phaser.Scene {
     await this.tweenAsync({ targets: trophy, scale: 3, duration: 420, ease: 'Back.easeOut' });
     const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.74, 'ui-retry').setDepth(12).setScale(2.4).setInteractive();
     btn.once('pointerup', () => {
-      this.progress.levelIndex = 0;
+      this.progress.levelIndexByChapter.kitchen = 0;
       saveProgress(window.localStorage, this.progress);
       this.journal.log('chapter_replay', { chapter: 'kitchen' });
       this.retryCount = 0;

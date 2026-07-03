@@ -6,7 +6,7 @@ import { PlayScene } from './PlayScene';
 
 // Returning players land on the career hub; a fresh save boots straight into level 1.
 // Phaser auto-starts the first scene in the array.
-const returning = loadProgress(window.localStorage).levelIndex > 0;
+const returning = loadProgress(window.localStorage).levelIndexByChapter.kitchen > 0;
 
 new Phaser.Game({
   type: Phaser.AUTO,

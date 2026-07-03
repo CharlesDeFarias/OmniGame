@@ -174,7 +174,7 @@ export class CareerScene extends Phaser.Scene {
         'pointerup',
         (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
           event.stopPropagation();
-          if (this.furnishing.furnish(slot.id, choice.styleId, this.wallet)) {
+          if (this.furnishing.furnish('kitchen', slot.id, choice.styleId, this.wallet)) {
             this.journal.log('furnish', { slot: slot.id, style: choice.styleId });
             this.closePicker();
             this.drawRoom();
