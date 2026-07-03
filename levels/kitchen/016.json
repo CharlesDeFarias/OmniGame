@@ -1,0 +1,31 @@
+{
+  "id": "kitchen-016",
+  "seed": 1016,
+  "board": {
+    "width": 7,
+    "height": 7,
+    "colorCount": 5,
+    "layout": [
+      ".......",
+      ".ii.ii.",
+      ".ii.ii.",
+      "...b...",
+      ".bb.bb.",
+      ".......",
+      "......."
+    ]
+  },
+  "moves": 21,
+  "giftMoves": 5,
+  "goals": [
+    {
+      "type": "clearIce",
+      "count": 8
+    },
+    {
+      "type": "collect",
+      "color": "purple",
+      "count": 44
+    }
+  ]
+}

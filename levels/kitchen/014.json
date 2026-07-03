@@ -1,0 +1,31 @@
+{
+  "id": "kitchen-014",
+  "seed": 1014,
+  "board": {
+    "width": 7,
+    "height": 7,
+    "colorCount": 5,
+    "layout": [
+      ".......",
+      "..b.b..",
+      ".......",
+      "b..b..b",
+      ".......",
+      "..b.b..",
+      "......."
+    ]
+  },
+  "moves": 19,
+  "giftMoves": 5,
+  "goals": [
+    {
+      "type": "clearBoxes",
+      "count": 7
+    },
+    {
+      "type": "collect",
+      "color": "green",
+      "count": 42
+    }
+  ]
+}

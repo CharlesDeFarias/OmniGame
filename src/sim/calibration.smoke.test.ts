@@ -4,7 +4,7 @@ import { parseLevel } from '../core/match3/index';
 import { greedyPolicy } from './policies';
 import { simulateLevel } from './simulate';
 
-const ids = ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010'];
+const ids = ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020'];
 
 describe('kitchen chapter smoke calibration', () => {
   for (const id of ids) {
