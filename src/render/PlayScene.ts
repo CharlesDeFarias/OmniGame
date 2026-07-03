@@ -4,6 +4,7 @@ import type { Coord, GameState, LevelDef, MoveOutcome, PieceColor } from '../cor
 import { createJournal, type Journal } from '../services/journal';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
 import { summarize } from '../services/stats';
+import { createWallet, type Wallet } from '../services/wallet';
 import { createBlips, type Blips } from './audio';
 import { planSteps, type Step } from './choreo';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
@@ -31,6 +32,7 @@ export class PlayScene extends Phaser.Scene {
   private busy = false;
   private journal!: Journal;
   private progress!: ProgressData;
+  private wallet!: Wallet;
   private blips!: Blips;
   private movesText!: Phaser.GameObjects.Text;
   private goalHud: { icon: Phaser.GameObjects.Sprite; txt: Phaser.GameObjects.Text; color: PieceColor | null }[] = [];
@@ -46,6 +48,7 @@ export class PlayScene extends Phaser.Scene {
   private secretTaps: number[] = [];
   private statsOverlay: Phaser.GameObjects.GameObject[] = [];
   private confetti: Phaser.GameObjects.Sprite[] = [];
+  private wakeHooked = false;
 
   constructor() {
     super('play');
@@ -62,13 +65,17 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(-2);
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.progress = loadProgress(window.localStorage);
+    this.wallet = createWallet(window.localStorage);
     this.blips = createBlips();
     // Keep the screen awake during play (best effort; re-request when the tab returns).
     const requestWake = () => { try { void (navigator as Navigator & { wakeLock?: { request(type: string): Promise<unknown> } }).wakeLock?.request('screen').then(undefined, () => {}); } catch { /* ignore */ } };
     requestWake();
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') requestWake();
-    });
+    if (!this.wakeHooked) {
+      this.wakeHooked = true;
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') requestWake();
+      });
+    }
     const startMuted = window.localStorage.getItem('omnigame.muted.v1') === '1';
     this.blips.setMuted(startMuted);
     const muteBtn = this.add
@@ -679,8 +686,10 @@ export class PlayScene extends Phaser.Scene {
       baseMoves: this.state.level.moves,
     });
     this.journal.log('level_end', { level: this.state.level.id, won: true, movesLeft: this.state.movesLeft, stars, retries: this.retryCount });
+    this.wallet.earnWin(stars);
+    this.journal.log('earn', { coins: 20 + 10 * stars });
     this.blips.win();
-    const dim = this.overlay();
+    this.overlay();
     const starSprites: Phaser.GameObjects.Sprite[] = [];
     for (let i = 0; i < 3; i++) {
       const slot = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'ui-star')
@@ -698,21 +707,18 @@ export class PlayScene extends Phaser.Scene {
     if (idx < this.levels.length - 1) this.progress.levelIndex = idx + 1;
     saveProgress(window.localStorage, this.progress);
     if (idx >= this.levels.length - 1) {
-      await this.showChapterComplete(dim, starSprites);
+      await this.showChapterComplete();
       return;
     }
     const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.62, 'ui-play').setDepth(11).setScale(2.4).setInteractive();
     btn.once('pointerup', () => {
       this.retryCount = 0;
-      dim.destroy();
-      starSprites.forEach((s) => s.destroy());
-      btn.destroy();
-      this.startCurrentLevel();
+      this.scene.start('career');
     });
   }
 
   /** Last level won: trophy + confetti celebration, replay button restarts the chapter. */
-  private async showChapterComplete(dim: Phaser.GameObjects.Rectangle, starSprites: Phaser.GameObjects.Sprite[]): Promise<void> {
+  private async showChapterComplete(): Promise<void> {
     this.journal.log('chapter_complete', { chapter: 'kitchen' });
     const trophy = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.55, 'ui-trophy').setDepth(12).setScale(0);
     const tints = Object.values(COLOR_HEX);
@@ -742,13 +748,8 @@ export class PlayScene extends Phaser.Scene {
       saveProgress(window.localStorage, this.progress);
       this.journal.log('chapter_replay', { chapter: 'kitchen' });
       this.retryCount = 0;
-      for (const c of this.confetti) if (c.active) c.destroy();
       this.confetti = [];
-      dim.destroy();
-      starSprites.forEach((s) => s.destroy());
-      trophy.destroy();
-      btn.destroy();
-      this.startCurrentLevel();
+      this.scene.start('career');
     });
   }
 
