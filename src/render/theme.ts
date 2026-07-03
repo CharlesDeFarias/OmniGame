@@ -90,6 +90,62 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   gem('gem-purple', (g) => { g.fillStyle(COLOR_HEX.purple); g.fillPoints(poly(c, c, r, 6, 0), true); });
   gem('gem-orange', (g) => { g.fillStyle(COLOR_HEX.orange); g.fillPoints(star(c, c, r * 1.05, r * 0.5, 5), true); });
 
+  // Music pack (plan 6.5, dance chapter): same 6 colors, new distinct shapes.
+  // red = eighth note.
+  gem('music-red', (g) => {
+    g.fillStyle(COLOR_HEX.red);
+    g.fillEllipse(c - r * 0.3, c + r * 0.55, r * 0.85, r * 0.6);
+    g.fillRect(c + r * 0.08, c - r * 0.95, r * 0.14, r * 1.55);
+    g.fillTriangle(c + r * 0.22, c - r * 0.95, c + r * 0.8, c - r * 0.5, c + r * 0.22, c - r * 0.3);
+  });
+  // blue = vinyl disc.
+  gem('music-blue', (g) => {
+    g.fillStyle(COLOR_HEX.blue);
+    g.fillCircle(c, c, r * 1.02);
+    g.lineStyle(s * 0.02, 0xffffff, 0.4);
+    g.strokeCircle(c, c, r * 0.8);
+    g.strokeCircle(c, c, r * 0.6);
+    g.fillStyle(0xd6eaf8);
+    g.fillCircle(c, c, r * 0.32);
+    g.fillStyle(0x2c2c54);
+    g.fillCircle(c, c, r * 0.09);
+  });
+  // green = microphone.
+  gem('music-green', (g) => {
+    g.fillStyle(COLOR_HEX.green);
+    g.fillRoundedRect(c - r * 0.45, c - r * 1.0, r * 0.9, r * 1.05, r * 0.44);
+    g.lineStyle(s * 0.015, 0x0e6b3e, 0.8);
+    for (let i = 0; i < 3; i++) {
+      g.beginPath();
+      g.moveTo(c - r * 0.42, c - r * 0.82 + i * r * 0.28);
+      g.lineTo(c + r * 0.42, c - r * 0.82 + i * r * 0.28);
+      g.strokePath();
+    }
+    g.fillStyle(COLOR_HEX.green);
+    g.fillRoundedRect(c - r * 0.16, c - r * 0.05, r * 0.32, r * 1.05, r * 0.14);
+  });
+  // yellow = star (slimmer than the orange gem's).
+  gem('music-yellow', (g) => { g.fillStyle(COLOR_HEX.yellow); g.fillPoints(star(c, c, r * 1.05, r * 0.42, 5), true); });
+  // purple = headphones.
+  gem('music-purple', (g) => {
+    g.lineStyle(s * 0.075, COLOR_HEX.purple);
+    g.beginPath();
+    g.arc(c, c + r * 0.1, r * 0.72, Math.PI, Math.PI * 2, false);
+    g.strokePath();
+    g.fillStyle(COLOR_HEX.purple);
+    g.fillRoundedRect(c - r * 0.98, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16);
+    g.fillRoundedRect(c + r * 0.52, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16);
+  });
+  // orange = speaker cone.
+  gem('music-orange', (g) => {
+    g.fillStyle(COLOR_HEX.orange);
+    g.fillRoundedRect(c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.25);
+    g.lineStyle(s * 0.03, 0x000000, 0.3);
+    g.strokeCircle(c, c, r * 0.58);
+    g.fillStyle(0x000000, 0.28);
+    g.fillCircle(c, c, r * 0.3);
+  });
+
   const sp = (key: string, draw: (g: Phaser.GameObjects.Graphics) => void): void => {
     const g = scene.add.graphics();
     g.fillStyle(0xf5f0ff);

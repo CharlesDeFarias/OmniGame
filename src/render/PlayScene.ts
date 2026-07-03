@@ -11,16 +11,17 @@ import { planSteps, type Step } from './choreo';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
 import { boardLayout, cellToXY, xyToCell, type Layout } from './layout';
 import { loadLevels } from './levels';
+import { pieceTextureKey, type PackId } from './packs';
 import { COLOR_HEX, makeTextures, textureKeyFor } from './theme';
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
 
-/** Particle tint from a sprite's texture key: 'gem-red' -> COLOR_HEX.red; crates -> brown; specials/unknown -> white. */
-const tintForTexture = (texKey: string): number =>
-  texKey.startsWith('gem-')
-    ? (COLOR_HEX[texKey.slice(4) as PieceColor] ?? 0xffffff)
-    : texKey.startsWith('ob-box') ? 0x9c6b30
-    : 0xffffff;
+/** Particle tint from a sprite's texture key: 'gem-red'/'music-red' -> COLOR_HEX.red; crates -> brown; specials/unknown -> white. */
+const tintForTexture = (texKey: string): number => {
+  const m = /^(?:gem|music)-(\w+)$/.exec(texKey);
+  if (m !== null) return COLOR_HEX[m[1] as PieceColor] ?? 0xffffff;
+  return texKey.startsWith('ob-box') ? 0x9c6b30 : 0xffffff;
+};
 
 export class PlayScene extends Phaser.Scene {
   private levels: LevelDef[] = [];
@@ -40,6 +41,7 @@ export class PlayScene extends Phaser.Scene {
   private coinText!: Phaser.GameObjects.Text;
   private movesText!: Phaser.GameObjects.Text;
   private goalHud: { icon: Phaser.GameObjects.Sprite; txt: Phaser.GameObjects.Text; color: PieceColor | null }[] = [];
+  private pack: PackId = 'gems';
   private retryCount = 0;
   private downAt: { cell: Coord; px: number; py: number } | null = null;
   private backdrop: Phaser.GameObjects.Image[] = [];
@@ -133,6 +135,7 @@ export class PlayScene extends Phaser.Scene {
     this.movesMadeThisLevel = 0;
     this.tutorialLogged = false;
     const def = this.adaptive.applyTier(this.currentDef());
+    this.pack = def.id.startsWith('dance-') ? 'music' : 'gems';
     let started: GameState | undefined;
     let lastError: unknown;
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -198,7 +201,7 @@ export class PlayScene extends Phaser.Scene {
     this.state.goals.forEach((gs, i) => {
       const color = gs.goal.type === 'collect' ? gs.goal.color : null;
       const iconKey =
-        gs.goal.type === 'collect' ? `gem-${gs.goal.color}`
+        gs.goal.type === 'collect' ? pieceTextureKey({ kind: 'normal', color: gs.goal.color }, this.pack)
         : gs.goal.type === 'clearBoxes' ? 'ob-box1'
         : 'ob-ice';
       const icon = this.add.sprite(x0 + i * spacing - 34, TOP_RESERVE * 0.32, iconKey).setDisplaySize(64, 64).setDepth(2);
@@ -236,7 +239,7 @@ export class PlayScene extends Phaser.Scene {
         }
         const piece = b.cells[y * b.width + x];
         if (piece === null || piece === undefined) continue;
-        const sp = this.add.sprite(px, py, textureKeyFor(piece)).setDisplaySize(this.layout.cell * 0.92, this.layout.cell * 0.92).setDepth(1);
+        const sp = this.add.sprite(px, py, pieceTextureKey(piece, this.pack)).setDisplaySize(this.layout.cell * 0.92, this.layout.cell * 0.92).setDepth(1);
         this.sprites.set(key({ x, y }), sp);
       }
     }
@@ -569,7 +572,7 @@ export class PlayScene extends Phaser.Scene {
       }
       case 'spawn': {
         const { px, py } = cellToXY(this.layout, ev.coord.x, ev.coord.y);
-        const sp = this.add.sprite(px, py, textureKeyFor(ev.piece)).setDisplaySize(this.layout.cell * 0.92, this.layout.cell * 0.92).setScale(0).setDepth(1);
+        const sp = this.add.sprite(px, py, pieceTextureKey(ev.piece, this.pack)).setDisplaySize(this.layout.cell * 0.92, this.layout.cell * 0.92).setScale(0).setDepth(1);
         this.sprites.set(key(ev.coord), sp);
         await this.tweenAsync({ targets: sp, scale: (this.layout.cell * 0.92) / 96, duration: step.duration, ease: 'Back.easeOut' });
         break;
@@ -605,7 +608,7 @@ export class PlayScene extends Phaser.Scene {
           const { px, py } = cellToXY(this.layout, f.coord.x, f.coord.y);
           if (sealed(f.coord)) {
             const sp = this.add
-              .sprite(px, py, textureKeyFor(f.piece))
+              .sprite(px, py, pieceTextureKey(f.piece, this.pack))
               .setDisplaySize(this.layout.cell * 0.92, this.layout.cell * 0.92)
               .setScale(0)
               .setDepth(1);
@@ -614,7 +617,7 @@ export class PlayScene extends Phaser.Scene {
             continue;
           }
           const sp = this.add
-            .sprite(px, this.layout.originY - this.layout.cell, textureKeyFor(f.piece))
+            .sprite(px, this.layout.originY - this.layout.cell, pieceTextureKey(f.piece, this.pack))
             .setDisplaySize(this.layout.cell * 0.92, this.layout.cell * 0.92)
             .setDepth(1);
           this.sprites.set(key(f.coord), sp);
