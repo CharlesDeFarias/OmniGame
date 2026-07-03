@@ -1,0 +1,40 @@
+{
+  "id": "vanity-047",
+  "seed": 1047,
+  "board": {
+    "width": 7,
+    "height": 7,
+    "colorCount": 6,
+    "layout": [
+      ".......",
+      ".ii.ii.",
+      ".B...B.",
+      ".......",
+      ".B...B.",
+      ".ii.ii.",
+      "......."
+    ]
+  },
+  "moves": 23,
+  "giftMoves": 5,
+  "goals": [
+    {
+      "type": "clearBoxes",
+      "count": 4
+    },
+    {
+      "type": "clearIce",
+      "count": 8
+    },
+    {
+      "type": "collect",
+      "color": "red",
+      "count": 25
+    },
+    {
+      "type": "collect",
+      "color": "blue",
+      "count": 25
+    }
+  ]
+}

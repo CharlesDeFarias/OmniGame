@@ -1,0 +1,35 @@
+{
+  "id": "vanity-046",
+  "seed": 1046,
+  "board": {
+    "width": 7,
+    "height": 7,
+    "colorCount": 6,
+    "layout": [
+      ".......",
+      ".i...i.",
+      "BB...BB",
+      "..i.i..",
+      ".B...B.",
+      ".i...i.",
+      "......."
+    ]
+  },
+  "moves": 22,
+  "giftMoves": 5,
+  "goals": [
+    {
+      "type": "clearBoxes",
+      "count": 6
+    },
+    {
+      "type": "clearIce",
+      "count": 6
+    },
+    {
+      "type": "collect",
+      "color": "purple",
+      "count": 28
+    }
+  ]
+}

@@ -10,8 +10,10 @@ export interface WalletData {
 
 export interface Wallet {
   data(): WalletData;
-  earnWin(stars: 0 | 1 | 2 | 3): void;
-  earnVideo(perf: 0 | 1 | 2): void;
+  /** Win payout: 20 + 10*stars coins plus a flat per-chapter bonus (kitchen = 0). */
+  earnWin(stars: 0 | 1 | 2 | 3, bonus?: number): void;
+  /** Video payout scaled by the chapter's payoutMultiplier (kitchen = 1), rounded per currency. */
+  earnVideo(perf: 0 | 1 | 2, multiplier?: number): void;
   spend(cost: number): boolean;
   level(): number;
 }
@@ -21,7 +23,7 @@ const KEY = 'omnigame.wallet.v1';
 const DEFAULT: WalletData = { version: 1, coins: 0, followers: 0, hearts: 0, xp: 0 };
 
 /** Cumulative-xp thresholds for influencer levels 1..7; +1200 xp per level beyond. */
-const LEVEL_THRESHOLDS = [0, 150, 400, 800, 1300, 2000, 3000];
+const LEVEL_THRESHOLDS = [0, 150, 400, 800, 1150, 2000, 3000];
 const XP_PER_LATE_LEVEL = 1200;
 
 export function levelFor(xp: number): number {
@@ -67,16 +69,16 @@ export function createWallet(storage: JournalStorage): Wallet {
   const save = (): void => storage.setItem(KEY, JSON.stringify(state));
   return {
     data: () => ({ ...state }),
-    earnWin(stars) {
-      state.coins += 20 + 10 * stars;
+    earnWin(stars, bonus = 0) {
+      state.coins += 20 + 10 * stars + bonus;
       if (stars === 3) state.hearts += 3;
       state.xp += stars * 10;
       save();
     },
-    earnVideo(perf) {
-      state.followers += 25 + 5 * perf;
-      state.hearts += 15;
-      state.xp += 100;
+    earnVideo(perf, multiplier = 1) {
+      state.followers += Math.round((25 + 5 * perf) * multiplier);
+      state.hearts += Math.round(15 * multiplier);
+      state.xp += Math.round(100 * multiplier);
       save();
     },
     spend(cost) {

@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import type { Piece, PieceColor } from '../core/match3/index';
+import { ROOMS } from '../meta/rooms';
 
 export const COLOR_HEX: Record<PieceColor, number> = {
   red: 0xe74c3c,
@@ -89,6 +90,62 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   gem('gem-yellow', (g) => { g.fillStyle(COLOR_HEX.yellow); g.fillPoints(poly(c, c, r * 1.05, 4, -Math.PI / 2), true); });
   gem('gem-purple', (g) => { g.fillStyle(COLOR_HEX.purple); g.fillPoints(poly(c, c, r, 6, 0), true); });
   gem('gem-orange', (g) => { g.fillStyle(COLOR_HEX.orange); g.fillPoints(star(c, c, r * 1.05, r * 0.5, 5), true); });
+
+  // Music pack (plan 6.5, dance chapter): same 6 colors, new distinct shapes.
+  // red = eighth note.
+  gem('music-red', (g) => {
+    g.fillStyle(COLOR_HEX.red);
+    g.fillEllipse(c - r * 0.3, c + r * 0.55, r * 0.85, r * 0.6);
+    g.fillRect(c + r * 0.08, c - r * 0.95, r * 0.14, r * 1.55);
+    g.fillTriangle(c + r * 0.22, c - r * 0.95, c + r * 0.8, c - r * 0.5, c + r * 0.22, c - r * 0.3);
+  });
+  // blue = vinyl disc.
+  gem('music-blue', (g) => {
+    g.fillStyle(COLOR_HEX.blue);
+    g.fillCircle(c, c, r * 1.02);
+    g.lineStyle(s * 0.02, 0xffffff, 0.4);
+    g.strokeCircle(c, c, r * 0.8);
+    g.strokeCircle(c, c, r * 0.6);
+    g.fillStyle(0xd6eaf8);
+    g.fillCircle(c, c, r * 0.32);
+    g.fillStyle(0x2c2c54);
+    g.fillCircle(c, c, r * 0.09);
+  });
+  // green = microphone.
+  gem('music-green', (g) => {
+    g.fillStyle(COLOR_HEX.green);
+    g.fillRoundedRect(c - r * 0.45, c - r * 1.0, r * 0.9, r * 1.05, r * 0.44);
+    g.lineStyle(s * 0.015, 0x0e6b3e, 0.8);
+    for (let i = 0; i < 3; i++) {
+      g.beginPath();
+      g.moveTo(c - r * 0.42, c - r * 0.82 + i * r * 0.28);
+      g.lineTo(c + r * 0.42, c - r * 0.82 + i * r * 0.28);
+      g.strokePath();
+    }
+    g.fillStyle(COLOR_HEX.green);
+    g.fillRoundedRect(c - r * 0.16, c - r * 0.05, r * 0.32, r * 1.05, r * 0.14);
+  });
+  // yellow = star (slimmer than the orange gem's).
+  gem('music-yellow', (g) => { g.fillStyle(COLOR_HEX.yellow); g.fillPoints(star(c, c, r * 1.05, r * 0.42, 5), true); });
+  // purple = headphones.
+  gem('music-purple', (g) => {
+    g.lineStyle(s * 0.075, COLOR_HEX.purple);
+    g.beginPath();
+    g.arc(c, c + r * 0.1, r * 0.72, Math.PI, Math.PI * 2, false);
+    g.strokePath();
+    g.fillStyle(COLOR_HEX.purple);
+    g.fillRoundedRect(c - r * 0.98, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16);
+    g.fillRoundedRect(c + r * 0.52, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16);
+  });
+  // orange = speaker cone.
+  gem('music-orange', (g) => {
+    g.fillStyle(COLOR_HEX.orange);
+    g.fillRoundedRect(c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.25);
+    g.lineStyle(s * 0.03, 0x000000, 0.3);
+    g.strokeCircle(c, c, r * 0.58);
+    g.fillStyle(0x000000, 0.28);
+    g.fillCircle(c, c, r * 0.3);
+  });
 
   const sp = (key: string, draw: (g: Phaser.GameObjects.Graphics) => void): void => {
     const g = scene.add.graphics();
@@ -256,12 +313,11 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
 
   // --- Meta-layer textures (plan 6; plan 7 restyles) ---
 
-  // Avatars: outfits [purple, green, orange] x poses 0-2, plus the default alias.
+  // Avatars: outfits [purple, green, orange] x poses 0-2.
   const OUTFITS = [0x9b59b6, 0x2ecc71, 0xe67e22] as const;
   OUTFITS.forEach((color, o) => {
     for (const pose of [0, 1, 2] as const) makeAvatarTexture(scene, `avatar-o${o}-p${pose}`, color, pose);
   });
-  makeAvatarTexture(scene, 'avatar-0', 0x9b59b6, 0);
 
   // Furniture: recognizable silhouette per slot, accent color per style.
   const furnDraw: Record<string, (g: Phaser.GameObjects.Graphics, accent: number) => void> = {
@@ -405,5 +461,88 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillRoundedRect(c - r * 0.85, c - r * 0.09, r * 1.7, r * 0.18, r * 0.05);
     g.fillRoundedRect(c - r * 0.95, c - r * 0.42, r * 0.3, r * 0.84, r * 0.08);
     g.fillRoundedRect(c + r * 0.65, c - r * 0.42, r * 0.3, r * 0.84, r * 0.08);
+  });
+  // --- Plan 6.5: generic furniture for dance/gym/vanity rooms (plan 7 replaces with real art) ---
+  // Per-chapter accent hue, modulated per style: a = base, b = lightened, c = darkened.
+  const CHAPTER_FURN_ACCENT: Record<string, number> = { dance: 0x9b59b6, gym: 0x2ecc71, vanity: 0xfd79a8 };
+  const mixColor = (color: number, target: number, t: number): number => {
+    const chan = (shift: number): number => {
+      const from = (color >> shift) & 0xff;
+      const to = (target >> shift) & 0xff;
+      return Math.round(from + (to - from) * t) << shift;
+    };
+    return chan(16) | chan(8) | chan(0);
+  };
+  const styleAccent = (base: number, style: string): number =>
+    style === 'b' ? mixColor(base, 0xffffff, 0.35) : style === 'c' ? mixColor(base, 0x2c2c54, 0.35) : base;
+  // Recognizable-ish silhouettes keyed by slot INDEX within the room:
+  // 0 tall rect, 1 wide rect, 2 slab+legs, 3 pole+top, 4 round, 5 frame.
+  const furnGeneric = (g: Phaser.GameObjects.Graphics, slotIndex: number, accent: number): void => {
+    g.fillStyle(0x000000, 0.15);
+    g.fillEllipse(c, s * 0.9, s * 0.62, s * 0.08);
+    switch (slotIndex) {
+      case 0: // tall rect (mirror / treadmill upright / lit mirror)
+        g.fillStyle(accent);
+        g.fillRoundedRect(c - s * 0.18, s * 0.08, s * 0.36, s * 0.8, s * 0.05);
+        g.fillStyle(0xffffff, 0.3);
+        g.fillRoundedRect(c - s * 0.12, s * 0.14, s * 0.1, s * 0.6, s * 0.04);
+        break;
+      case 1: // wide rect (barre / weights / chair)
+        g.fillStyle(accent);
+        g.fillRoundedRect(s * 0.08, s * 0.42, s * 0.84, s * 0.42, s * 0.06);
+        g.fillStyle(0xffffff, 0.25);
+        g.fillRect(s * 0.14, s * 0.5, s * 0.72, s * 0.06);
+        break;
+      case 2: // slab + legs (speaker stand / bench / desk)
+        g.fillStyle(accent);
+        g.fillRoundedRect(s * 0.08, s * 0.38, s * 0.84, s * 0.12, s * 0.04);
+        g.fillRect(s * 0.14, s * 0.5, s * 0.08, s * 0.38);
+        g.fillRect(s * 0.78, s * 0.5, s * 0.08, s * 0.38);
+        break;
+      case 3: // pole + top (discoball / fan / rack)
+        g.fillStyle(0x555566);
+        g.fillRect(c - s * 0.03, s * 0.3, s * 0.06, s * 0.54);
+        g.fillEllipse(c, s * 0.86, s * 0.28, s * 0.07);
+        g.fillStyle(accent);
+        g.fillCircle(c, s * 0.2, s * 0.16);
+        g.fillStyle(0xffffff, 0.3);
+        g.fillCircle(c - s * 0.05, s * 0.15, s * 0.05);
+        break;
+      case 4: // round (mat / gym mat / ringlight)
+        g.fillStyle(accent);
+        g.fillCircle(c, s * 0.52, s * 0.33);
+        g.fillStyle(0xffffff, 0.25);
+        g.fillEllipse(c - s * 0.1, s * 0.42, s * 0.15, s * 0.09);
+        break;
+      default: // 5: frame (poster / chart / shelf)
+        g.fillStyle(accent);
+        g.fillRoundedRect(s * 0.14, s * 0.14, s * 0.72, s * 0.72, s * 0.04);
+        g.fillStyle(0xf8f5f0);
+        g.fillRect(s * 0.22, s * 0.22, s * 0.56, s * 0.56);
+        g.fillStyle(accent, 0.55);
+        g.fillCircle(c, c, s * 0.14);
+        break;
+    }
+  };
+  for (const chapter of ['dance', 'gym', 'vanity'] as const) {
+    ROOMS[chapter].forEach((slot, idx) => {
+      for (const style of ['a', 'b', 'c']) {
+        ui(`${slot.textureBase}-${style}`, (g) => furnGeneric(g, idx, styleAccent(CHAPTER_FURN_ACCENT[chapter]!, style)));
+      }
+    });
+  }
+
+  // Wardrobe shop button: clothes hanger (hook curve + triangle body + bar).
+  ui('ui-hanger', (g) => {
+    g.lineStyle(s * 0.055, 0xecf0f1);
+    g.beginPath();
+    g.arc(c + s * 0.09, s * 0.2, s * 0.1, Math.PI * 0.5, Math.PI * 1.55, false);
+    g.strokePath();
+    g.beginPath();
+    g.moveTo(c, s * 0.3);
+    g.lineTo(s * 0.12, s * 0.72);
+    g.lineTo(s * 0.88, s * 0.72);
+    g.closePath();
+    g.strokePath();
   });
 }

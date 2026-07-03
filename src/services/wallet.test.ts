@@ -34,12 +34,28 @@ describe('wallet', () => {
     expect(w.data()).toEqual({ version: 1, coins: 20, followers: 0, hearts: 0, xp: 0 });
   });
 
+  it('earnWin adds the per-chapter coin bonus to coins only', () => {
+    const w = createWallet(memStorage());
+    w.earnWin(2, 10);
+    expect(w.data()).toEqual({ version: 1, coins: 50, followers: 0, hearts: 0, xp: 20 });
+    w.earnWin(3, 15);
+    expect(w.data()).toEqual({ version: 1, coins: 115, followers: 0, hearts: 3, xp: 50 });
+  });
+
   it('earnVideo pays followers per perf, flat hearts and xp', () => {
     const w = createWallet(memStorage());
     w.earnVideo(0);
     expect(w.data()).toEqual({ version: 1, coins: 0, followers: 25, hearts: 15, xp: 100 });
     w.earnVideo(2);
     expect(w.data()).toEqual({ version: 1, coins: 0, followers: 60, hearts: 30, xp: 200 });
+  });
+
+  it('earnVideo scales followers/hearts/xp by the chapter multiplier, rounded', () => {
+    const w = createWallet(memStorage());
+    w.earnVideo(2, 1.25);
+    expect(w.data()).toEqual({ version: 1, coins: 0, followers: 44, hearts: 19, xp: 125 });
+    w.earnVideo(0, 1.75);
+    expect(w.data()).toEqual({ version: 1, coins: 0, followers: 44 + 44, hearts: 19 + 26, xp: 125 + 175 });
   });
 
   it('spend succeeds only with sufficient coins and never goes negative', () => {
@@ -59,6 +75,8 @@ describe('wallet', () => {
     expect(levelFor(150)).toBe(2);
     expect(levelFor(399)).toBe(2);
     expect(levelFor(400)).toBe(3);
+    expect(levelFor(1149)).toBe(4);
+    expect(levelFor(1150)).toBe(5);
     expect(levelFor(2999)).toBe(6);
     expect(levelFor(3000)).toBe(7);
     expect(levelFor(4199)).toBe(7);

@@ -1,0 +1,26 @@
+{
+  "id": "vanity-043",
+  "seed": 1043,
+  "board": {
+    "width": 7,
+    "height": 7,
+    "colorCount": 6,
+    "layout": [
+      ".i...i.",
+      ".ii.ii.",
+      "..i.i..",
+      "...i...",
+      "..i.i..",
+      ".ii.ii.",
+      ".i...i."
+    ]
+  },
+  "moves": 19,
+  "giftMoves": 5,
+  "goals": [
+    {
+      "type": "clearIce",
+      "count": 17
+    }
+  ]
+}
