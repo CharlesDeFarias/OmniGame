@@ -35,3 +35,5 @@ One line of context per decision; newest last. Full reasoning lives in the specs
 | 29 | 2026-07-02 | Star rules: 1=won via gift, 2=clean win with <25% budget left, 3=clean win with >=25% left | Simple, legible, rewards efficiency without punishing gift use |
 | 30 | 2026-07-02 | Replan: plan 4=polish+stars, plan 5=obstacles+levels, plan 6=meta-layer | Old plan 4 was three plans; polish prioritized after Charles's playtest |
 | 31 | 2026-07-02 | Obstacle mechanics: box max-1-damage-per-wave (adjacency + booster targets), blockers seal gravity segments and never shuffle, ice = terrain broken by the clearing piece (or destroyed box) above, refill pops in under sealed columns | Plan-5 fixed ruleset; simulator-verified over 8000 randomized turns |
+| 32 | 2026-07-02 | Milestone themes for Luana's layer: dancing practice, exercise, makeup practice — framed as becoming a better influencer | Charles's direction; details being brainstormed for plan 6 |
+| 33 | 2026-07-02 | A significant design/feel pass is planned (art direction, animation quality) — noted now, scheduled when appropriate | Charles's direction; current procedural look is a placeholder |
