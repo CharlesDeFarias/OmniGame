@@ -274,13 +274,33 @@ export class PlayScene extends Phaser.Scene {
       { icon: 'ui-retry', value: String(stats.retries) },
       { icon: 'sp-propeller', value: String(stats.shuffles) },
     ];
-    let y = 230;
+    let y = 210;
     for (const row of header) {
       if (row.icon !== null) objs.push(this.add.sprite(250, y, row.icon).setDisplaySize(40, 40).setDepth(23));
       objs.push(this.add.text(300, y, row.value, textStyle).setOrigin(0, 0.5).setDepth(23));
-      y += 64;
+      y += 58;
     }
-    y += 24;
+    // Currencies + influencer level, read fresh from storage at open time.
+    const walletNow = createWallet(window.localStorage);
+    const w = walletNow.data();
+    const currencies: { icon: string; value: string }[] = [
+      { icon: 'ui-coin', value: String(w.coins) },
+      { icon: 'ui-follower', value: String(w.followers) },
+      { icon: 'ui-heart', value: String(w.hearts) },
+      { icon: 'ui-levelbadge', value: String(walletNow.level()) },
+    ];
+    currencies.forEach((c, i) => {
+      const cx = 130 + i * 150;
+      objs.push(this.add.sprite(cx, y, c.icon).setDisplaySize(40, 40).setDepth(23));
+      objs.push(this.add.text(cx + 30, y, c.value, textStyle).setOrigin(0, 0.5).setDepth(23));
+    });
+    y += 58;
+    // Adaptive difficulty tier (signed), read fresh at open time.
+    const tier = createAdaptive(window.localStorage).state().tier;
+    objs.push(this.add.sprite(250, y, 'ui-levelbadge').setDisplaySize(40, 40).setTint(0x888899).setDepth(23));
+    objs.push(this.add.text(300, y, tier > 0 ? `+${tier}` : String(tier), textStyle).setOrigin(0, 0.5).setDepth(23));
+    y += 58;
+    y += 16;
     for (const [id, lv] of Object.entries(stats.perLevel)) {
       objs.push(this.add.text(210, y, id.replace(/^kitchen-/, ''), textStyle).setOrigin(0, 0.5).setDepth(23));
       for (let i = 0; i < 3; i++) {
@@ -288,7 +308,7 @@ export class PlayScene extends Phaser.Scene {
         if (i >= lv.bestStars) st.setTint(0x555566);
         objs.push(st);
       }
-      y += 56;
+      y += 52;
     }
   }
 
