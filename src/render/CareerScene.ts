@@ -64,6 +64,7 @@ export class CareerScene extends Phaser.Scene {
       if (this.pickerObjects.length > 0 || this.videoObjects.length > 0) return;
       this.scene.start('play');
     });
+    this.maybeFilmVideo();
   }
 
   private buildBar(): void {
