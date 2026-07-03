@@ -13,15 +13,19 @@ import { COLOR_HEX, makeTextures, textureKeyFor } from './theme';
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
 
-/** Particle tint from a sprite's texture key: 'gem-red' -> COLOR_HEX.red; specials/unknown -> white. */
+/** Particle tint from a sprite's texture key: 'gem-red' -> COLOR_HEX.red; crates -> brown; specials/unknown -> white. */
 const tintForTexture = (texKey: string): number =>
-  texKey.startsWith('gem-') ? (COLOR_HEX[texKey.slice(4) as PieceColor] ?? 0xffffff) : 0xffffff;
+  texKey.startsWith('gem-')
+    ? (COLOR_HEX[texKey.slice(4) as PieceColor] ?? 0xffffff)
+    : texKey.startsWith('ob-box') ? 0x9c6b30
+    : 0xffffff;
 
 export class PlayScene extends Phaser.Scene {
   private levels: LevelDef[] = [];
   private state!: GameState;
   private layout!: Layout;
   private sprites = new Map<string, Phaser.GameObjects.Sprite>();
+  private iceSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private selected: Coord | null = null;
   private marker!: Phaser.GameObjects.Rectangle;
   private busy = false;
@@ -175,9 +179,12 @@ export class PlayScene extends Phaser.Scene {
     );
     const x0 = GAME_WIDTH / 2 - ((n - 1) * spacing) / 2;
     this.state.goals.forEach((gs, i) => {
-      // Non-collect goals get a placeholder icon key until Task 7 adds obstacle textures.
       const color = gs.goal.type === 'collect' ? gs.goal.color : null;
-      const icon = this.add.sprite(x0 + i * spacing - 34, TOP_RESERVE * 0.32, color ? `gem-${color}` : 'ob-box1').setDisplaySize(64, 64).setDepth(2);
+      const iconKey =
+        gs.goal.type === 'collect' ? `gem-${gs.goal.color}`
+        : gs.goal.type === 'clearBoxes' ? 'ob-box1'
+        : 'ob-ice';
+      const icon = this.add.sprite(x0 + i * spacing - 34, TOP_RESERVE * 0.32, iconKey).setDisplaySize(64, 64).setDepth(2);
       const txt = this.add
         .text(x0 + i * spacing + 14, TOP_RESERVE * 0.32, '', { fontSize: '44px', fontStyle: 'bold', color: '#ffffff' })
         .setOrigin(0, 0.5)
@@ -199,12 +206,19 @@ export class PlayScene extends Phaser.Scene {
   private syncBoard(): void {
     for (const sp of this.sprites.values()) sp.destroy();
     this.sprites.clear();
+    for (const sp of this.iceSprites.values()) sp.destroy();
+    this.iceSprites.clear();
     const b = this.state.board;
     for (let y = 0; y < b.height; y++) {
       for (let x = 0; x < b.width; x++) {
+        const { px, py } = cellToXY(this.layout, x, y);
+        if (b.ice[y * b.width + x] === true) {
+          // Ice plates sit above the board tiles (-1) but below gems/boxes (1).
+          const ice = this.add.sprite(px, py, 'ob-ice').setDisplaySize(this.layout.cell * 0.94, this.layout.cell * 0.94).setDepth(0.5);
+          this.iceSprites.set(key({ x, y }), ice);
+        }
         const piece = b.cells[y * b.width + x];
         if (piece === null || piece === undefined) continue;
-        const { px, py } = cellToXY(this.layout, x, y);
         const sp = this.add.sprite(px, py, textureKeyFor(piece)).setDisplaySize(this.layout.cell * 0.92, this.layout.cell * 0.92).setDepth(1);
         this.sprites.set(key({ x, y }), sp);
       }
@@ -538,9 +552,30 @@ export class PlayScene extends Phaser.Scene {
         break;
       }
       case 'refill': {
+        // A blocker above the cell in the final board means the column is sealed
+        // there: dropping from the top edge would pass through the crate, so
+        // those fills pop in place instead. (this.state is the post-turn board.)
+        const b = this.state.board;
+        const sealed = (c: Coord): boolean => {
+          for (let y = 0; y < c.y; y++) {
+            const piece = b.cells[y * b.width + c.x];
+            if (piece !== null && piece !== undefined && piece.kind === 'blocker') return true;
+          }
+          return false;
+        };
         const jobs: Promise<void>[] = [];
         for (const f of ev.fills) {
           const { px, py } = cellToXY(this.layout, f.coord.x, f.coord.y);
+          if (sealed(f.coord)) {
+            const sp = this.add
+              .sprite(px, py, textureKeyFor(f.piece))
+              .setDisplaySize(this.layout.cell * 0.92, this.layout.cell * 0.92)
+              .setScale(0)
+              .setDepth(1);
+            this.sprites.set(key(f.coord), sp);
+            jobs.push(this.tweenAsync({ targets: sp, scale: (this.layout.cell * 0.92) / 96, duration: step.duration, ease: 'Back.easeOut' }));
+            continue;
+          }
           const sp = this.add
             .sprite(px, this.layout.originY - this.layout.cell, textureKeyFor(f.piece))
             .setDisplaySize(this.layout.cell * 0.92, this.layout.cell * 0.92)
@@ -561,16 +596,50 @@ export class PlayScene extends Phaser.Scene {
         break;
       }
       case 'damage': {
-        // Boxes losing hp but surviving: quick sideways shake on their sprites.
-        const jobs = ev.cells
-          .map((c) => this.sprites.get(key(c)))
-          .filter((s): s is Phaser.GameObjects.Sprite => s !== undefined)
-          .map((sp) => this.tweenAsync({ targets: sp, x: sp.x + 7, duration: 50, yoyo: true, repeat: 1 }));
+        // Boxes losing hp but surviving: shake, swap to the damaged (hp1) crate
+        // texture (hp is capped at 2, so any survivor is hp1), splinter pips.
+        this.blips.matchAt(0);
+        const jobs: Promise<void>[] = [];
+        for (const c of ev.cells) {
+          const sp = this.sprites.get(key(c));
+          if (sp === undefined) continue;
+          sp.setTexture(textureKeyFor({ kind: 'blocker', hp: 1 }));
+          const { px, py } = cellToXY(this.layout, c.x, c.y);
+          for (let i = 0; i < 3; i++) {
+            const pip = this.add.sprite(px, py, 'ui-pip').setScale(0.9).setDepth(1);
+            // Fire-and-forget: not awaited; each pip destroys itself on complete.
+            this.tweens.add({
+              targets: pip,
+              x: px + (Math.random() * 2 - 1) * this.layout.cell * 0.6,
+              y: py + (Math.random() * 2 - 1) * this.layout.cell * 0.6,
+              alpha: 0,
+              scale: 0.2,
+              duration: 300,
+              ease: 'Quad.easeOut',
+              onComplete: () => pip.destroy(),
+            });
+          }
+          jobs.push(this.tweenAsync({ targets: sp, x: sp.x + 7, duration: 50, yoyo: true, repeat: 1 }));
+        }
         await Promise.all(jobs);
         break;
       }
       case 'iceClear': {
-        // Ice plate visuals (crack/fade) land with the obstacle renderer in Task 7.
+        // Fire-and-forget crack-fade; sprites leave the map immediately so a
+        // syncBoard mid-tween can't double-destroy them.
+        for (const c of ev.cells) {
+          const ice = this.iceSprites.get(key(c));
+          if (ice === undefined) continue;
+          this.iceSprites.delete(key(c));
+          this.tweens.add({
+            targets: ice,
+            alpha: 0,
+            scale: ice.scale * 1.15,
+            duration: 200,
+            ease: 'Quad.easeOut',
+            onComplete: () => ice.destroy(),
+          });
+        }
         break;
       }
     }
