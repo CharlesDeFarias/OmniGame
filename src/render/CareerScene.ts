@@ -272,6 +272,10 @@ export class CareerScene extends Phaser.Scene {
       if (active) {
         this.stripObjects.push(this.add.circle(x, STRIP_Y, 48).setStrokeStyle(5, 0xf1c40f).setDepth(2));
       }
+      // Newly-unlocked chapter: add looping pulse cue
+      if (!active && ch.unlockLevel === lvl) {
+        this.tweens.add({ targets: icon, scale: icon.scale * 1.15, duration: 500, yoyo: true, repeat: -1 });
+      }
       bg.setInteractive();
       bg.on('pointerup', () => {
         if (this.overlayOpen()) return;

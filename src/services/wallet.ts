@@ -23,7 +23,7 @@ const KEY = 'omnigame.wallet.v1';
 const DEFAULT: WalletData = { version: 1, coins: 0, followers: 0, hearts: 0, xp: 0 };
 
 /** Cumulative-xp thresholds for influencer levels 1..7; +1200 xp per level beyond. */
-const LEVEL_THRESHOLDS = [0, 150, 400, 800, 1300, 2000, 3000];
+const LEVEL_THRESHOLDS = [0, 150, 400, 800, 1150, 2000, 3000];
 const XP_PER_LATE_LEVEL = 1200;
 
 export function levelFor(xp: number): number {

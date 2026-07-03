@@ -75,6 +75,8 @@ describe('wallet', () => {
     expect(levelFor(150)).toBe(2);
     expect(levelFor(399)).toBe(2);
     expect(levelFor(400)).toBe(3);
+    expect(levelFor(1149)).toBe(4);
+    expect(levelFor(1150)).toBe(5);
     expect(levelFor(2999)).toBe(6);
     expect(levelFor(3000)).toBe(7);
     expect(levelFor(4199)).toBe(7);
