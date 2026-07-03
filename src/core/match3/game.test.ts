@@ -85,6 +85,24 @@ describe('game', () => {
     expect(findValidMoves(s.board).length).toBeGreaterThan(0);
   });
 
+  it('wins a box level once the box is destroyed (obstacle goal credited through applyMove)', () => {
+    const boxy: LevelDef = {
+      id: 'boxy-1',
+      seed: 7,
+      board: { width: 4, height: 4, colorCount: 3, layout: ['....', '..b.', '....', '....'] },
+      moves: 30,
+      giftMoves: 0,
+      goals: [{ type: 'clearBoxes', count: 1 }],
+    };
+    let s = startLevel(boxy);
+    for (let guard = 0; guard < 30 && s.status === 'playing'; guard++) {
+      const mv = findValidMove(s);
+      s = applyMove(s, mv.a, mv.b).state;
+    }
+    expect(s.status).toBe('won');
+    expect(s.goals[0]!.collected).toBe(1);
+  });
+
   it('reports why an invalid move was rejected', () => {
     const s = startLevel(level);
     const r1 = applyMove(s, { x: 0, y: 0 }, { x: 5, y: 5 });

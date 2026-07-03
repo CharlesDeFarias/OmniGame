@@ -8,6 +8,8 @@ export const DUR = {
   fallMin: 120,
   refill: 220,
   shuffle: 450,
+  damage: 180,
+  iceClear: 200,
 } as const;
 
 export interface Step {
@@ -29,6 +31,8 @@ export function planSteps(events: ResolveEvent[]): Step[] {
       }
       case 'refill': return { event, duration: DUR.refill };
       case 'shuffle': return { event, duration: DUR.shuffle };
+      case 'damage': return { event, duration: DUR.damage };
+      case 'iceClear': return { event, duration: DUR.iceClear };
     }
   });
 }

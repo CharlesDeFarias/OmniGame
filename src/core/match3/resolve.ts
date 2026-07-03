@@ -1,5 +1,5 @@
 import type { RNG } from '../rng';
-import { at, cloneBoard, set } from './board';
+import { at, cloneBoard, index, set } from './board';
 import { boosterTargets, cellsOfColor, comboTargets } from './boosters';
 import { applyGravity, refill, type FallMove } from './gravity';
 import { findMatchGroups } from './matches';
@@ -12,14 +12,20 @@ export type ResolveEvent =
   | { type: 'spawn'; coord: Coord; piece: Piece }
   | { type: 'fall'; moves: FallMove[] }
   | { type: 'refill'; fills: { coord: Coord; piece: Piece }[] }
-  | { type: 'shuffle' };
+  | { type: 'shuffle' }
+  /** Boxes that lost 1 hp this wave but survived. */
+  | { type: 'damage'; cells: Coord[] }
+  /** Ice plates broken this wave (piece above cleared, or box above destroyed). */
+  | { type: 'iceClear'; cells: Coord[] };
 
 export interface TurnResult {
   valid: boolean;
   board: Board;
   events: ResolveEvent[];
   clearedByColor: Partial<Record<PieceColor, number>>;
-  reason?: 'not-adjacent' | 'no-match' | 'empty-cell';
+  clearedBoxes: number;
+  clearedIce: number;
+  reason?: 'not-adjacent' | 'no-match' | 'empty-cell' | 'blocked';
 }
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
@@ -60,11 +66,13 @@ export function resolveTurn(
 ): TurnResult {
   if (colorCount < 3) throw new Error(`colorCount must be >= 3, got ${colorCount}`);
   const check = canSwap(board, a, b);
-  if (!check.valid) return { valid: false, board, events: [], clearedByColor: {}, reason: check.reason };
+  if (!check.valid) return { valid: false, board, events: [], clearedByColor: {}, clearedBoxes: 0, clearedIce: 0, reason: check.reason };
 
   const work = cloneBoard(board);
   const events: ResolveEvent[] = [];
   const clearedByColor: Partial<Record<PieceColor, number>> = {};
+  let clearedBoxes = 0;
+  let clearedIce = 0;
 
   const pa = at(work, a.x, a.y)!;
   const pb = at(work, b.x, b.y)!;
@@ -73,9 +81,53 @@ export function resolveTurn(
 
   const clearWave = (cells: Coord[], spawns: { coord: Coord; piece: Piece }[], noExpand?: Set<string>): void => {
     const expanded = expandWithSpecials(work, cells, rng, noExpand);
-    countColors(work, expanded, clearedByColor);
-    for (const c of expanded) set(work, c.x, c.y, null);
-    events.push({ type: 'clear', cells: expanded });
+    // Partition: normal/special pieces clear outright; blockers directly targeted
+    // (booster rows/areas/combos) take a hit instead. Max 1 damage per box per wave.
+    const pieceCells: Coord[] = [];
+    const boxHits = new Map<string, Coord>();
+    for (const c of expanded) {
+      const p = at(work, c.x, c.y);
+      if (p === null) continue;
+      if (p.kind === 'blocker') boxHits.set(key(c), c);
+      else pieceCells.push(c);
+    }
+    // Adjacency damage: any box orthogonally next to a cleared piece joins the hits.
+    for (const c of pieceCells) {
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const n = { x: c.x + dx, y: c.y + dy };
+        if (at(work, n.x, n.y)?.kind === 'blocker') boxHits.set(key(n), n);
+      }
+    }
+    countColors(work, pieceCells, clearedByColor);
+    const iceCells: Coord[] = [];
+    const breakIce = (c: Coord): void => {
+      const i = index(work, c.x, c.y);
+      if (work.ice[i]) {
+        work.ice[i] = false;
+        clearedIce += 1;
+        iceCells.push(c);
+      }
+    };
+    for (const c of pieceCells) breakIce(c);
+    for (const c of pieceCells) set(work, c.x, c.y, null);
+    const damagedCells: Coord[] = [];
+    const destroyedCells: Coord[] = [];
+    for (const c of boxHits.values()) {
+      const box = at(work, c.x, c.y) as Extract<Piece, { kind: 'blocker' }>;
+      const hp = box.hp - 1;
+      if (hp > 0) {
+        set(work, c.x, c.y, { kind: 'blocker', hp });
+        damagedCells.push(c);
+      } else {
+        clearedBoxes += 1;
+        breakIce(c);
+        set(work, c.x, c.y, null);
+        destroyedCells.push(c);
+      }
+    }
+    events.push({ type: 'clear', cells: [...pieceCells, ...destroyedCells] });
+    if (damagedCells.length > 0) events.push({ type: 'damage', cells: damagedCells });
+    if (iceCells.length > 0) events.push({ type: 'iceClear', cells: iceCells });
     for (const s of spawns) {
       set(work, s.coord.x, s.coord.y, s.piece);
       events.push({ type: 'spawn', coord: s.coord, piece: s.piece });
@@ -123,5 +175,5 @@ export function resolveTurn(
     clearWave(cells, spawns);
   }
 
-  return { valid: true, board: work, events, clearedByColor };
+  return { valid: true, board: work, events, clearedByColor, clearedBoxes, clearedIce };
 }

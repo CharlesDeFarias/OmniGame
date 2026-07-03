@@ -10,9 +10,9 @@ function boardFrom(rows: string[]): Board {
   const width = rows[0]!.length;
   const cells: (Piece | null)[] = [];
   for (const row of rows) {
-    for (const ch of row) cells.push(ch === '.' ? null : { kind: 'normal', color: map[ch]! });
+    for (const ch of row) cells.push(ch === '.' ? null : ch === 'X' ? { kind: 'blocker', hp: 1 } : { kind: 'normal', color: map[ch]! });
   }
-  return { width, height, cells };
+  return { width, height, cells, ice: new Array(cells.length).fill(false) };
 }
 
 describe('swap', () => {
@@ -47,5 +47,16 @@ describe('swap', () => {
   it('rejects swaps involving an empty cell', () => {
     const b = boardFrom(['.bg', 'gry', 'yob']);
     expect(canSwap(b, { x: 0, y: 0 }, { x: 1, y: 0 })).toEqual({ valid: false, reason: 'empty-cell' });
+  });
+  it('rejects swaps involving a blocker on either side', () => {
+    const b = boardFrom(['rXg', 'grr', 'yob']);
+    expect(canSwap(b, { x: 0, y: 0 }, { x: 1, y: 0 })).toEqual({ valid: false, reason: 'blocked' });
+    expect(canSwap(b, { x: 2, y: 0 }, { x: 1, y: 0 })).toEqual({ valid: false, reason: 'blocked' });
+  });
+
+  it('blocks a special from swapping with a blocker (blocked wins over special bypass)', () => {
+    const b = boardFrom(['rXg', 'gry', 'yob']);
+    set(b, 0, 0, { kind: 'special', special: 'rocketH' });
+    expect(canSwap(b, { x: 0, y: 0 }, { x: 1, y: 0 })).toEqual({ valid: false, reason: 'blocked' });
   });
 });

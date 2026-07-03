@@ -26,6 +26,36 @@ describe('goals', () => {
     expect(goalsComplete(s)).toBe(true);
   });
 
+  it('credits clearBoxes goals from clearedBoxes, capped at count', () => {
+    let s = initGoals([{ type: 'clearBoxes', count: 2 }]);
+    s = applyCleared(s, { red: 5 }, 1, 0);
+    expect(s[0]!.collected).toBe(1);
+    s = applyCleared(s, {}, 3, 0);
+    expect(s[0]!.collected).toBe(2);
+  });
+
+  it('credits clearIce goals from clearedIce, capped at count', () => {
+    let s = initGoals([{ type: 'clearIce', count: 3 }]);
+    s = applyCleared(s, {}, 0, 2);
+    expect(s[0]!.collected).toBe(2);
+    s = applyCleared(s, {}, 5, 4);
+    expect(s[0]!.collected).toBe(3);
+  });
+
+  it('a mixed goal set completes only when collect, boxes and ice are all met', () => {
+    let s = initGoals([
+      { type: 'collect', color: 'red', count: 2 },
+      { type: 'clearBoxes', count: 1 },
+      { type: 'clearIce', count: 1 },
+    ]);
+    s = applyCleared(s, { red: 2 }, 0, 0);
+    expect(goalsComplete(s)).toBe(false);
+    s = applyCleared(s, {}, 1, 0);
+    expect(goalsComplete(s)).toBe(false);
+    s = applyCleared(s, {}, 0, 1);
+    expect(goalsComplete(s)).toBe(true);
+  });
+
   it('does not mutate the input state', () => {
     const s = initGoals([{ type: 'collect', color: 'red', count: 5 }]);
     applyCleared(s, { red: 3 });

@@ -11,7 +11,9 @@ export const COLOR_HEX: Record<PieceColor, number> = {
 };
 
 export function textureKeyFor(piece: Piece): string {
-  return piece.kind === 'normal' ? `gem-${piece.color}` : `sp-${piece.special}`;
+  if (piece.kind === 'normal') return `gem-${piece.color}`;
+  if (piece.kind === 'special') return `sp-${piece.special}`;
+  return piece.hp >= 2 ? 'ob-box2' : 'ob-box1';
 }
 
 // Note: fillPoints is typed as Phaser.Math.Vector2[]; it only reads .x/.y at
@@ -171,4 +173,49 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   });
   ui('ui-tile', (g) => { g.fillStyle(0xffffff); g.fillRoundedRect(s * 0.02, s * 0.02, s * 0.96, s * 0.96, s * 0.16); });
   ui('ui-panel', (g) => { g.fillStyle(0x000000); g.fillRoundedRect(0, 0, s, s, s * 0.2); });
+
+  // Obstacles. Wooden crate: base + darker border, X of diagonal planks, corner nails.
+  const crate = (g: Phaser.GameObjects.Graphics): void => {
+    const m = s * 0.05;
+    const w = s - m * 2;
+    g.fillStyle(0x9c6b30);
+    g.fillRoundedRect(m, m, w, w, s * 0.1);
+    g.lineStyle(s * 0.05, 0x7a4f1d);
+    g.strokeRoundedRect(m + s * 0.03, m + s * 0.03, w - s * 0.06, w - s * 0.06, s * 0.08);
+    g.beginPath();
+    g.moveTo(m + s * 0.09, m + s * 0.09);
+    g.lineTo(m + w - s * 0.09, m + w - s * 0.09);
+    g.moveTo(m + w - s * 0.09, m + s * 0.09);
+    g.lineTo(m + s * 0.09, m + w - s * 0.09);
+    g.strokePath();
+    g.fillStyle(0x7a4f1d);
+    const q = s * 0.07;
+    for (const [nx, ny] of [[m + q, m + q], [m + w - q * 2, m + q], [m + q, m + w - q * 2], [m + w - q * 2, m + w - q * 2]]) {
+      g.fillRect(nx!, ny!, q, q);
+    }
+  };
+  ui('ob-box1', (g) => { crate(g); });
+  ui('ob-box2', (g) => {
+    crate(g);
+    g.fillStyle(0x5f6a6a);
+    g.fillRect(s * 0.05, c - s * 0.09, s * 0.9, s * 0.18);
+    g.fillStyle(0x7f8c8d);
+    g.fillRect(s * 0.05, c - s * 0.07, s * 0.9, s * 0.14);
+  });
+  // Ice plate: translucent pale-blue slab with thin white crack lines.
+  ui('ob-ice', (g) => {
+    g.fillStyle(0xa8d8ea, 0.85);
+    g.fillRoundedRect(s * 0.03, s * 0.03, s * 0.94, s * 0.94, s * 0.16);
+    g.lineStyle(s * 0.02, 0xffffff, 0.8);
+    g.beginPath();
+    g.moveTo(s * 0.22, s * 0.28);
+    g.lineTo(s * 0.46, s * 0.5);
+    g.lineTo(s * 0.36, s * 0.76);
+    g.moveTo(s * 0.46, s * 0.5);
+    g.lineTo(s * 0.72, s * 0.44);
+    g.moveTo(s * 0.62, s * 0.18);
+    g.lineTo(s * 0.72, s * 0.44);
+    g.lineTo(s * 0.84, s * 0.64);
+    g.strokePath();
+  });
 }

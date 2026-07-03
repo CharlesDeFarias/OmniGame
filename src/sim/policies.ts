@@ -20,7 +20,10 @@ export function greedyPolicy(rng: RNG): Policy {
       let score = 0;
       for (const g of state.goals) {
         const need = g.goal.count - g.collected;
-        if (need > 0) score += Math.min(need, r.clearedByColor[g.goal.color] ?? 0);
+        if (need <= 0) continue;
+        if (g.goal.type === 'collect') score += Math.min(need, r.clearedByColor[g.goal.color] ?? 0);
+        else if (g.goal.type === 'clearBoxes') score += Math.min(need, r.clearedBoxes);
+        else score += Math.min(need, r.clearedIce);
       }
       if (score > bestScore) {
         bestScore = score;

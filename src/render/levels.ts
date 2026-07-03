@@ -6,7 +6,7 @@ const modules = import.meta.glob('../../levels/kitchen/*.json', { eager: true })
   { default: unknown }
 >;
 
-/** Kitchen chapter levels, sorted by filename (001..010), validated at load. */
+/** Kitchen chapter levels, sorted by filename (001..020), validated at load. */
 export function loadLevels(): LevelDef[] {
   return Object.keys(modules)
     .sort()

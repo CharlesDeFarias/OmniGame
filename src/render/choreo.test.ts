@@ -6,6 +6,8 @@ const events: ResolveEvent[] = [
   { type: 'swap', a: { x: 0, y: 0 }, b: { x: 1, y: 0 } },
   { type: 'clear', cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }] },
   { type: 'spawn', coord: { x: 1, y: 0 }, piece: { kind: 'special', special: 'rocketH' } },
+  { type: 'damage', cells: [{ x: 2, y: 0 }] },
+  { type: 'iceClear', cells: [{ x: 0, y: 0 }] },
   { type: 'fall', moves: [{ from: { x: 0, y: 0 }, to: { x: 0, y: 3 } }] },
   { type: 'refill', fills: [{ coord: { x: 0, y: 0 }, piece: { kind: 'normal', color: 'red' } }] },
   { type: 'shuffle' },
@@ -14,7 +16,7 @@ const events: ResolveEvent[] = [
 describe('planSteps', () => {
   it('maps events 1:1 in order with positive durations', () => {
     const steps = planSteps(events);
-    expect(steps.map((s) => s.event.type)).toEqual(['swap', 'clear', 'spawn', 'fall', 'refill', 'shuffle']);
+    expect(steps.map((s) => s.event.type)).toEqual(['swap', 'clear', 'spawn', 'damage', 'iceClear', 'fall', 'refill', 'shuffle']);
     for (const s of steps) expect(s.duration).toBeGreaterThan(0);
   });
 
@@ -28,5 +30,14 @@ describe('planSteps', () => {
     const total = planSteps(events).reduce((s, x) => s + x.duration, 0);
     expect(total).toBeLessThan(4000);
     expect(DUR.swap).toBeGreaterThan(0);
+  });
+
+  it('gives damage and iceClear their own durations', () => {
+    const steps = planSteps([
+      { type: 'damage', cells: [{ x: 1, y: 1 }] },
+      { type: 'iceClear', cells: [{ x: 1, y: 1 }] },
+    ]);
+    expect(steps[0]!.duration).toBe(DUR.damage);
+    expect(steps[1]!.duration).toBe(DUR.iceClear);
   });
 });
