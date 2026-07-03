@@ -1,18 +1,21 @@
 import Phaser from 'phaser';
 import { applyMove, findValidMoves, startLevel, starsFor, ShuffleError } from '../core/match3/index';
 import type { Coord, GameState, LevelDef, MoveOutcome, PieceColor } from '../core/match3/index';
+import { CHAPTERS, chapterById, type ChapterId } from '../meta/chapters';
+import { CHAPTER_COIN_BONUS_PER_INDEX } from '../meta/rooms';
 import { createAdaptive, type Adaptive } from '../services/adaptive';
 import { createJournal, type Journal } from '../services/journal';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
 import { summarize } from '../services/stats';
 import { createWallet, type Wallet } from '../services/wallet';
+import { createWardrobe, type Wardrobe } from '../services/wardrobe';
 import { createBlips, type Blips } from './audio';
 import { planSteps, type Step } from './choreo';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
 import { boardLayout, cellToXY, xyToCell, type Layout } from './layout';
 import { loadLevels } from './levels';
 import { pieceTextureKey, type PackId } from './packs';
-import { COLOR_HEX, makeTextures, textureKeyFor } from './theme';
+import { COLOR_HEX, makeAvatarTexture, makeTextures, textureKeyFor } from './theme';
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
 
@@ -25,6 +28,7 @@ const tintForTexture = (texKey: string): number => {
 
 export class PlayScene extends Phaser.Scene {
   private levels: LevelDef[] = [];
+  private chapter: ChapterId = 'kitchen';
   private state!: GameState;
   private layout!: Layout;
   private sprites = new Map<string, Phaser.GameObjects.Sprite>();
@@ -35,6 +39,7 @@ export class PlayScene extends Phaser.Scene {
   private journal!: Journal;
   private progress!: ProgressData;
   private wallet!: Wallet;
+  private wardrobe!: Wardrobe;
   private adaptive!: Adaptive;
   private blips!: Blips;
   private coinIcon!: Phaser.GameObjects.Sprite;
@@ -72,6 +77,7 @@ export class PlayScene extends Phaser.Scene {
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.progress = loadProgress(window.localStorage);
     this.wallet = createWallet(window.localStorage);
+    this.wardrobe = createWardrobe(window.localStorage);
     this.adaptive = createAdaptive(window.localStorage);
     this.blips = createBlips();
     // Keep the screen awake during play (best effort; re-request when the tab returns).
@@ -96,7 +102,8 @@ export class PlayScene extends Phaser.Scene {
       muteBtn.setTexture(m ? 'ui-sound-off' : 'ui-sound-on');
       window.localStorage.setItem('omnigame.muted.v1', m ? '1' : '0');
     });
-    this.levels = loadLevels();
+    this.chapter = this.progress.chapter;
+    this.levels = loadLevels(this.chapter);
     this.marker = this.add
       .rectangle(0, 0, 10, 10)
       .setStrokeStyle(5, 0xffffff)
@@ -124,7 +131,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private currentDef(): LevelDef {
-    const idx = Math.min(this.progress.levelIndexByChapter.kitchen, this.levels.length - 1);
+    const idx = Math.min(this.progress.levelIndexByChapter[this.chapter], this.levels.length - 1);
     const def = this.levels[idx]!;
     return this.retryCount === 0 ? def : { ...def, seed: def.seed + this.retryCount * 101 };
   }
@@ -135,7 +142,7 @@ export class PlayScene extends Phaser.Scene {
     this.movesMadeThisLevel = 0;
     this.tutorialLogged = false;
     const def = this.adaptive.applyTier(this.currentDef());
-    this.pack = def.id.startsWith('dance-') ? 'music' : 'gems';
+    this.pack = chapterById(this.chapter).packId;
     let started: GameState | undefined;
     let lastError: unknown;
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -171,7 +178,7 @@ export class PlayScene extends Phaser.Scene {
         this.backdrop.push(tile);
       }
     }
-    this.journal.log('level_start', { level: def.id, retry: this.retryCount, tier: this.adaptive.state().tier });
+    this.journal.log('level_start', { level: def.id, chapter: this.chapter, retry: this.retryCount, tier: this.adaptive.state().tier });
     this.buildGoalHud();
     this.syncBoard();
     this.updateHud();
@@ -335,6 +342,7 @@ export class PlayScene extends Phaser.Scene {
 
   /** Zero-text tutorial: hand loops from a valid move's start cell to its end cell (first level, first session, no moves yet). */
   private showHand(): void {
+    if (this.chapter !== 'kitchen') return;
     const idx = Math.min(this.progress.levelIndexByChapter.kitchen, this.levels.length - 1);
     if (idx !== 0 || Object.keys(this.progress.completed).length !== 0 || this.movesMadeThisLevel !== 0) return;
     if (this.hand !== null) return;
@@ -719,8 +727,10 @@ export class PlayScene extends Phaser.Scene {
       baseMoves: this.state.level.moves,
     });
     this.journal.log('level_end', { level: this.state.level.id, won: true, movesLeft: this.state.movesLeft, stars, retries: this.retryCount });
-    this.wallet.earnWin(stars);
-    this.journal.log('earn', { coins: 20 + 10 * stars });
+    const chapterIndex = CHAPTERS.findIndex((ch) => ch.id === this.chapter);
+    const bonus = CHAPTER_COIN_BONUS_PER_INDEX * Math.max(0, chapterIndex);
+    this.wallet.earnWin(stars, bonus);
+    this.journal.log('earn', { coins: 20 + 10 * stars + bonus });
     this.coinText.setText(String(this.wallet.data().coins));
     const outcome = this.adaptive.recordOutcome(true, stars);
     if (outcome.changed) this.journal.log('difficulty_tier', { tier: outcome.tier });
@@ -740,10 +750,10 @@ export class PlayScene extends Phaser.Scene {
       starSprites.push(st);
       await this.tweenAsync({ targets: st, scale: 2.2, duration: 260, ease: 'Back.easeOut' });
     }
-    const idx = this.progress.levelIndexByChapter.kitchen;
+    const idx = this.progress.levelIndexByChapter[this.chapter];
     this.progress.completed[this.state.level.id] = true;
     this.progress.stars[this.state.level.id] = Math.max(stars, this.progress.stars[this.state.level.id] ?? 0);
-    if (idx < this.levels.length - 1) this.progress.levelIndexByChapter.kitchen = idx + 1;
+    if (idx < this.levels.length - 1) this.progress.levelIndexByChapter[this.chapter] = idx + 1;
     saveProgress(window.localStorage, this.progress);
     if (idx >= this.levels.length - 1) {
       await this.showChapterComplete();
@@ -786,7 +796,17 @@ export class PlayScene extends Phaser.Scene {
       .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.92)
       .setDepth(40)
       .setInteractive();
-    const avatar = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.45, 'avatar-o0-p0').setDepth(41).setScale(3);
+    const equipped = this.wardrobe.state().equipped;
+    const equippedColor = this.wardrobe.equippedColor();
+    let prefix = 'avatar-o0';
+    if (equipped !== null && equippedColor !== null) {
+      prefix = `avatar-w${equipped}`;
+      for (const pz of [0, 1, 2] as const) {
+        const k = `${prefix}-p${pz}`;
+        if (!this.textures.exists(k)) makeAvatarTexture(this, k, equippedColor, pz);
+      }
+    }
+    const avatar = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.45, `${prefix}-p0`).setDepth(41).setScale(3);
     this.tweens.add({
       targets: avatar,
       scaleX: 3.18,
@@ -824,7 +844,7 @@ export class PlayScene extends Phaser.Scene {
         ticks += 1;
         this.blips.beat();
         pose = (pose + 1) % 3;
-        avatar.setTexture(`avatar-o0-p${pose}`);
+        avatar.setTexture(`${prefix}-p${pose}`);
         if (ticks >= TOTAL_BEATS) finish(true);
       },
     });
@@ -833,7 +853,7 @@ export class PlayScene extends Phaser.Scene {
 
   /** Last level won: trophy + confetti celebration, replay button restarts the chapter. */
   private async showChapterComplete(): Promise<void> {
-    this.journal.log('chapter_complete', { chapter: 'kitchen' });
+    this.journal.log('chapter_complete', { chapter: this.chapter });
     const trophy = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.55, 'ui-trophy').setDepth(12).setScale(0);
     const tints = Object.values(COLOR_HEX);
     for (let i = 0; i < 24; i++) {
@@ -858,9 +878,9 @@ export class PlayScene extends Phaser.Scene {
     await this.tweenAsync({ targets: trophy, scale: 3, duration: 420, ease: 'Back.easeOut' });
     const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.74, 'ui-retry').setDepth(12).setScale(2.4).setInteractive();
     btn.once('pointerup', () => {
-      this.progress.levelIndexByChapter.kitchen = 0;
+      this.progress.levelIndexByChapter[this.chapter] = 0;
       saveProgress(window.localStorage, this.progress);
-      this.journal.log('chapter_replay', { chapter: 'kitchen' });
+      this.journal.log('chapter_replay', { chapter: this.chapter });
       this.retryCount = 0;
       this.confetti = [];
       this.scene.start('career');

@@ -10,7 +10,8 @@ export interface WalletData {
 
 export interface Wallet {
   data(): WalletData;
-  earnWin(stars: 0 | 1 | 2 | 3): void;
+  /** Win payout: 20 + 10*stars coins plus a flat per-chapter bonus (kitchen = 0). */
+  earnWin(stars: 0 | 1 | 2 | 3, bonus?: number): void;
   /** Video payout scaled by the chapter's payoutMultiplier (kitchen = 1), rounded per currency. */
   earnVideo(perf: 0 | 1 | 2, multiplier?: number): void;
   spend(cost: number): boolean;
@@ -68,8 +69,8 @@ export function createWallet(storage: JournalStorage): Wallet {
   const save = (): void => storage.setItem(KEY, JSON.stringify(state));
   return {
     data: () => ({ ...state }),
-    earnWin(stars) {
-      state.coins += 20 + 10 * stars;
+    earnWin(stars, bonus = 0) {
+      state.coins += 20 + 10 * stars + bonus;
       if (stars === 3) state.hearts += 3;
       state.xp += stars * 10;
       save();

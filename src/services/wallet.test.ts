@@ -34,6 +34,14 @@ describe('wallet', () => {
     expect(w.data()).toEqual({ version: 1, coins: 20, followers: 0, hearts: 0, xp: 0 });
   });
 
+  it('earnWin adds the per-chapter coin bonus to coins only', () => {
+    const w = createWallet(memStorage());
+    w.earnWin(2, 10);
+    expect(w.data()).toEqual({ version: 1, coins: 50, followers: 0, hearts: 0, xp: 20 });
+    w.earnWin(3, 15);
+    expect(w.data()).toEqual({ version: 1, coins: 115, followers: 0, hearts: 3, xp: 50 });
+  });
+
   it('earnVideo pays followers per perf, flat hearts and xp', () => {
     const w = createWallet(memStorage());
     w.earnVideo(0);
