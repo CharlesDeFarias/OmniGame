@@ -1,0 +1,30 @@
+{
+  "id": "gym-036",
+  "seed": 1036,
+  "board": {
+    "width": 6,
+    "height": 6,
+    "colorCount": 5,
+    "layout": [
+      "B....B",
+      "......",
+      ".B..B.",
+      ".B..B.",
+      "......",
+      "B....B"
+    ]
+  },
+  "moves": 21,
+  "giftMoves": 5,
+  "goals": [
+    {
+      "type": "clearBoxes",
+      "count": 6
+    },
+    {
+      "type": "collect",
+      "color": "red",
+      "count": 39
+    }
+  ]
+}
