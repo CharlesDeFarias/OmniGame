@@ -1,0 +1,30 @@
+{
+  "id": "dance-026",
+  "seed": 1026,
+  "board": {
+    "width": 6,
+    "height": 6,
+    "colorCount": 5,
+    "layout": [
+      "i....i",
+      ".ii...",
+      "...ii.",
+      ".ii...",
+      "...ii.",
+      "i....i"
+    ]
+  },
+  "moves": 20,
+  "giftMoves": 5,
+  "goals": [
+    {
+      "type": "clearIce",
+      "count": 12
+    },
+    {
+      "type": "collect",
+      "color": "yellow",
+      "count": 32
+    }
+  ]
+}

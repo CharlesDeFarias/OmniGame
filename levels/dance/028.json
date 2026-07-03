@@ -1,0 +1,23 @@
+{
+  "id": "dance-028",
+  "seed": 1028,
+  "board": {
+    "width": 6,
+    "height": 6,
+    "colorCount": 5,
+    "layout": [
+      "......",
+      ".B..B.",
+      "......",
+      "......",
+      ".B..B.",
+      "......"
+    ]
+  },
+  "moves": 22,
+  "giftMoves": 5,
+  "goals": [
+    { "type": "clearBoxes", "count": 4 },
+    { "type": "collect", "color": "blue", "count": 38 }
+  ]
+}
