@@ -46,3 +46,7 @@ One line of context per decision; newest last. Full reasoning lives in the specs
 | 40 | 2026-07-02 | Wardrobe = the fashion coin sink: 6 outfits (80-220 coins), equipped outfit appears in video moments and dance breaks | Decision #36 realized; groceries/shopping sinks still open |
 | 41 | 2026-07-02 | Vanity unlock threshold 1150 xp (was 1300) | Closes a 125-xp grind gap at 2-star reference pace (gym exhausts at ~1175) |
 | 42 | 2026-07-02 | Storage keys keep .v1 names while carrying v2 payloads | Migration artifact, intentional — old saves are found under the historical keys |
+| 43 | 2026-07-02 | Art direction (plan 7): Royal-Kingdom-inspired polish reskinned to adult/influencer — glossy beveled pieces, gold-framed UI, rich midnight/plum palette, ring-light + studio motifs. Inspiration only: no copied art/characters/trade dress | Charles's direction; executed procedurally now, real illustrated art later |
+| 44 | 2026-07-02 | Cooking game: relaxed recipe assembly first (real recipes, step interactions, no timers); serving-rush mode later as difficulty layer | Charles's pick |
+| 45 | 2026-07-02 | Autonomous-run protocol: full autonomy, continuous merge+deploy; EVERY judgment call logged in docs/REVIEW-QUEUE.md for Charles's post-hoc confirmation/correction | Charles leaving computer on for a long unattended run |
+| 46 | 2026-07-02 | Unattended run order: plan 7 (design pass) -> plan 8 (cooking game + hub) -> if capacity: manager panel, playlist music, economy round-out | Design pass first so the cooking game inherits the new look |

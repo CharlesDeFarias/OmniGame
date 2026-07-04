@@ -16,6 +16,10 @@ A personal omnibus of ad-free, non-exploitative casual games. First MVP: a Royal
 - **Spec:** `docs/superpowers/specs/2026-07-01-omnigame-match3-design.md`
 - **Code:** src/core/ (match3 + barrel) + src/sim/ + src/render/ (PlayScene, layout, choreo, theme, audio, levels loader) + src/services/ (journal, progress) + scripts/. npm test / typecheck / simulate / build. Workflows: ci.yml (typecheck+tests) + deploy.yml (Pages). Phaser PINNED to v3 (npm latest = v4 — do not upgrade casually).
 
+## Autonomous run (active, decision #45-46)
+
+Charles is away; full autonomy granted. Order: plan 7 design pass -> plan 8 cooking+hub -> extras. Log EVERY judgment call in docs/REVIEW-QUEUE.md. If this session dies, a fresh session reads this ledger + the current plan doc and continues; greet Charles with a run summary + review queue.
+
 ## How Charles works
 
 - Concise communication. Decisions + playable builds — he doesn't read code.
