@@ -604,4 +604,422 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.closePath();
     g.strokePath();
   });
+
+  // --- Plan 8: cooking game + hub textures ---
+  // Ingredient icons (ing-*) are plain, badge-free nouns — same visual class as gems
+  // and furniture. Action icons (act-*) sit on the cream special badge so "cream badge
+  // = tappable action" stays one consistent affordance across match-3 and cooking.
+  const pts = (arr: { x: number; y: number }[]): Phaser.Math.Vector2[] => arr as Phaser.Math.Vector2[];
+
+  // Bread slice: crust rounded-rect, lighter crumb inset.
+  ui('ing-bread', (g) => {
+    g.fillStyle(0xc68642);
+    g.fillRoundedRect(s * 0.14, s * 0.1, s * 0.72, s * 0.8, { tl: s * 0.3, tr: s * 0.3, bl: s * 0.1, br: s * 0.1 });
+    g.fillStyle(0xf5deb3);
+    g.fillRoundedRect(s * 0.2, s * 0.18, s * 0.6, s * 0.66, { tl: s * 0.24, tr: s * 0.24, bl: s * 0.07, br: s * 0.07 });
+  });
+  // Butter: yellow block (lighter top face) on a grey dish.
+  ui('ing-butter', (g) => {
+    g.fillStyle(0xd7dbdd);
+    g.fillEllipse(c, s * 0.72, s * 0.78, s * 0.2);
+    g.fillStyle(0xf7dc6f);
+    g.fillRoundedRect(s * 0.24, s * 0.34, s * 0.52, s * 0.34, s * 0.05);
+    g.fillStyle(0xfcf3cf);
+    g.fillRoundedRect(s * 0.24, s * 0.34, s * 0.52, s * 0.12, s * 0.05);
+  });
+  // Banana: thick yellow arc crescent with brown tips.
+  ui('ing-banana', (g) => {
+    g.lineStyle(s * 0.16, 0xf4d03f);
+    g.beginPath();
+    g.arc(c, s * 0.3, s * 0.32, Math.PI * 0.15, Math.PI * 0.85, false);
+    g.strokePath();
+    g.fillStyle(0x7d6608);
+    g.fillCircle(c - s * 0.285, s * 0.445, s * 0.05);
+    g.fillCircle(c + s * 0.285, s * 0.445, s * 0.05);
+  });
+  // Apple: red circle, stem, leaf, small shine.
+  ui('ing-apple', (g) => {
+    g.fillStyle(0xe74c3c);
+    g.fillCircle(c, s * 0.56, s * 0.3);
+    g.fillStyle(0x784212);
+    g.fillRect(c - s * 0.02, s * 0.16, s * 0.04, s * 0.14);
+    g.fillStyle(0x2ecc71);
+    g.fillTriangle(c + s * 0.04, s * 0.22, c + s * 0.26, s * 0.1, c + s * 0.22, s * 0.28);
+    g.fillStyle(0xffffff, 0.3);
+    g.fillEllipse(c - s * 0.11, s * 0.46, s * 0.12, s * 0.08);
+  });
+  // Strawberry: rounded-down triangle, leafy top, pale seed dots.
+  ui('ing-strawberry', (g) => {
+    g.fillStyle(0xe74c3c);
+    g.fillPoints(pts([
+      { x: c - s * 0.28, y: s * 0.32 }, { x: c + s * 0.28, y: s * 0.32 },
+      { x: c + s * 0.2, y: s * 0.62 }, { x: c, y: s * 0.86 }, { x: c - s * 0.2, y: s * 0.62 },
+    ]), true);
+    g.fillStyle(0x27ae60);
+    g.fillTriangle(c - s * 0.26, s * 0.34, c, s * 0.14, c + s * 0.26, s * 0.34);
+    g.fillStyle(0xfadbd8);
+    g.fillCircle(c - s * 0.11, s * 0.46, s * 0.022);
+    g.fillCircle(c + s * 0.11, s * 0.46, s * 0.022);
+    g.fillCircle(c, s * 0.58, s * 0.022);
+    g.fillCircle(c - s * 0.05, s * 0.7, s * 0.022);
+    g.fillCircle(c + s * 0.06, s * 0.68, s * 0.022);
+  });
+  // Orange: circle with pale segment lines and a leaf.
+  ui('ing-orange', (g) => {
+    g.fillStyle(0xe67e22);
+    g.fillCircle(c, c, s * 0.32);
+    g.lineStyle(s * 0.028, 0xf8c471, 0.9);
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 4;
+      g.beginPath();
+      g.moveTo(c - Math.cos(a) * s * 0.26, c - Math.sin(a) * s * 0.26);
+      g.lineTo(c + Math.cos(a) * s * 0.26, c + Math.sin(a) * s * 0.26);
+      g.strokePath();
+    }
+    g.fillStyle(0x27ae60);
+    g.fillEllipse(c + s * 0.09, s * 0.13, s * 0.15, s * 0.07);
+  });
+  // Yogurt: white tapered cup, blush foil lid + label band.
+  ui('ing-yogurt', (g) => {
+    g.fillStyle(0xfdfefe);
+    g.fillPoints(pts([
+      { x: s * 0.28, y: s * 0.32 }, { x: s * 0.72, y: s * 0.32 },
+      { x: s * 0.64, y: s * 0.86 }, { x: s * 0.36, y: s * 0.86 },
+    ]), true);
+    g.fillStyle(0xfd79a8);
+    g.fillRoundedRect(s * 0.22, s * 0.18, s * 0.56, s * 0.12, s * 0.04);
+    g.fillStyle(0xfd79a8, 0.45);
+    g.fillRect(s * 0.33, s * 0.5, s * 0.34, s * 0.14);
+  });
+  // Egg: white oval + yolk circle.
+  ui('ing-egg', (g) => {
+    g.fillStyle(0xfdfefe);
+    g.fillEllipse(c, c, s * 0.62, s * 0.72);
+    g.fillStyle(0xf1c40f);
+    g.fillCircle(c, c + s * 0.05, s * 0.15);
+  });
+  // Milk: white gable-top carton with a blue band.
+  ui('ing-milk', (g) => {
+    g.fillStyle(0xfdfefe);
+    g.fillRect(s * 0.3, s * 0.34, s * 0.4, s * 0.52);
+    g.fillTriangle(s * 0.3, s * 0.35, s * 0.7, s * 0.35, c, s * 0.14);
+    g.fillStyle(0x3498db);
+    g.fillRect(s * 0.3, s * 0.52, s * 0.4, s * 0.16);
+  });
+  // Cheese: yellow wedge with darker holes.
+  ui('ing-cheese', (g) => {
+    g.fillStyle(0xf4d03f);
+    g.fillPoints(pts([
+      { x: s * 0.08, y: s * 0.72 }, { x: s * 0.92, y: s * 0.72 }, { x: s * 0.92, y: s * 0.3 },
+    ]), true);
+    g.fillStyle(0xd4ac0d);
+    g.fillCircle(s * 0.7, s * 0.6, s * 0.05);
+    g.fillCircle(s * 0.83, s * 0.47, s * 0.038);
+    g.fillCircle(s * 0.52, s * 0.66, s * 0.032);
+  });
+  // Ham: pink oval with lighter inner rings.
+  ui('ing-ham', (g) => {
+    g.fillStyle(0xf1948a);
+    g.fillEllipse(c, c, s * 0.68, s * 0.5);
+    g.fillStyle(0xfadbd8);
+    g.fillEllipse(c, c, s * 0.42, s * 0.3);
+    g.fillStyle(0xf1948a);
+    g.fillEllipse(c, c, s * 0.16, s * 0.11);
+  });
+  // Lettuce: ring of ruffle bumps around a lighter heart.
+  ui('ing-lettuce', (g) => {
+    g.fillStyle(0x58d68d);
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI * 2) / 8;
+      g.fillCircle(c + Math.cos(a) * s * 0.22, c + Math.sin(a) * s * 0.22, s * 0.145);
+    }
+    g.fillStyle(0x82e0aa);
+    g.fillCircle(c, c, s * 0.2);
+  });
+  // Tomato: red circle with a green star calyx on top.
+  ui('ing-tomato', (g) => {
+    g.fillStyle(0xe74c3c);
+    g.fillCircle(c, s * 0.55, s * 0.3);
+    g.fillStyle(0x229954);
+    g.fillPoints(star(c, s * 0.28, s * 0.15, s * 0.055, 5), true);
+  });
+  // Pasta: yellow noodle squiggles sticking out of a blue bowl.
+  ui('ing-pasta', (g) => {
+    g.lineStyle(s * 0.045, 0xf4d03f);
+    for (let i = 0; i < 3; i++) {
+      const y0 = s * 0.28 + i * s * 0.1;
+      g.beginPath();
+      g.moveTo(s * 0.24, y0);
+      for (let k = 1; k <= 8; k++) {
+        g.lineTo(s * 0.24 + (k / 8) * s * 0.52, y0 + (k % 2 === 0 ? 0 : s * 0.05));
+      }
+      g.strokePath();
+    }
+    g.fillStyle(0x5dade2);
+    g.fillPoints(pts([
+      { x: s * 0.14, y: s * 0.54 }, { x: s * 0.86, y: s * 0.54 },
+      { x: s * 0.72, y: s * 0.86 }, { x: s * 0.28, y: s * 0.86 },
+    ]), true);
+  });
+  // Sauce: red jar, grey lid, glass shine.
+  ui('ing-sauce', (g) => {
+    g.fillStyle(0xa93226);
+    g.fillRoundedRect(s * 0.28, s * 0.3, s * 0.44, s * 0.56, s * 0.08);
+    g.fillStyle(0x839192);
+    g.fillRoundedRect(s * 0.3, s * 0.16, s * 0.4, s * 0.14, s * 0.04);
+    g.fillStyle(0xffffff, 0.25);
+    g.fillRoundedRect(s * 0.34, s * 0.38, s * 0.08, s * 0.4, s * 0.03);
+  });
+  // Tortilla: flat tan circle with toasted spots.
+  ui('ing-tortilla', (g) => {
+    g.fillStyle(0xf0d9a8);
+    g.fillCircle(c, c, s * 0.36);
+    g.fillStyle(0xd8b571, 0.85);
+    g.fillCircle(c - s * 0.14, c - s * 0.08, s * 0.038);
+    g.fillCircle(c + s * 0.1, c + s * 0.13, s * 0.032);
+    g.fillCircle(c + s * 0.17, c - s * 0.13, s * 0.027);
+    g.fillCircle(c - s * 0.06, c + s * 0.19, s * 0.03);
+    g.fillCircle(c - s * 0.02, c - s * 0.2, s * 0.026);
+  });
+  // Flour: tan sack with tied ears and a white label patch.
+  ui('ing-flour', (g) => {
+    g.fillStyle(0xcbb28f);
+    g.fillRoundedRect(s * 0.22, s * 0.3, s * 0.56, s * 0.56, s * 0.1);
+    g.fillTriangle(s * 0.36, s * 0.32, s * 0.26, s * 0.12, s * 0.46, s * 0.3);
+    g.fillTriangle(s * 0.64, s * 0.32, s * 0.74, s * 0.12, s * 0.54, s * 0.3);
+    g.fillStyle(0xfdfefe);
+    g.fillRoundedRect(s * 0.32, s * 0.46, s * 0.36, s * 0.24, s * 0.04);
+  });
+  // Sugar: stack of three white cubes.
+  ui('ing-sugar', (g) => {
+    g.lineStyle(s * 0.025, 0xd5dbdb);
+    g.fillStyle(0xfdfefe);
+    for (const [x, y] of [[s * 0.2, s * 0.52], [s * 0.54, s * 0.52], [s * 0.37, s * 0.24]] as const) {
+      g.fillRoundedRect(x, y, s * 0.26, s * 0.26, s * 0.04);
+      g.strokeRoundedRect(x, y, s * 0.26, s * 0.26, s * 0.04);
+    }
+  });
+  // Carrot: orange triangle pointing down, leafy green top.
+  ui('ing-carrot', (g) => {
+    g.fillStyle(0xe67e22);
+    g.fillTriangle(c - s * 0.14, s * 0.3, c + s * 0.14, s * 0.3, c, s * 0.88);
+    g.fillStyle(0x27ae60);
+    g.fillEllipse(c - s * 0.09, s * 0.2, s * 0.1, s * 0.2);
+    g.fillEllipse(c + s * 0.09, s * 0.2, s * 0.1, s * 0.2);
+    g.fillEllipse(c, s * 0.15, s * 0.1, s * 0.22);
+  });
+  // Potato: brown oval with darker eye dots.
+  ui('ing-potato', (g) => {
+    g.fillStyle(0xb7855a);
+    g.fillEllipse(c, c, s * 0.68, s * 0.5);
+    g.fillStyle(0x8c6239);
+    g.fillCircle(c - s * 0.15, c - s * 0.06, s * 0.03);
+    g.fillCircle(c + s * 0.12, c + s * 0.08, s * 0.03);
+    g.fillCircle(c + s * 0.03, c - s * 0.12, s * 0.026);
+  });
+  // Onion: golden layered circle (concentric rings) with a top sprout.
+  ui('ing-onion', (g) => {
+    g.fillStyle(0xdfb98a);
+    g.fillCircle(c, s * 0.56, s * 0.3);
+    g.lineStyle(s * 0.025, 0xb9905f);
+    g.strokeCircle(c, s * 0.56, s * 0.2);
+    g.strokeCircle(c, s * 0.56, s * 0.1);
+    g.fillStyle(0xb9905f);
+    g.fillTriangle(c - s * 0.05, s * 0.3, c + s * 0.05, s * 0.3, c, s * 0.12);
+  });
+  // Dough: pale ball with a soft highlight.
+  ui('ing-dough', (g) => {
+    g.fillStyle(0xf3e5c2);
+    g.fillEllipse(c, s * 0.58, s * 0.62, s * 0.46);
+    g.fillStyle(0xffffff, 0.4);
+    g.fillEllipse(c - s * 0.12, s * 0.47, s * 0.18, s * 0.1);
+  });
+  // Oil: olive-green bottle, dark cap, shine stripe.
+  ui('ing-oil', (g) => {
+    g.fillStyle(0xb5b93c);
+    g.fillRoundedRect(s * 0.32, s * 0.4, s * 0.36, s * 0.46, s * 0.08);
+    g.fillRect(s * 0.44, s * 0.22, s * 0.12, s * 0.2);
+    g.fillStyle(0x555566);
+    g.fillRect(s * 0.42, s * 0.13, s * 0.16, s * 0.09);
+    g.fillStyle(0xffffff, 0.25);
+    g.fillRoundedRect(s * 0.37, s * 0.46, s * 0.07, s * 0.32, s * 0.03);
+  });
+  // Salt: white shaker with a metal cap and holes.
+  ui('ing-salt', (g) => {
+    g.fillStyle(0xfdfefe);
+    g.fillRoundedRect(s * 0.32, s * 0.36, s * 0.36, s * 0.5, { tl: s * 0.12, tr: s * 0.12, bl: s * 0.06, br: s * 0.06 });
+    g.fillStyle(0xaab7b8);
+    g.fillRoundedRect(s * 0.34, s * 0.2, s * 0.32, s * 0.16, s * 0.06);
+    g.fillStyle(0x515a5a);
+    g.fillCircle(c - s * 0.06, s * 0.28, s * 0.02);
+    g.fillCircle(c + s * 0.06, s * 0.28, s * 0.02);
+    g.fillCircle(c, s * 0.25, s * 0.02);
+  });
+
+  // Chop: chef's knife — grey blade tapering left, dark handle.
+  sp('act-chop', (g) => {
+    g.fillStyle(0xd5dbdb);
+    g.fillPoints(pts([
+      { x: c - r * 0.85, y: c + r * 0.1 }, { x: c + r * 0.3, y: c - r * 0.25 },
+      { x: c + r * 0.3, y: c + r * 0.4 }, { x: c - r * 0.35, y: c + r * 0.4 },
+    ]), true);
+    g.fillStyle(0x6e2c00);
+    g.fillRoundedRect(c + r * 0.28, c - r * 0.3, r * 0.58, r * 0.28, r * 0.1);
+  });
+  // Stir: wooden spoon (diagonal) + swirl arc.
+  sp('act-stir', (g) => {
+    g.fillStyle(0x8e5b2f);
+    g.fillEllipse(c - r * 0.38, c + r * 0.38, r * 0.5, r * 0.6);
+    g.fillPoints(pts([
+      { x: c - r * 0.32, y: c + r * 0.16 }, { x: c + r * 0.52, y: c - r * 0.72 },
+      { x: c + r * 0.68, y: c - r * 0.58 }, { x: c - r * 0.16, y: c + r * 0.3 },
+    ]), true);
+    g.lineStyle(s * 0.03, 0x2c2c54, 0.55);
+    g.beginPath();
+    g.arc(c, c + r * 0.1, r * 0.78, Math.PI * 0.15, Math.PI * 0.85, false);
+    g.strokePath();
+  });
+  // Pour: tilted blue pitcher, handle arc, falling drops.
+  sp('act-pour', (g) => {
+    g.fillStyle(0x5dade2);
+    g.fillPoints(pts([
+      { x: c - r * 0.75, y: c - r * 0.5 }, { x: c + r * 0.15, y: c - r * 0.75 },
+      { x: c + r * 0.45, y: c - r * 0.15 }, { x: c - r * 0.35, y: c + r * 0.1 },
+    ]), true);
+    g.lineStyle(s * 0.035, 0x5dade2);
+    g.beginPath();
+    g.arc(c - r * 0.62, c - r * 0.1, r * 0.3, Math.PI * 0.35, Math.PI * 1.25, false);
+    g.strokePath();
+    g.fillStyle(0x85c1e9);
+    g.fillCircle(c + r * 0.45, c + r * 0.25, r * 0.09);
+    g.fillCircle(c + r * 0.62, c + r * 0.52, r * 0.11);
+    g.fillCircle(c + r * 0.3, c + r * 0.58, r * 0.08);
+  });
+  // Flip: spatula with slots + curved arrow above.
+  sp('act-flip', (g) => {
+    g.fillStyle(0x839192);
+    g.fillRoundedRect(c - r * 0.75, c + r * 0.08, r * 0.72, r * 0.48, r * 0.1);
+    g.fillStyle(0x6e2c00);
+    g.fillRoundedRect(c - r * 0.05, c + r * 0.22, r * 0.85, r * 0.18, r * 0.09);
+    g.fillStyle(0x2c2c54, 0.35);
+    g.fillRect(c - r * 0.62, c + r * 0.18, r * 0.46, r * 0.05);
+    g.fillRect(c - r * 0.62, c + r * 0.34, r * 0.46, r * 0.05);
+    g.lineStyle(s * 0.035, 0x2c2c54);
+    g.beginPath();
+    g.arc(c - r * 0.2, c - r * 0.15, r * 0.45, Math.PI * 1.05, Math.PI * 1.95, false);
+    g.strokePath();
+    g.fillStyle(0x2c2c54);
+    g.fillTriangle(c + r * 0.12, c - r * 0.34, c + r * 0.36, c - r * 0.34, c + r * 0.24, c - r * 0.08);
+  });
+  // Spread: flat butter knife over a yellow smear.
+  sp('act-spread', (g) => {
+    g.fillStyle(0xf7dc6f);
+    g.fillEllipse(c, c + r * 0.45, r * 1.1, r * 0.32);
+    g.fillStyle(0xd5dbdb);
+    g.fillRoundedRect(c - r * 0.85, c - r * 0.3, r * 1.1, r * 0.28, r * 0.14);
+    g.fillStyle(0x784212);
+    g.fillRoundedRect(c + r * 0.25, c - r * 0.28, r * 0.6, r * 0.24, r * 0.1);
+  });
+  // Blend: blender jar with smoothie level, lid, dark base.
+  sp('act-blend', (g) => {
+    g.fillStyle(0xaed6f1, 0.9);
+    g.fillPoints(pts([
+      { x: c - r * 0.45, y: c - r * 0.62 }, { x: c + r * 0.45, y: c - r * 0.62 },
+      { x: c + r * 0.32, y: c + r * 0.25 }, { x: c - r * 0.32, y: c + r * 0.25 },
+    ]), true);
+    g.fillStyle(0xe74c3c);
+    g.fillPoints(pts([
+      { x: c - r * 0.39, y: c - r * 0.18 }, { x: c + r * 0.39, y: c - r * 0.18 },
+      { x: c + r * 0.32, y: c + r * 0.25 }, { x: c - r * 0.32, y: c + r * 0.25 },
+    ]), true);
+    g.fillStyle(0x555566);
+    g.fillRoundedRect(c - r * 0.5, c + r * 0.25, r, r * 0.38, r * 0.08);
+    g.fillRoundedRect(c - r * 0.45, c - r * 0.82, r * 0.9, r * 0.2, r * 0.06);
+  });
+  // Cook: dark pan side-view + orange heat squiggles.
+  sp('act-cook', (g) => {
+    g.fillStyle(0x2c2c54);
+    g.fillRoundedRect(c - r * 0.78, c + r * 0.1, r * 1.1, r * 0.32, { tl: r * 0.05, tr: r * 0.05, bl: r * 0.16, br: r * 0.16 });
+    g.fillRoundedRect(c + r * 0.28, c + r * 0.15, r * 0.58, r * 0.14, r * 0.07);
+    g.lineStyle(s * 0.03, 0xe67e22);
+    for (const dx of [-0.5, -0.15, 0.2]) {
+      const x = c + r * dx;
+      g.beginPath();
+      g.moveTo(x, c - r * 0.1);
+      g.lineTo(x + r * 0.09, c - r * 0.3);
+      g.lineTo(x - r * 0.02, c - r * 0.52);
+      g.lineTo(x + r * 0.09, c - r * 0.74);
+      g.strokePath();
+    }
+  });
+
+  // Mixing bowl: blue tapered bowl, darker rim, grey foot.
+  ui('ui-bowl', (g) => {
+    g.fillStyle(0x5dade2);
+    g.fillPoints(pts([
+      { x: s * 0.08, y: s * 0.36 }, { x: s * 0.92, y: s * 0.36 },
+      { x: s * 0.74, y: s * 0.78 }, { x: s * 0.26, y: s * 0.78 },
+    ]), true);
+    g.fillStyle(0x3498db);
+    g.fillRoundedRect(s * 0.06, s * 0.28, s * 0.88, s * 0.11, s * 0.055);
+    g.fillStyle(0xd7dbdd);
+    g.fillRect(s * 0.38, s * 0.78, s * 0.24, s * 0.08);
+  });
+  // Plate: white ellipse with an inner well ring.
+  ui('ui-plate', (g) => {
+    g.fillStyle(0xfdfefe);
+    g.fillEllipse(c, c, s * 0.9, s * 0.52);
+    g.lineStyle(s * 0.02, 0xaab7b8, 0.8);
+    g.strokeEllipse(c, c, s * 0.58, s * 0.3);
+  });
+  // Hub card pan: top-view pan with a fried egg inside.
+  ui('ui-pan-card', (g) => {
+    g.fillStyle(0x2c2c54);
+    g.fillCircle(s * 0.42, c, s * 0.3);
+    g.fillRoundedRect(s * 0.64, c - s * 0.05, s * 0.32, s * 0.1, s * 0.05);
+    g.fillStyle(0x555577);
+    g.fillCircle(s * 0.42, c, s * 0.24);
+    g.fillStyle(0xfdfefe);
+    g.fillEllipse(s * 0.42, c, s * 0.3, s * 0.26);
+    g.fillStyle(0xf1c40f);
+    g.fillCircle(s * 0.42, c, s * 0.075);
+  });
+  // Padlock: gold body, grey shackle, dark keyhole.
+  ui('ui-lock', (g) => {
+    g.lineStyle(s * 0.07, 0xd5dbdb);
+    g.beginPath();
+    g.arc(c, s * 0.4, s * 0.17, Math.PI, Math.PI * 2, false);
+    g.strokePath();
+    g.fillStyle(0xf1c40f);
+    g.fillRoundedRect(s * 0.26, s * 0.42, s * 0.48, s * 0.4, s * 0.08);
+    g.fillStyle(0x7d6608);
+    g.fillCircle(c, s * 0.58, s * 0.05);
+    g.fillRect(c - s * 0.02, s * 0.58, s * 0.04, s * 0.12);
+  });
+  // Home button: blush circle + white house, gold ring (matches ui-play/ui-retry).
+  ui('ui-home', (g) => {
+    g.fillStyle(PALETTE.blush);
+    g.fillCircle(c, c, r * 1.1);
+    g.fillStyle(0xffffff);
+    g.fillTriangle(c - r * 0.62, c - r * 0.02, c + r * 0.62, c - r * 0.02, c, c - r * 0.62);
+    g.fillRoundedRect(c - r * 0.4, c - r * 0.02, r * 0.8, r * 0.56, r * 0.08);
+    g.fillStyle(PALETTE.blush);
+    g.fillRect(c - r * 0.1, c + r * 0.16, r * 0.2, r * 0.38);
+    g.lineStyle(s * 0.035, PALETTE.gold);
+    g.strokeCircle(c, c, r * 1.1);
+  });
+  // Hub logo: the studio ring light with a blush heart centre.
+  ui('ui-logo-ring', (g) => {
+    g.lineStyle(s * 0.02, PALETTE.cream, 0.35);
+    g.strokeCircle(c, c, r);
+    g.fillStyle(PALETTE.cream);
+    for (let i = 0; i < 12; i++) {
+      const a = (i * Math.PI * 2) / 12;
+      g.fillCircle(c + Math.cos(a) * r, c + Math.sin(a) * r, r * 0.09);
+    }
+    g.fillStyle(PALETTE.blush);
+    g.fillCircle(c - r * 0.18, c - r * 0.12, r * 0.21);
+    g.fillCircle(c + r * 0.18, c - r * 0.12, r * 0.21);
+    g.fillTriangle(c - r * 0.37, c - r * 0.03, c + r * 0.37, c - r * 0.03, c, c + r * 0.38);
+  });
 }
