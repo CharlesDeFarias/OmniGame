@@ -50,3 +50,7 @@ One line of context per decision; newest last. Full reasoning lives in the specs
 | 44 | 2026-07-02 | Cooking game: relaxed recipe assembly first (real recipes, step interactions, no timers); serving-rush mode later as difficulty layer | Charles's pick |
 | 45 | 2026-07-02 | Autonomous-run protocol: full autonomy, continuous merge+deploy; EVERY judgment call logged in docs/REVIEW-QUEUE.md for Charles's post-hoc confirmation/correction | Charles leaving computer on for a long unattended run |
 | 46 | 2026-07-02 | Unattended run order: plan 7 (design pass) -> plan 8 (cooking game + hub) -> if capacity: manager panel, playlist music, economy round-out | Design pass first so the cooking game inherits the new look |
+| 47 | 2026-07-02 | Luana personalization: designer's choice defaults (warm pink-gold accents, brown-haired avatar) — logged for correction | Charles delegated |
+| 48 | 2026-07-02 | Cooking recipes: simple everyday basics (toast, fruit salad, sandwich, eggs, pasta, pancakes, smoothie tier) | Charles's pick |
+| 49 | 2026-07-02 | Her build is named 'Luana Studio' (config-driven appIdentity; public layer keeps a generic name) | Charles picked personal naming; exact name mine to propose |
+| 50 | 2026-07-02 | Stretch order after design+cooking: manager panel first | Charles's pick |

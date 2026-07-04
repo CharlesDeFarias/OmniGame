@@ -1,0 +1,1 @@
+- All pre-run questions answered; decisions #47-50 recorded. Starting plan 7 (design pass).
