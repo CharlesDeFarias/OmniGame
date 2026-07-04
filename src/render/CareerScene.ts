@@ -108,7 +108,13 @@ export class CareerScene extends Phaser.Scene {
     this.add
       .rectangle(GAME_WIDTH / 2, (WALL_SPLIT + ROOM_BOTTOM) / 2, GAME_WIDTH, ROOM_BOTTOM - WALL_SPLIT, 0x2a2a3e)
       .setDepth(-1);
-    // Studio motif: big soft ring light glowing behind the room view band.
+    // Studio motif: big soft ring light glowing behind the room view band,
+    // now with a warm gold halo underneath it (plan 9 facelift).
+    this.add
+      .image(GAME_WIDTH / 2, (ROOM_TOP + ROOM_BOTTOM) / 2, 'ui-glow')
+      .setDisplaySize(780, 780)
+      .setAlpha(0.28)
+      .setDepth(-0.6);
     this.add
       .image(GAME_WIDTH / 2, (ROOM_TOP + ROOM_BOTTOM) / 2, 'ui-ringlight')
       .setDisplaySize(640, 640)
@@ -318,9 +324,11 @@ export class CareerScene extends Phaser.Scene {
       const unlocked = lvl >= ch.unlockLevel;
       const active = ch.id === this.activeChapter();
       const bg = this.add.circle(x, STRIP_Y, 44, 0x2c2c54, unlocked ? 0.9 : 0.45).setDepth(1);
+      // Active chapter's icon sits slightly larger (plan 9 facelift).
+      const iconSize = !unlocked ? 48 : active ? 64 : 56;
       const icon = this.add
         .sprite(x, STRIP_Y, STRIP_ICON[ch.id])
-        .setDisplaySize(unlocked ? 56 : 48, unlocked ? 56 : 48)
+        .setDisplaySize(iconSize, iconSize)
         .setDepth(2);
       this.stripObjects.push(bg, icon);
       if (!unlocked) {

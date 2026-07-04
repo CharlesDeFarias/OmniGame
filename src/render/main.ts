@@ -13,6 +13,13 @@ import { RunnerScene } from './RunnerScene';
 document.title = APP_IDENTITY.name;
 document.querySelector('meta[name="theme-color"]')?.setAttribute('content', APP_IDENTITY.themeColor);
 
+// Splash handoff (plan 9): index.html ships the splash with a neutral
+// 'OmniGame' title; the profile name lands here synchronously, long before the
+// first frame the user can read. Profile swap stays a one-file operation.
+const splash = document.getElementById('splash');
+const splashTitle = splash?.querySelector('.splash-title') ?? null;
+if (splashTitle !== null) splashTitle.textContent = APP_IDENTITY.name;
+
 // Fredoka is loaded up front so Phaser's canvas text measures and renders with
 // the real font from the first frame (canvas text does not re-render on CSS
 // font-display swap). The 2.5s timeout race means a slow or missing font file
@@ -37,15 +44,25 @@ async function loadBrandFont(): Promise<void> {
 // The hub is the front door for everyone (plan 8): Phaser auto-starts the first
 // scene in the array. PlayScene's zero-text tutorial still triggers on its own
 // fresh-save condition the first time the match-3 game is entered.
-void loadBrandFont().then(() => new Phaser.Game({
-  type: Phaser.AUTO,
-  parent: 'app',
-  backgroundColor: APP_IDENTITY.themeColor,
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: GAME_WIDTH,
-    height: GAME_HEIGHT,
-  },
-  scene: [HubScene, CareerScene, PlayScene, CookingScene, RunnerScene],
-}));
+void loadBrandFont().then(() => {
+  const game = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: 'app',
+    backgroundColor: APP_IDENTITY.themeColor,
+    scale: {
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+      width: GAME_WIDTH,
+      height: GAME_HEIGHT,
+    },
+    scene: [HubScene, CareerScene, PlayScene, CookingScene, RunnerScene],
+  });
+  // Lift the splash curtain once the game is READY (the hub's create() runs
+  // the same tick and opens with a camera fade from the same #141428, so the
+  // handoff reads as one continuous fade).
+  game.events.once(Phaser.Core.Events.READY, () => {
+    if (splash === null) return;
+    splash.classList.add('splash-hide');
+    window.setTimeout(() => splash.remove(), 350);
+  });
+});

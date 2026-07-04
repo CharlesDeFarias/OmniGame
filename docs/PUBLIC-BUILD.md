@@ -56,7 +56,13 @@ and the `theme-color`/background color (`#141428`). Now:
 - `main.ts` also rewrites the `theme-color` meta from
   `PROFILE.identity.themeColor`. The static `#141428` in the meta tag and the
   inline `body` background remain as pre-JS dark fallbacks — only worth
-  touching if a profile ever ships a non-dark chrome color.
+  touching if a profile ever ships a non-dark chrome color;
+- the **splash screen** (plan 9) follows the same pattern: `index.html` ships
+  the `#splash` overlay with a neutral 'OmniGame' title, and `main.ts` swaps
+  in `APP_IDENTITY.name` synchronously at boot (this is the splash text swap
+  point — no per-profile edit to `index.html` needed). The splash's heart and
+  spinner colors are hardcoded palette values in `index.html`'s inline CSS;
+  edit them there only if a rebrand changes the palette.
 
 ## Checklist
 
