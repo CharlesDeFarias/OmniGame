@@ -18,7 +18,6 @@ import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { loadRunnerLevels } from './levels';
 import { PALETTE } from './palette';
-import { makeTextures } from './theme';
 import { TS } from './textStyles';
 
 /** Squad anchor: world scrolls left, the runners stay put. */
@@ -78,7 +77,6 @@ export class RunnerScene extends Phaser.Scene {
   }
 
   create(): void {
-    makeTextures(this, 96);
     fadeIn(this);
     // Scene instances persist across start/stop: reset per-run refs.
     this.viewObjects = [];

@@ -19,7 +19,7 @@ import { boardLayout, cellToXY, xyToCell, type Layout } from './layout';
 import { loadLevels } from './levels';
 import { pieceTextureKey, type PackId } from './packs';
 import { PALETTE } from './palette';
-import { COLOR_HEX, makeAvatarTexture, makeTextures, textureKeyFor } from './theme';
+import { COLOR_HEX, makeAvatarTexture, textureKeyFor } from './theme';
 import { TS } from './textStyles';
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
@@ -72,7 +72,6 @@ export class PlayScene extends Phaser.Scene {
   }
 
   create(): void {
-    makeTextures(this, 96);
     fadeIn(this);
     // Smooth studio-night gradient + ambient glow + bokeh (plan 9 legit-look).
     buildBackground(this, PALETTE.bgPlum, PALETTE.bgDeep, 0x0d0d1c);

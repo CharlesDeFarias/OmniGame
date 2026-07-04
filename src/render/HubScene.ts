@@ -15,7 +15,6 @@ import { loadRunnerLevels } from './levels';
 import { TASK_ICON_TEXTURE } from './taskIcons';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
-import { makeTextures } from './theme';
 import { TS } from './textStyles';
 
 const BAR_Y = 70;
@@ -45,7 +44,6 @@ export class HubScene extends Phaser.Scene {
   }
 
   create(): void {
-    makeTextures(this, 96);
     fadeIn(this);
     // Scene instances persist across start/stop: reset per-run refs.
     this.secretTaps = [];

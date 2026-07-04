@@ -18,7 +18,7 @@ import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
 import { TASK_ICON_TEXTURE } from './taskIcons';
-import { makeAvatarTexture, makeTextures } from './theme';
+import { makeAvatarTexture } from './theme';
 import { TS } from './textStyles';
 
 const BAR_Y = 70;
@@ -70,7 +70,6 @@ export class CareerScene extends Phaser.Scene {
   }
 
   create(): void {
-    makeTextures(this, 96);
     fadeIn(this);
     // Scene instances persist across start/stop: reset per-run refs.
     this.barTexts = null;

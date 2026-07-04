@@ -11,7 +11,6 @@ import { createBlips, type Blips } from './audio';
 import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
-import { makeTextures } from './theme';
 import { TS } from './textStyles';
 
 /** FNV-1a over the id string: pantry layouts and distractor picks are deterministic per recipe. */
@@ -92,7 +91,6 @@ export class CookingScene extends Phaser.Scene {
   }
 
   create(): void {
-    makeTextures(this, 96);
     fadeIn(this);
     this.viewObjects = [];
     this.state = null;
