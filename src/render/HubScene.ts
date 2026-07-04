@@ -6,6 +6,7 @@ import { summarize } from '../services/stats';
 import { createTasks, TASK_ICONS, type Tasks } from '../services/tasks';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createBlips, type Blips } from './audio';
+import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { TASK_ICON_TEXTURE } from './taskIcons';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
@@ -40,6 +41,7 @@ export class HubScene extends Phaser.Scene {
 
   create(): void {
     makeTextures(this, 96);
+    fadeIn(this);
     // Scene instances persist across start/stop: reset per-run refs.
     this.secretTaps = [];
     this.parentObjects = [];
@@ -52,13 +54,8 @@ export class HubScene extends Phaser.Scene {
     this.blips = createBlips();
     this.blips.setMuted(window.localStorage.getItem('omnigame.muted.v1') === '1');
     this.input.on('pointerdown', () => this.blips.unlock());
-    // Stage bands, same studio feel as PlayScene.
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.125, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgPlum, 0.8)
-      .setDepth(-2);
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.875, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgDeep, 0.9)
-      .setDepth(-2);
+    // Smooth studio-night gradient + ambient glow + bokeh (plan 9 legit-look).
+    buildBackground(this, PALETTE.bgPlumLight, PALETTE.bgPlum, PALETTE.bgDeep);
     // Logo: static heart-ring on top of a slowly rotating plain ring light
     // (judgment call: rotating the heart itself looks broken; the spin lives
     // on the bulb ring behind it).
@@ -126,9 +123,10 @@ export class HubScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
     card.setInteractive();
+    pressify(this, card);
     card.on('pointerup', () => {
       this.blips.ding();
-      this.scene.start('runner');
+      goto(this, 'runner');
     });
   }
 
@@ -146,9 +144,10 @@ export class HubScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
     decorate(x, y);
+    pressify(this, card);
     card.on('pointerup', () => {
       this.blips.ding();
-      this.scene.start(target);
+      goto(this, target);
     });
   }
 
@@ -237,6 +236,7 @@ export class HubScene extends Phaser.Scene {
         const x = 130 + i * 115;
         const y = 330;
         const btn = this.add.image(x, y, 'ui-panel').setDisplaySize(96, 96).setAlpha(0.5).setDepth(23).setInteractive();
+        pressify(this, btn);
         objs.push(btn);
         objs.push(this.add.sprite(x, y, TASK_ICON_TEXTURE[icon]).setDisplaySize(56, 56).setDepth(24));
         btn.on(
@@ -265,6 +265,7 @@ export class HubScene extends Phaser.Scene {
         .setStrokeStyle(4, PALETTE.gold)
         .setDepth(23)
         .setInteractive();
+      pressify(this, toggle);
       objs.push(toggle);
       if (task.done) {
         objs.push(
@@ -289,6 +290,7 @@ export class HubScene extends Phaser.Scene {
         .setOrigin(0.5)
         .setDepth(23)
         .setInteractive();
+      pressify(this, remove);
       objs.push(remove);
       remove.on(
         'pointerup',
@@ -309,6 +311,7 @@ export class HubScene extends Phaser.Scene {
       objs.push(this.add.sprite(120, musicY, 'ui-note').setDisplaySize(48, 48).setDepth(23));
       objs.push(this.add.text(160, musicY, String(this.musicTracks.length), textStyle).setOrigin(0, 0.5).setDepth(23));
       const addBtn = this.add.image(540, musicY, 'ui-panel').setDisplaySize(96, 96).setAlpha(0.5).setDepth(23).setInteractive();
+      pressify(this, addBtn);
       this.musicAddBtn = addBtn;
       objs.push(addBtn);
       objs.push(this.add.sprite(526, musicY, 'ui-note').setDisplaySize(44, 44).setDepth(24));
@@ -337,6 +340,7 @@ export class HubScene extends Phaser.Scene {
           .setOrigin(0.5)
           .setDepth(23)
           .setInteractive();
+        pressify(this, removeTrack);
         objs.push(removeTrack);
         removeTrack.on(
           'pointerup',

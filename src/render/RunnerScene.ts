@@ -14,6 +14,7 @@ import { createJournal, type Journal } from '../services/journal';
 import { createRunner, starsForRun, type RunnerProgress } from '../services/runner';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createBlips, type Blips } from './audio';
+import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { loadRunnerLevels } from './levels';
 import { PALETTE } from './palette';
@@ -78,6 +79,7 @@ export class RunnerScene extends Phaser.Scene {
 
   create(): void {
     makeTextures(this, 96);
+    fadeIn(this);
     // Scene instances persist across start/stop: reset per-run refs.
     this.viewObjects = [];
     this.timers = [];
@@ -93,13 +95,8 @@ export class RunnerScene extends Phaser.Scene {
     this.blips = createBlips();
     this.blips.setMuted(window.localStorage.getItem('omnigame.muted.v1') === '1');
     this.input.on('pointerdown', () => this.blips.unlock());
-    // Stage bands, same studio feel as the other scenes.
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.125, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgPlum, 0.8)
-      .setDepth(-2);
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.875, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgDeep, 0.9)
-      .setDepth(-2);
+    // Cool night-run variant of the shared gradient (plan 9 legit-look).
+    buildBackground(this, 0x1f2b4a, PALETTE.bgPlum, PALETTE.bgDeep);
     // Lane-change input (only live while phase === 'run').
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onUp(p));
@@ -154,12 +151,14 @@ export class RunnerScene extends Phaser.Scene {
         .setDepth(1),
     );
     const home = this.add.sprite(78, 96, 'ui-home').setDisplaySize(68, 68).setDepth(1).setInteractive();
+    pressify(this, home);
     this.viewObjects.push(home);
-    home.on('pointerup', () => this.scene.start('hub'));
+    home.on('pointerup', () => goto(this, 'hub'));
     this.levels.forEach((level, i) => {
       const y = 400 + i * 230;
       const x = GAME_WIDTH / 2;
       const card = this.add.image(x, y, 'ui-panel').setDisplaySize(540, 200).setAlpha(0.95).setDepth(0).setInteractive();
+      pressify(this, card);
       this.viewObjects.push(card);
       // Mini squad cluster + level number on the left.
       for (let pip = 0; pip < 3; pip++) {
@@ -216,6 +215,7 @@ export class RunnerScene extends Phaser.Scene {
     this.buildSquad(level.startCount);
     // Small home escape back to the level list (pausing/quitting is always fine).
     const home = this.add.sprite(60, 62, 'ui-home').setDisplaySize(56, 56).setAlpha(0.85).setDepth(6).setInteractive();
+    pressify(this, home);
     this.viewObjects.push(home);
     home.on('pointerup', () => {
       if (this.phase !== 'run') return;
@@ -612,12 +612,14 @@ export class RunnerScene extends Phaser.Scene {
       .setDepth(12)
       .setInteractive();
     const home = this.add.sprite(GAME_WIDTH / 2 + 110, y, 'ui-home').setDisplaySize(130, 130).setDepth(12).setInteractive();
+    pressify(this, retry);
+    pressify(this, home);
     this.viewObjects.push(retry, home);
     this.tweens.add({ targets: retry, scale: retry.scale * 1.08, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     retry.once('pointerup', () => {
       this.blips.ding();
       this.startRun(this.levelIndex);
     });
-    home.once('pointerup', () => this.scene.start('hub'));
+    home.once('pointerup', () => goto(this, 'hub'));
   }
 }

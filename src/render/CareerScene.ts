@@ -14,6 +14,7 @@ import { createTasks, type Tasks } from '../services/tasks';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createWardrobe, type Wardrobe } from '../services/wardrobe';
 import { createBlips, type Blips } from './audio';
+import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
 import { TASK_ICON_TEXTURE } from './taskIcons';
@@ -70,6 +71,7 @@ export class CareerScene extends Phaser.Scene {
 
   create(): void {
     makeTextures(this, 96);
+    fadeIn(this);
     // Scene instances persist across start/stop: reset per-run refs.
     this.barTexts = null;
     this.roomObjects = [];
@@ -96,6 +98,9 @@ export class CareerScene extends Phaser.Scene {
     this.blips = createBlips();
     this.blips.setMuted(window.localStorage.getItem('omnigame.muted.v1') === '1');
     this.input.on('pointerdown', () => this.blips.unlock());
+    // Smooth scene gradient behind everything; the room band keeps its
+    // per-chapter wall tint on top (plan 9 legit-look).
+    buildBackground(this, PALETTE.bgPlumLight, PALETTE.bgPlum, PALETTE.bgDeep);
     // Room backdrop: wall band (tinted per chapter) + floor band.
     this.wallRect = this.add
       .rectangle(GAME_WIDTH / 2, (ROOM_TOP + WALL_SPLIT) / 2, GAME_WIDTH, WALL_SPLIT - ROOM_TOP, WALL_TINT[this.progress.chapter])
@@ -120,9 +125,10 @@ export class CareerScene extends Phaser.Scene {
       .setDisplaySize(64, 64)
       .setDepth(2)
       .setInteractive();
+    pressify(this, home);
     home.on('pointerup', () => {
       if (this.overlayOpen()) return;
-      this.scene.start('hub');
+      goto(this, 'hub');
     });
     // Wardrobe shop button: hanger, below the home button.
     const hanger = this.add
@@ -130,6 +136,7 @@ export class CareerScene extends Phaser.Scene {
       .setDisplaySize(64, 64)
       .setDepth(2)
       .setInteractive();
+    pressify(this, hanger);
     hanger.on('pointerup', () => this.openWardrobe());
     // Grocery shop button (decision #52): basket right below the hanger — the
     // clipboard moves one slot further down (judgment call, same column rhythm).
@@ -138,16 +145,18 @@ export class CareerScene extends Phaser.Scene {
       .setDisplaySize(64, 64)
       .setDepth(2)
       .setInteractive();
+    pressify(this, basket);
     basket.on('pointerup', () => this.openGrocery());
     const play = this.add
       .sprite(GAME_WIDTH / 2, GAME_HEIGHT - 220, 'ui-play')
       .setScale(2.8)
       .setDepth(2)
       .setInteractive();
+    pressify(this, play);
     this.tweens.add({ targets: play, scale: 3.0, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     play.on('pointerup', () => {
       if (this.overlayOpen()) return;
-      this.scene.start('play');
+      goto(this, 'play');
     });
     this.buildClipboardButton();
     this.maybeFilmVideo();
@@ -227,6 +236,7 @@ export class CareerScene extends Phaser.Scene {
         .setAlpha(0.6)
         .setDepth(1)
         .setInteractive();
+      pressify(this, marker);
       marker.on('pointerup', () => this.openPicker(slot));
       const tagIcon = this.add.sprite(x - 28, y + 96, 'ui-coin').setDisplaySize(34, 34).setDepth(1);
       const tagTxt = this.add
@@ -267,6 +277,7 @@ export class CareerScene extends Phaser.Scene {
         .setDisplaySize(150, 150)
         .setDepth(12)
         .setInteractive();
+      pressify(this, sp);
       const icon = this.add.sprite(x - 26, y + 112, 'ui-coin').setDisplaySize(32, 32).setDepth(12);
       const txt = this.add
         .text(x - 4, y + 112, String(choice.price), TS.number(28))
@@ -332,6 +343,7 @@ export class CareerScene extends Phaser.Scene {
         this.tweens.add({ targets: icon, scale: icon.scale * 1.15, duration: 500, yoyo: true, repeat: -1 });
       }
       bg.setInteractive();
+      pressify(this, bg, icon);
       bg.on('pointerup', () => {
         if (this.overlayOpen()) return;
         this.switchChapter(ch.id);
@@ -389,6 +401,7 @@ export class CareerScene extends Phaser.Scene {
       const owned = state.owned.includes(item.id);
       const equipped = state.equipped === item.id;
       const sp = this.add.sprite(x, y, `${prefix}-p0`).setDisplaySize(170, 170).setDepth(12).setInteractive();
+      pressify(this, sp);
       objs.push(sp);
       if (equipped) {
         objs.push(this.add.circle(x, y, 94).setStrokeStyle(5, 0xf1c40f).setDepth(12));
@@ -497,6 +510,7 @@ export class CareerScene extends Phaser.Scene {
       const y = gridTop + (row + Math.floor(i / 4)) * 178;
       const x = cellX(col);
       const icon = this.add.sprite(x, y, `ing-${cell.id}`).setDisplaySize(96, 96).setDepth(12).setInteractive();
+      pressify(this, icon);
       objs.push(icon);
       objs.push(this.add.sprite(x - 22, y + 68, 'ui-coin').setDisplaySize(28, 28).setDepth(12));
       objs.push(
@@ -538,6 +552,7 @@ export class CareerScene extends Phaser.Scene {
       const allRing = this.add.circle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 310, 46).setStrokeStyle(4, 0xf5c542).setDepth(13);
       const allIcon = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 310, 'ui-basket').setDisplaySize(52, 52).setDepth(13);
       objs.push(allBg, allRing, allIcon);
+      pressify(this, allBg, allRing, allIcon);
       allBg.on(
         'pointerup',
         (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
@@ -615,6 +630,7 @@ export class CareerScene extends Phaser.Scene {
         .setDisplaySize(size, size)
         .setDepth(31)
         .setInteractive();
+      pressify(this, sp);
       objs.push(sp);
       this.videoObjects.push(sp);
       this.tweens.add({
@@ -659,6 +675,7 @@ export class CareerScene extends Phaser.Scene {
       .setTint(0x888899)
       .setDepth(31)
       .setInteractive();
+    pressify(this, skip);
     objs.push(avatar, note, skip, ringlight);
     this.videoObjects.push(avatar, note, skip, ringlight);
 
@@ -799,6 +816,7 @@ export class CareerScene extends Phaser.Scene {
       .setDisplaySize(64, 64)
       .setDepth(2)
       .setInteractive();
+    pressify(this, clip);
     this.tweens.add({
       targets: clip,
       scaleX: clip.scaleX * 1.12,

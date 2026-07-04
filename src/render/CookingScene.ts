@@ -8,6 +8,7 @@ import { createJournal, type Journal } from '../services/journal';
 import { createPantry, type Pantry } from '../services/pantry';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createBlips, type Blips } from './audio';
+import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
 import { makeTextures } from './theme';
@@ -92,17 +93,13 @@ export class CookingScene extends Phaser.Scene {
 
   create(): void {
     makeTextures(this, 96);
+    fadeIn(this);
     this.viewObjects = [];
     this.state = null;
     this.serving = null;
     this.justUnlocked = null;
-    // Stage bands, same studio feel as PlayScene.
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.125, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgPlum, 0.8)
-      .setDepth(-2);
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.875, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgDeep, 0.9)
-      .setDepth(-2);
+    // Warm kitchen variant of the shared gradient (plan 9 legit-look).
+    buildBackground(this, 0x3d2b2b, PALETTE.bgPlum, PALETTE.bgDeep);
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.wallet = createWallet(window.localStorage);
     this.cooking = createCooking(window.localStorage);
@@ -182,11 +179,9 @@ export class CookingScene extends Phaser.Scene {
         .setDepth(1),
     );
     const home = this.add.sprite(78, 96, 'ui-home').setDisplaySize(68, 68).setDepth(1).setInteractive();
+    pressify(this, home);
     this.viewObjects.push(home);
-    home.on('pointerup', () => {
-      // Hub registers in the boot rework; fall back to career until then.
-      this.scene.start('hub');
-    });
+    home.on('pointerup', () => goto(this, 'hub'));
     // 3x6 grid: 15 recipe cards + the serving card in the last cell (the old 2x5
     // grid can't hold 16 cells on screen — smaller cards, same reading order).
     const cellPos = (i: number): { x: number; y: number } => ({
@@ -215,6 +210,7 @@ export class CookingScene extends Phaser.Scene {
         this.viewObjects.push(starSp);
       }
       card.setInteractive();
+      pressify(this, card);
       card.on('pointerup', () => {
         if (this.transitioning) return;
         this.startPlay(i);
@@ -274,6 +270,7 @@ export class CookingScene extends Phaser.Scene {
       return;
     }
     card.setInteractive();
+    pressify(this, card);
     card.on('pointerup', () => {
       if (this.transitioning) return;
       this.startServingView();
@@ -309,6 +306,7 @@ export class CookingScene extends Phaser.Scene {
     const sv = this.serving;
     if (sv === null) return;
     const home = this.add.sprite(60, 62, 'ui-home').setDisplaySize(56, 56).setAlpha(0.85).setDepth(1).setInteractive();
+    pressify(this, home);
     this.viewObjects.push(home);
     home.on('pointerup', () => {
       if (this.transitioning) return;
@@ -361,6 +359,7 @@ export class CookingScene extends Phaser.Scene {
       const y = 380 + row * 152;
       const tile = this.add.image(x, y, 'ui-tile').setDisplaySize(138, 138).setAlpha(0.1).setDepth(0);
       const icon = this.add.sprite(x, y, `ing-${id}`).setDisplaySize(102, 102).setDepth(1).setInteractive();
+      pressify(this, icon);
       this.viewObjects.push(tile, icon);
       icon.on('pointerup', () => this.handleServe(id, icon, bowl));
     });
@@ -478,6 +477,8 @@ export class CookingScene extends Phaser.Scene {
     // Serve again + back to the list.
     const retry = this.add.sprite(GAME_WIDTH / 2 - 120, 1070, 'ui-retry').setDisplaySize(120, 120).setDepth(2).setInteractive();
     const list = this.add.sprite(GAME_WIDTH / 2 + 120, 1070, 'ui-home').setDisplaySize(120, 120).setDepth(2).setInteractive();
+    pressify(this, retry);
+    pressify(this, list);
     this.viewObjects.push(retry, list);
     retry.once('pointerup', () => this.startServingView());
     list.once('pointerup', () => this.showList());
@@ -521,6 +522,7 @@ export class CookingScene extends Phaser.Scene {
       this.viewObjects.push(pip);
     }
     const home = this.add.sprite(60, 62, 'ui-home').setDisplaySize(56, 56).setAlpha(0.85).setDepth(1).setInteractive();
+    pressify(this, home);
     this.viewObjects.push(home);
     home.on('pointerup', () => {
       if (this.transitioning) return;
@@ -556,6 +558,7 @@ export class CookingScene extends Phaser.Scene {
       const y = 350 + row * 172;
       const tile = this.add.image(x, y, 'ui-tile').setDisplaySize(158, 158).setAlpha(0.1).setDepth(0);
       const icon = this.add.sprite(x, y, `ing-${id}`).setDisplaySize(116, 116).setDepth(1).setInteractive();
+      pressify(this, icon);
       this.viewObjects.push(tile, icon);
       if (!this.targets.has(`ingredient:${id}`)) this.targets.set(`ingredient:${id}`, icon);
       icon.on('pointerup', () => {
@@ -592,6 +595,7 @@ export class CookingScene extends Phaser.Scene {
     actions.forEach((id, i) => {
       const x = GAME_WIDTH / 2 + (i - (actions.length - 1) / 2) * spacing;
       const badge = this.add.sprite(x, 960, `act-${id}`).setDisplaySize(150, 150).setDepth(1).setInteractive();
+      pressify(this, badge);
       this.viewObjects.push(badge);
       this.targets.set(`action:${id}`, badge);
       badge.on('pointerup', () => {
@@ -626,6 +630,7 @@ export class CookingScene extends Phaser.Scene {
     row.forEach((id, i) => {
       const x = GAME_WIDTH / 2 + (i - (row.length - 1) / 2) * spacing;
       const icon = this.add.sprite(x, 1010, `ing-${id}`).setDisplaySize(108, 108).setDepth(1).setInteractive();
+      pressify(this, icon);
       this.viewObjects.push(icon);
       this.targets.set(`ingredient:${id}`, icon);
       icon.on('pointerup', () => {
@@ -785,6 +790,8 @@ export class CookingScene extends Phaser.Scene {
     // Replay + back-to-list.
     const retry = this.add.sprite(GAME_WIDTH / 2 - 120, 1070, 'ui-retry').setDisplaySize(120, 120).setDepth(2).setInteractive();
     const list = this.add.sprite(GAME_WIDTH / 2 + 120, 1070, 'ui-home').setDisplaySize(120, 120).setDepth(2).setInteractive();
+    pressify(this, retry);
+    pressify(this, list);
     this.viewObjects.push(retry, list);
     retry.once('pointerup', () => this.startPlay(this.recipeIndex));
     list.once('pointerup', () => this.showList());

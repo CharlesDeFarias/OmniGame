@@ -13,6 +13,7 @@ import { createWallet, type Wallet } from '../services/wallet';
 import { createWardrobe, type Wardrobe } from '../services/wardrobe';
 import { createBlips, type Blips } from './audio';
 import { EASE, planSteps, type Step } from './choreo';
+import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
 import { boardLayout, cellToXY, xyToCell, type Layout } from './layout';
 import { loadLevels } from './levels';
@@ -72,14 +73,9 @@ export class PlayScene extends Phaser.Scene {
 
   create(): void {
     makeTextures(this, 96);
-    // Stage bands over the 0x141428 canvas: plum wash up top, deep shadow below,
-    // canvas color showing through the middle — subtle studio-stage feel.
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.125, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgPlum, 0.8)
-      .setDepth(-2);
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.875, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgDeep, 0.9)
-      .setDepth(-2);
+    fadeIn(this);
+    // Smooth studio-night gradient + ambient glow + bokeh (plan 9 legit-look).
+    buildBackground(this, PALETTE.bgPlum, PALETTE.bgDeep, 0x0d0d1c);
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.progress = loadProgress(window.localStorage);
     this.wallet = createWallet(window.localStorage);
@@ -103,6 +99,7 @@ export class PlayScene extends Phaser.Scene {
       .setDisplaySize(72, 72)
       .setDepth(8)
       .setInteractive();
+    pressify(this, muteBtn);
     muteBtn.on('pointerup', () => {
       const m = !this.blips.muted();
       this.blips.setMuted(m);
@@ -221,6 +218,12 @@ export class PlayScene extends Phaser.Scene {
         .setDisplaySize(210, 96)
         .setAlpha(0.3)
         .setDepth(0),
+      // Warm halo pulling the eye to the moves counter (legit-look pass).
+      this.add
+        .image(GAME_WIDTH / 2, TOP_RESERVE * 0.72, 'ui-glow')
+        .setDisplaySize(300, 300)
+        .setAlpha(0.15)
+        .setDepth(-0.4),
     );
     const x0 = GAME_WIDTH / 2 - ((n - 1) * spacing) / 2;
     this.state.goals.forEach((gs, i) => {
@@ -820,6 +823,12 @@ export class PlayScene extends Phaser.Scene {
     for (let i = 0; i < stars; i++) {
       const st = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'ui-star').setDepth(12).setScale(0);
       starSprites.push(st);
+      // Blush light bloom under the pop — celebration reads as light, not text.
+      const bloom = this.add.image(st.x, st.y, 'ui-glow').setTint(PALETTE.blush).setAlpha(0).setScale(0.2).setDepth(11.5);
+      this.tweens.add({
+        targets: bloom, alpha: 0.5, scale: 1.3, duration: 300, ease: 'Quad.easeOut',
+        onComplete: () => this.tweens.add({ targets: bloom, alpha: 0, duration: 650, onComplete: () => bloom.destroy() }),
+      });
       // Each star pop bursts 8 gold pips outward (fire-and-forget).
       for (let p = 0; p < 8; p++) {
         const ang = (p * Math.PI * 2) / 8;
@@ -847,10 +856,11 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.62, 'ui-play').setDepth(11).setScale(2.4).setInteractive();
+    pressify(this, btn);
     btn.once('pointerup', () => {
       this.retryCount = 0;
       if (offerBreak) this.danceBreak();
-      else this.scene.start('career');
+      else goto(this, 'career');
     });
   }
 
@@ -909,6 +919,7 @@ export class PlayScene extends Phaser.Scene {
       .setScale(2.2)
       .setTint(0x888899)
       .setInteractive();
+    pressify(this, skip);
     let done = false;
     let usingMusic = false;
     let musicEl: HTMLAudioElement | null = null;
@@ -962,7 +973,7 @@ export class PlayScene extends Phaser.Scene {
       skip.destroy();
       this.adaptive.resetBreakCounter();
       this.journal.log('dance_break', { completed, music: usingMusic });
-      this.scene.start('career');
+      goto(this, 'career');
     };
     let pose = 0;
     let ticks = 0;
@@ -1006,13 +1017,14 @@ export class PlayScene extends Phaser.Scene {
     }
     await this.tweenAsync({ targets: trophy, scale: 3, duration: 420, ease: 'Back.easeOut' });
     const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.74, 'ui-retry').setDepth(12).setScale(2.4).setInteractive();
+    pressify(this, btn);
     btn.once('pointerup', () => {
       this.progress.levelIndexByChapter[this.chapter] = 0;
       saveProgress(window.localStorage, this.progress);
       this.journal.log('chapter_replay', { chapter: this.chapter });
       this.retryCount = 0;
       this.confetti = [];
-      this.scene.start('career');
+      goto(this, 'career');
     });
   }
 
@@ -1025,6 +1037,7 @@ export class PlayScene extends Phaser.Scene {
     const dim = this.overlay();
     const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.5, 'ui-retry').setDepth(11).setScale(0).setInteractive();
     await this.tweenAsync({ targets: btn, scale: 2.4, duration: 300, ease: 'Back.easeOut' });
+    pressify(this, btn);
     btn.once('pointerup', () => {
       this.retryCount += 1;
       dim.destroy();
