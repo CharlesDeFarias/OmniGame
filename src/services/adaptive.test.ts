@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyTierTo, createAdaptive, describeTier, type AdaptiveState } from './adaptive';
+import { applyTierTo, createAdaptive, describeTier, streakBonus, type AdaptiveState } from './adaptive';
 import type { JournalStorage } from './journal';
 import type { LevelDef } from '../core/match3/index';
 
@@ -27,7 +27,7 @@ describe('adaptive', () => {
   it('defaults to tier 0 with empty recent and winsSinceBreak 0', () => {
     const s = memStorage();
     const a = createAdaptive(s);
-    expect(a.state()).toEqual({ version: 1, tier: 0, recent: [], winsSinceBreak: 0 });
+    expect(a.state()).toEqual({ version: 1, tier: 0, recent: [], winsSinceBreak: 0, streak: 0 });
   });
 
   it('promotes exactly on a 3-streak of 3-star wins and resets recent', () => {
@@ -214,7 +214,7 @@ describe('adaptive', () => {
     const s = memStorage();
     s.setItem('omnigame.adaptive.v1', 'garbage');
     const a = createAdaptive(s);
-    expect(a.state()).toEqual({ version: 1, tier: 0, recent: [], winsSinceBreak: 0 });
+    expect(a.state()).toEqual({ version: 1, tier: 0, recent: [], winsSinceBreak: 0, streak: 0 });
   });
 
   it('rejects invalid tier (out of bounds or non-integer)', () => {
@@ -276,6 +276,7 @@ describe('adaptive', () => {
       tier: 1,
       recent: [],
       winsSinceBreak: 2,
+      streak: 3,
     });
   });
 });
@@ -417,5 +418,55 @@ describe('adaptive v2 obstacle injection', () => {
     expect(describeTier(0)).toEqual({ movesDelta: 0, ice: 0, boxes: 0 });
     expect(describeTier(1)).toEqual({ movesDelta: -1, ice: 3, boxes: 0 });
     expect(describeTier(2)).toEqual({ movesDelta: -2, ice: 5, boxes: 1 });
+  });
+});
+
+describe('win streak', () => {
+  it('increments on wins and resets to 0 on a loss', () => {
+    const s = memStorage();
+    const a = createAdaptive(s);
+    a.recordOutcome(true, 2);
+    a.recordOutcome(true, 1);
+    expect(a.state().streak).toBe(2);
+    a.recordOutcome(false, 0);
+    expect(a.state().streak).toBe(0);
+    a.recordOutcome(true, 3);
+    expect(a.state().streak).toBe(1);
+  });
+
+  it('streakBonus thresholds: 3 -> rocketH, 5 -> tnt, 7 -> lightball', () => {
+    expect(streakBonus(0)).toBeNull();
+    expect(streakBonus(2)).toBeNull();
+    expect(streakBonus(3)).toBe('rocketH');
+    expect(streakBonus(4)).toBe('rocketH');
+    expect(streakBonus(5)).toBe('tnt');
+    expect(streakBonus(6)).toBe('tnt');
+    expect(streakBonus(7)).toBe('lightball');
+    expect(streakBonus(12)).toBe('lightball');
+  });
+
+  it('migrates stored state without a streak field, defaulting to 0 and keeping the rest', () => {
+    const s = memStorage();
+    s.data.set('omnigame.adaptive.v1', JSON.stringify({ version: 1, tier: 1, recent: [{ won: true, stars: 3 }], winsSinceBreak: 2 }));
+    const a = createAdaptive(s);
+    expect(a.state()).toEqual({ version: 1, tier: 1, recent: [{ won: true, stars: 3 }], winsSinceBreak: 2, streak: 0 });
+  });
+
+  it('persists the streak across reloads', () => {
+    const s = memStorage();
+    const a = createAdaptive(s);
+    a.recordOutcome(true, 2);
+    a.recordOutcome(true, 2);
+    a.recordOutcome(true, 2);
+    const b = createAdaptive(s);
+    expect(b.state().streak).toBe(3);
+  });
+
+  it('rejects a negative or non-integer stored streak, defaulting to 0', () => {
+    const s = memStorage();
+    s.data.set('omnigame.adaptive.v1', JSON.stringify({ version: 1, tier: 0, recent: [], winsSinceBreak: 0, streak: -4 }));
+    expect(createAdaptive(s).state().streak).toBe(0);
+    s.data.set('omnigame.adaptive.v1', JSON.stringify({ version: 1, tier: 0, recent: [], winsSinceBreak: 0, streak: 2.5 }));
+    expect(createAdaptive(s).state().streak).toBe(0);
   });
 });
