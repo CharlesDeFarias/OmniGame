@@ -103,6 +103,7 @@ export function fadeIn(scene: Phaser.Scene): void {
  * so quick taps right after scene entry still navigate.
  */
 export function goto(scene: Phaser.Scene, key: string): void {
+  scene.input.enabled = false;
   const cam = scene.cameras.main;
   if (cam.fadeEffect.isRunning && cam.fadeEffect.direction) return; // already leaving
   cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => scene.scene.start(key));
