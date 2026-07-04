@@ -18,6 +18,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { loadRunnerLevels } from './levels';
 import { PALETTE } from './palette';
 import { makeTextures } from './theme';
+import { TS } from './textStyles';
 
 /** Squad anchor: world scrolls left, the runners stay put. */
 const SQUAD_X = GAME_WIDTH * 0.25;
@@ -148,9 +149,7 @@ export class RunnerScene extends Phaser.Scene {
       this.add.sprite(GAME_WIDTH / 2, 96, 'gr-flag').setDisplaySize(96, 96).setDepth(1),
       this.add.sprite(530, 96, 'ui-coin').setDisplaySize(44, 44).setDepth(1),
       this.add
-        .text(560, 96, String(this.wallet.data().coins), {
-          fontSize: '32px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6,
-        })
+        .text(560, 96, String(this.wallet.data().coins), TS.number(32))
         .setOrigin(0, 0.5)
         .setDepth(1),
     );
@@ -171,9 +170,7 @@ export class RunnerScene extends Phaser.Scene {
       }
       this.viewObjects.push(
         this.add
-          .text(x - 92, y, String(i + 1), {
-            fontSize: '52px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 8,
-          })
+          .text(x - 92, y, String(i + 1), TS.number(52))
           .setOrigin(0.5)
           .setDepth(1),
       );
@@ -241,9 +238,7 @@ export class RunnerScene extends Phaser.Scene {
         if (cell.kind === 'gate') {
           const panel = this.add.image(0, 0, 'gr-gate').setDisplaySize(190, 168);
           const label = this.add
-            .text(0, 0, `${cell.op === 'add' ? '+' : '×'}${cell.value}`, {
-              fontSize: '54px', fontStyle: 'bold', color: PALETTE.textGold, stroke: '#141428', strokeThickness: 8,
-            })
+            .text(0, 0, `${cell.op === 'add' ? '+' : '×'}${cell.value}`, TS.numberGold(54))
             .setOrigin(0.5);
           const cont = this.add.container(x, y, [panel, label]);
           world.add(cont);
@@ -258,9 +253,7 @@ export class RunnerScene extends Phaser.Scene {
           }
           cont.add(
             this.add
-              .text(0, -74, String(cell.count), {
-                fontSize: '38px', fontStyle: 'bold', color: '#fd79a8', stroke: '#141428', strokeThickness: 7,
-              })
+              .text(0, -74, String(cell.count), TS.numberTinted(38, '#fd79a8'))
               .setOrigin(0.5),
           );
           world.add(cont);
@@ -283,9 +276,7 @@ export class RunnerScene extends Phaser.Scene {
     this.viewObjects.push(squad);
     this.pips = [];
     this.countText = this.add
-      .text(SQUAD_X, LANE_Y[1] - 118, String(count), {
-        fontSize: '46px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 8,
-      })
+      .text(SQUAD_X, LANE_Y[1] - 118, String(count), TS.number(46))
       .setOrigin(0.5)
       .setDepth(4);
     this.viewObjects.push(this.countText);
@@ -589,9 +580,7 @@ export class RunnerScene extends Phaser.Scene {
     this.viewObjects.push(
       this.add.sprite(GAME_WIDTH / 2 - 56, GAME_HEIGHT / 2, 'ui-coin').setDisplaySize(56, 56).setDepth(12),
       this.add
-        .text(GAME_WIDTH / 2 - 16, GAME_HEIGHT / 2, `+${coins}`, {
-          fontSize: '44px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 7,
-        })
+        .text(GAME_WIDTH / 2 - 16, GAME_HEIGHT / 2, `+${coins}`, TS.number(44))
         .setOrigin(0, 0.5)
         .setDepth(12),
     );

@@ -11,6 +11,7 @@ import { createBlips, type Blips } from './audio';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
 import { makeTextures } from './theme';
+import { TS } from './textStyles';
 
 /** FNV-1a over the id string: pantry layouts and distractor picks are deterministic per recipe. */
 const hashStr = (v: string): number => {
@@ -176,9 +177,7 @@ export class CookingScene extends Phaser.Scene {
       this.add.sprite(GAME_WIDTH / 2, 96, 'ui-pan-card').setDisplaySize(92, 92).setDepth(1),
       this.add.sprite(530, 96, 'ui-coin').setDisplaySize(44, 44).setDepth(1),
       this.add
-        .text(560, 96, String(this.wallet.data().coins), {
-          fontSize: '32px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6,
-        })
+        .text(560, 96, String(this.wallet.data().coins), TS.number(32))
         .setOrigin(0, 0.5)
         .setDepth(1),
     );
@@ -268,7 +267,7 @@ export class CookingScene extends Phaser.Scene {
         this.add.sprite(x + 44, y - 30, 'ui-lock').setDisplaySize(44, 44).setDepth(2),
         this.add.sprite(x + 44, y + 26, 'ui-levelbadge').setDisplaySize(38, 38).setDepth(2),
         this.add
-          .text(x + 44, y + 28, '5', { fontSize: '24px', fontStyle: 'bold', color: '#ffffff' })
+          .text(x + 44, y + 28, '5', TS.number(24))
           .setOrigin(0.5)
           .setDepth(3),
       );
@@ -454,9 +453,7 @@ export class CookingScene extends Phaser.Scene {
     }
     const coinIcon = this.add.sprite(GAME_WIDTH / 2 - 40, 850, 'ui-coin').setDisplaySize(48, 48).setDepth(2);
     const coinText = this.add
-      .text(GAME_WIDTH / 2 - 8, 850, String(this.wallet.data().coins), {
-        fontSize: '36px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6,
-      })
+      .text(GAME_WIDTH / 2 - 8, 850, String(this.wallet.data().coins), TS.number(36))
       .setOrigin(0, 0.5)
       .setDepth(2);
     this.viewObjects.push(coinIcon, coinText);
@@ -763,9 +760,7 @@ export class CookingScene extends Phaser.Scene {
     // Coin display + pips flying to it (payout already in the wallet).
     const coinIcon = this.add.sprite(GAME_WIDTH / 2 - 40, 850, 'ui-coin').setDisplaySize(48, 48).setDepth(2);
     const coinText = this.add
-      .text(GAME_WIDTH / 2 - 8, 850, String(this.wallet.data().coins), {
-        fontSize: '36px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6,
-      })
+      .text(GAME_WIDTH / 2 - 8, 850, String(this.wallet.data().coins), TS.number(36))
       .setOrigin(0, 0.5)
       .setDepth(2);
     this.viewObjects.push(coinIcon, coinText);

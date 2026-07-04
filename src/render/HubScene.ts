@@ -10,6 +10,7 @@ import { TASK_ICON_TEXTURE } from './taskIcons';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
 import { makeTextures } from './theme';
+import { TS } from './textStyles';
 
 const BAR_Y = 70;
 
@@ -110,7 +111,7 @@ export class HubScene extends Phaser.Scene {
       this.add.sprite(x + 74, y + 52, 'ui-lock').setDisplaySize(52, 52).setDepth(2);
       this.add.sprite(x + 74, y - 44, 'ui-levelbadge').setDisplaySize(40, 40).setDepth(2);
       this.add
-        .text(x + 74, y - 42, String(RUNNER_UNLOCK_LEVEL), { fontSize: '24px', fontStyle: 'bold', color: '#ffffff' })
+        .text(x + 74, y - 42, String(RUNNER_UNLOCK_LEVEL), TS.number(24))
         .setOrigin(0.5)
         .setDepth(3);
       return;
@@ -175,9 +176,7 @@ export class HubScene extends Phaser.Scene {
       this.add.image(x, BAR_Y, 'ui-panel').setDisplaySize(168, 84).setAlpha(0.3).setDepth(1);
       this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(44, 44).setDepth(2);
       this.add
-        .text(x - 14, BAR_Y, values[it.k], {
-          fontSize: '30px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6,
-        })
+        .text(x - 14, BAR_Y, values[it.k], TS.number(30))
         .setOrigin(0, 0.5)
         .setDepth(2);
     });
@@ -219,7 +218,7 @@ export class HubScene extends Phaser.Scene {
     });
     objs.push(dim);
     objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-panel').setDisplaySize(620, 1000).setDepth(22));
-    const textStyle = { fontSize: '32px', color: '#ffffff' };
+    const textStyle = TS.number(32);
     // Compact stats summary: plays / wins / win rate (full detail stays in PlayScene's overlay).
     const stats = summarize(this.journal.read());
     const summary: { icon: string | null; value: string }[] = [
@@ -270,7 +269,7 @@ export class HubScene extends Phaser.Scene {
       if (task.done) {
         objs.push(
           this.add
-            .text(510, y, '\u2713', { fontSize: '30px', fontStyle: 'bold', color: '#141428' })
+            .text(510, y, '\u2713', TS.glyph(30, '#141428'))
             .setOrigin(0.5)
             .setDepth(24),
         );
@@ -286,7 +285,7 @@ export class HubScene extends Phaser.Scene {
         },
       );
       const remove = this.add
-        .text(586, y, '\u00d7', { fontSize: '44px', color: '#777788' })
+        .text(586, y, '\u00d7', TS.glyph(44, '#777788'))
         .setOrigin(0.5)
         .setDepth(23)
         .setInteractive();
@@ -315,7 +314,7 @@ export class HubScene extends Phaser.Scene {
       objs.push(this.add.sprite(526, musicY, 'ui-note').setDisplaySize(44, 44).setDepth(24));
       objs.push(
         this.add
-          .text(566, musicY - 2, '+', { fontSize: '44px', fontStyle: 'bold', color: '#f5e6c8' })
+          .text(566, musicY - 2, '+', TS.glyph(44, '#f5e6c8'))
           .setOrigin(0.5)
           .setDepth(24),
       );
@@ -331,10 +330,10 @@ export class HubScene extends Phaser.Scene {
         if (y > 1108) return;
         const name = track.name.length > 18 ? `${track.name.slice(0, 18)}\u2026` : track.name;
         objs.push(
-          this.add.text(110, y, name, { fontSize: '26px', color: '#ffffff' }).setOrigin(0, 0.5).setDepth(23),
+          this.add.text(110, y, name, TS.glyph(26, '#ffffff')).setOrigin(0, 0.5).setDepth(23),
         );
         const removeTrack = this.add
-          .text(586, y, '\u00d7', { fontSize: '44px', color: '#777788' })
+          .text(586, y, '\u00d7', TS.glyph(44, '#777788'))
           .setOrigin(0.5)
           .setDepth(23)
           .setInteractive();

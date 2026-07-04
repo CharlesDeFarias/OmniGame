@@ -18,6 +18,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
 import { TASK_ICON_TEXTURE } from './taskIcons';
 import { makeAvatarTexture, makeTextures } from './theme';
+import { TS } from './textStyles';
 
 const BAR_Y = 70;
 const ROOM_TOP = 150;
@@ -180,7 +181,7 @@ export class CareerScene extends Phaser.Scene {
       this.add.image(x, BAR_Y, 'ui-panel').setDisplaySize(168, 84).setAlpha(0.3).setDepth(1);
       this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(44, 44).setDepth(2);
       texts[it.k] = this.add
-        .text(x - 14, BAR_Y, '', { fontSize: '30px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6 })
+        .text(x - 14, BAR_Y, '', TS.number(30))
         .setOrigin(0, 0.5)
         .setDepth(2);
     });
@@ -229,7 +230,7 @@ export class CareerScene extends Phaser.Scene {
       marker.on('pointerup', () => this.openPicker(slot));
       const tagIcon = this.add.sprite(x - 28, y + 96, 'ui-coin').setDisplaySize(34, 34).setDepth(1);
       const tagTxt = this.add
-        .text(x - 6, y + 96, String(price), { fontSize: '28px', fontStyle: 'bold', color: '#ffffff' })
+        .text(x - 6, y + 96, String(price), TS.number(28))
         .setOrigin(0, 0.5)
         .setDepth(1);
       this.roomObjects.push(marker, tagIcon, tagTxt);
@@ -268,7 +269,7 @@ export class CareerScene extends Phaser.Scene {
         .setInteractive();
       const icon = this.add.sprite(x - 26, y + 112, 'ui-coin').setDisplaySize(32, 32).setDepth(12);
       const txt = this.add
-        .text(x - 4, y + 112, String(choice.price), { fontSize: '28px', fontStyle: 'bold', color: '#ffffff' })
+        .text(x - 4, y + 112, String(choice.price), TS.number(28))
         .setOrigin(0, 0.5)
         .setDepth(12);
       objs.push(sp, icon, txt);
@@ -315,7 +316,7 @@ export class CareerScene extends Phaser.Scene {
         icon.setTint(0x555566).setAlpha(0.7);
         const badge = this.add.sprite(x + 30, STRIP_Y + 28, 'ui-levelbadge').setDisplaySize(36, 36).setDepth(3);
         const num = this.add
-          .text(x + 30, STRIP_Y + 30, String(ch.unlockLevel), { fontSize: '22px', fontStyle: 'bold', color: '#ffffff' })
+          .text(x + 30, STRIP_Y + 30, String(ch.unlockLevel), TS.number(22))
           .setOrigin(0.5)
           .setDepth(4);
         this.stripObjects.push(badge, num);
@@ -395,7 +396,7 @@ export class CareerScene extends Phaser.Scene {
       if (owned) {
         objs.push(
           this.add
-            .text(x, y + 112, '✓', { fontSize: '36px', fontStyle: 'bold', color: '#2ecc71' })
+            .text(x, y + 112, '✓', TS.glyph(36, '#2ecc71'))
             .setOrigin(0.5)
             .setDepth(12),
         );
@@ -403,7 +404,7 @@ export class CareerScene extends Phaser.Scene {
         objs.push(this.add.sprite(x - 28, y + 112, 'ui-coin').setDisplaySize(32, 32).setDepth(12));
         objs.push(
           this.add
-            .text(x - 6, y + 112, String(item.price), { fontSize: '28px', fontStyle: 'bold', color: '#ffffff' })
+            .text(x - 6, y + 112, String(item.price), TS.number(28))
             .setOrigin(0, 0.5)
             .setDepth(12),
         );
@@ -500,7 +501,7 @@ export class CareerScene extends Phaser.Scene {
       objs.push(this.add.sprite(x - 22, y + 68, 'ui-coin').setDisplaySize(28, 28).setDepth(12));
       objs.push(
         this.add
-          .text(x - 2, y + 68, String(GROCERY_PRICE), { fontSize: '26px', fontStyle: 'bold', color: '#ffffff' })
+          .text(x - 2, y + 68, String(GROCERY_PRICE), TS.number(26))
           .setOrigin(0, 0.5)
           .setDepth(12),
       );
@@ -509,7 +510,7 @@ export class CareerScene extends Phaser.Scene {
         objs.push(this.add.circle(x + 42, y - 40, 20, 0x2ecc71).setDepth(13));
         objs.push(
           this.add
-            .text(x + 42, y - 40, String(this.pantry.stockOf(cell.id)), { fontSize: '24px', fontStyle: 'bold', color: '#ffffff' })
+            .text(x + 42, y - 40, String(this.pantry.stockOf(cell.id)), TS.number(24))
             .setOrigin(0.5)
             .setDepth(14),
         );

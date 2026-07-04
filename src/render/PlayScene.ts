@@ -19,6 +19,7 @@ import { loadLevels } from './levels';
 import { pieceTextureKey, type PackId } from './packs';
 import { PALETTE } from './palette';
 import { COLOR_HEX, makeAvatarTexture, makeTextures, textureKeyFor } from './theme';
+import { TS } from './textStyles';
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
 
@@ -117,7 +118,7 @@ export class PlayScene extends Phaser.Scene {
       .setVisible(false)
       .setDepth(5);
     this.movesText = this.add
-      .text(GAME_WIDTH / 2, TOP_RESERVE * 0.72, '', { fontSize: '64px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6 })
+      .text(GAME_WIDTH / 2, TOP_RESERVE * 0.72, '', TS.number(64))
       .setOrigin(0.5)
       .setDepth(2);
     // Hidden parent corner (decision #17): invisible top-left hotspot, 5 quick taps open the stats overlay.
@@ -128,7 +129,7 @@ export class PlayScene extends Phaser.Scene {
       .on('pointerdown', () => this.onSecretTap());
     this.coinIcon = this.add.sprite(90, 170, 'ui-coin').setDisplaySize(40, 40).setDepth(2);
     this.coinText = this.add
-      .text(120, 170, String(this.wallet.data().coins), { fontSize: '28px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6 })
+      .text(120, 170, String(this.wallet.data().coins), TS.number(28))
       .setOrigin(0, 0.5)
       .setDepth(2);
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
@@ -229,7 +230,7 @@ export class PlayScene extends Phaser.Scene {
         : 'ob-ice';
       const icon = this.add.sprite(x0 + i * spacing - 34, TOP_RESERVE * 0.32, iconKey).setDisplaySize(64, 64).setDepth(2);
       const txt = this.add
-        .text(x0 + i * spacing + 14, TOP_RESERVE * 0.32, '', { fontSize: '44px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6 })
+        .text(x0 + i * spacing + 14, TOP_RESERVE * 0.32, '', TS.number(44))
         .setOrigin(0, 0.5)
         .setDepth(2);
       this.goalHud.push({ icon, txt });
@@ -294,7 +295,7 @@ export class PlayScene extends Phaser.Scene {
     });
     objs.push(dim);
     objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-panel').setDisplaySize(620, 1000).setDepth(22));
-    const textStyle = { fontSize: '32px', color: '#ffffff' };
+    const textStyle = TS.number(32);
     const header: { icon: string | null; value: string }[] = [
       { icon: 'ui-play', value: String(stats.levelsPlayed) },
       { icon: 'ui-star', value: String(stats.wins) },
@@ -342,7 +343,7 @@ export class PlayScene extends Phaser.Scene {
         const gy = y + Math.floor(i / 5) * 44;
         objs.push(
           this.add
-            .text(gridX(i), gy, `${label(id)} ★${lv.bestStars}`, { fontSize: '22px', color: '#ffffff' })
+            .text(gridX(i), gy, `${label(id)} ★${lv.bestStars}`, TS.number(22))
             .setOrigin(0.5)
             .setDepth(23),
         );
@@ -351,7 +352,7 @@ export class PlayScene extends Phaser.Scene {
       entries.forEach(([id, lv], i) => {
         const cx = gridX(i);
         const gy = y + Math.floor(i / 5) * 66;
-        objs.push(this.add.text(cx, gy, label(id), { fontSize: '24px', color: '#ffffff' }).setOrigin(0.5).setDepth(23));
+        objs.push(this.add.text(cx, gy, label(id), TS.number(24)).setOrigin(0.5).setDepth(23));
         for (let st = 0; st < Math.min(3, lv.bestStars); st++) {
           objs.push(this.add.sprite(cx - 22 + st * 22, gy + 26, 'ui-star').setDisplaySize(18, 18).setDepth(23));
         }

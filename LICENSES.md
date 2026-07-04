@@ -2,7 +2,11 @@
 
 ## Game assets
 
-All game art in this project is procedurally generated in this repository (see `scripts/make-icons.ts` and the render layer). No external art, audio, or font assets are bundled at this time. Any future third-party assets must be CC0 and recorded here.
+All game art in this project is procedurally generated in this repository (see `scripts/make-icons.ts` and the render layer). No external art or audio assets are bundled at this time; the only bundled third-party asset is the Fredoka typeface (below). Any future third-party assets must be CC0 (or an equally permissive license recorded here).
+
+### Fonts
+
+- **Fredoka** — SIL Open Font License 1.1 — Copyright 2021 The Fredoka Project Authors (https://github.com/hafontia-zz/Fredoka) — obtained via Google Fonts (https://fonts.google.com/specimen/Fredoka). A latin-subset, variable-weight (300–700) woff2 build is redistributed in this repository at `public/fonts/fredoka-latin.woff2`. Full license text: https://openfontlicense.org
 
 ## Dependencies
 
