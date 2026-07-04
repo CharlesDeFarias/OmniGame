@@ -1,8 +1,8 @@
 import type { ResolveEvent } from '../core/match3/index';
 
 export const DUR = {
-  swap: 160,
-  clear: 220,
+  swap: 150,
+  clear: 200,
   spawn: 160,
   fallPerRow: 70,
   fallMin: 120,
@@ -11,6 +11,9 @@ export const DUR = {
   damage: 180,
   iceClear: 200,
 } as const;
+
+/** Shared tween eases for the juiced feel: swaps overshoot, falls land with a bounce. */
+export const EASE = { swap: 'Back.easeOut', fall: 'Bounce.easeOut' } as const;
 
 export interface Step {
   event: ResolveEvent;

@@ -10,7 +10,7 @@ import { summarize } from '../services/stats';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createWardrobe, type Wardrobe } from '../services/wardrobe';
 import { createBlips, type Blips } from './audio';
-import { planSteps, type Step } from './choreo';
+import { EASE, planSteps, type Step } from './choreo';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
 import { boardLayout, cellToXY, xyToCell, type Layout } from './layout';
 import { loadLevels } from './levels';
@@ -481,6 +481,15 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private async attemptSwap(a: Coord, b: Coord): Promise<void> {
+    // Note before the move resolves whether either tapped cell held a special:
+    // a valid special-swap gets a light camera shake in runTurn.
+    const board = this.state.board;
+    const isSpecial = (c: Coord): boolean => {
+      if (c.x < 0 || c.x >= board.width || c.y < 0 || c.y >= board.height) return false;
+      const piece = board.cells[c.y * board.width + c.x];
+      return piece !== null && piece !== undefined && piece.kind === 'special';
+    };
+    const specialSwap = isSpecial(a) || isSpecial(b);
     let out: MoveOutcome;
     try {
       out = applyMove(this.state, a, b);
@@ -511,7 +520,7 @@ export class PlayScene extends Phaser.Scene {
       }
       return;
     }
-    await this.runTurn(out);
+    await this.runTurn(out, specialSwap);
   }
 
   private wiggle(c: Coord): Promise<void> {
@@ -528,8 +537,9 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private async runTurn(out: MoveOutcome): Promise<void> {
+  private async runTurn(out: MoveOutcome, specialSwap = false): Promise<void> {
     this.busy = true;
+    if (specialSwap) this.cameras.main.shake(120, 0.004);
     this.movesMadeThisLevel += 1;
     this.state = out.state;
     this.journal.log('move', { level: this.state.level.id, movesLeft: this.state.movesLeft });
@@ -565,8 +575,8 @@ export class PlayScene extends Phaser.Scene {
         const pa = cellToXY(this.layout, ev.a.x, ev.a.y);
         const pb = cellToXY(this.layout, ev.b.x, ev.b.y);
         const jobs: Promise<void>[] = [];
-        if (sa) jobs.push(this.tweenAsync({ targets: sa, x: pb.px, y: pb.py, duration: step.duration }));
-        if (sb) jobs.push(this.tweenAsync({ targets: sb, x: pa.px, y: pa.py, duration: step.duration }));
+        if (sa) jobs.push(this.tweenAsync({ targets: sa, x: pb.px, y: pb.py, duration: step.duration, ease: EASE.swap }));
+        if (sb) jobs.push(this.tweenAsync({ targets: sb, x: pa.px, y: pa.py, duration: step.duration, ease: EASE.swap }));
         await Promise.all(jobs);
         if (sa && sb) {
           this.sprites.set(key(ev.a), sb);
@@ -576,8 +586,22 @@ export class PlayScene extends Phaser.Scene {
       }
       case 'clear': {
         const targets = ev.cells.map((c) => this.sprites.get(key(c))).filter((s): s is Phaser.GameObjects.Sprite => s !== undefined);
-        if (ev.cells.length >= 6) this.blips.booster();
-        else this.blips.matchAt(wave);
+        if (ev.cells.length >= 6) {
+          this.blips.booster();
+          // Booster flash: a white ring bursts at each cleared cell (fire-and-forget).
+          for (const c of ev.cells) {
+            const { px, py } = cellToXY(this.layout, c.x, c.y);
+            const ring = this.add.sprite(px, py, 'ui-ringlight').setTint(0xffffff).setAlpha(0.7).setScale(0.2).setDepth(2);
+            this.tweens.add({
+              targets: ring,
+              alpha: 0,
+              scale: 1.2,
+              duration: 250,
+              ease: 'Quad.easeOut',
+              onComplete: () => ring.destroy(),
+            });
+          }
+        } else this.blips.matchAt(wave);
         for (const c of ev.cells.slice(0, 12)) {
           const src = this.sprites.get(key(c));
           if (src === undefined) continue;
@@ -623,7 +647,7 @@ export class PlayScene extends Phaser.Scene {
         }
         const jobs = moving.map(({ sp, to }) => {
           const { px, py } = cellToXY(this.layout, to.x, to.y);
-          return this.tweenAsync({ targets: sp, x: px, y: py, duration: step.duration, ease: 'Quad.easeIn' });
+          return this.tweenAsync({ targets: sp, x: px, y: py, duration: step.duration, ease: EASE.fall });
         });
         for (const { sp, to } of moving) this.sprites.set(key(to), sp);
         await Promise.all(jobs);
@@ -727,7 +751,7 @@ export class PlayScene extends Phaser.Scene {
     this.blips.gift();
     const jobs: Promise<void>[] = [];
     for (let i = 0; i < moves; i++) {
-      const pip = this.add.sprite(GAME_WIDTH / 2 + (i - moves / 2) * 60, GAME_HEIGHT / 2, 'ui-pip').setScale(2).setDepth(6);
+      const pip = this.add.sprite(GAME_WIDTH / 2 + (i - moves / 2) * 60, GAME_HEIGHT / 2, 'ui-pip').setTint(PALETTE.gold).setScale(2).setDepth(6);
       jobs.push(
         this.tweenAsync({
           targets: pip,
@@ -741,6 +765,9 @@ export class PlayScene extends Phaser.Scene {
       );
     }
     await Promise.all(jobs);
+    // Counter pulse with a brief gold flash on the number itself.
+    this.movesText.setColor(PALETTE.textGold);
+    this.time.delayedCall(300, () => this.movesText.setColor(PALETTE.textOnDark));
     await this.tweenAsync({ targets: this.movesText, scale: 1.6, duration: 140, yoyo: true });
   }
 
@@ -784,6 +811,21 @@ export class PlayScene extends Phaser.Scene {
     for (let i = 0; i < stars; i++) {
       const st = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'ui-star').setDepth(12).setScale(0);
       starSprites.push(st);
+      // Each star pop bursts 8 gold pips outward (fire-and-forget).
+      for (let p = 0; p < 8; p++) {
+        const ang = (p * Math.PI * 2) / 8;
+        const pip = this.add.sprite(st.x, st.y, 'ui-pip').setTint(PALETTE.gold).setScale(1.2).setDepth(12);
+        this.tweens.add({
+          targets: pip,
+          x: st.x + Math.cos(ang) * 95,
+          y: st.y + Math.sin(ang) * 95,
+          alpha: 0,
+          scale: 0.3,
+          duration: 380,
+          ease: 'Quad.easeOut',
+          onComplete: () => pip.destroy(),
+        });
+      }
       await this.tweenAsync({ targets: st, scale: 2.2, duration: 260, ease: 'Back.easeOut' });
     }
     const idx = this.progress.levelIndexByChapter[this.chapter];
