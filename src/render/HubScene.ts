@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { createJournal, type Journal } from '../services/journal';
+import { createIdbBackend, createMusicStore, MAX_TRACK_BYTES, type MusicStore } from '../services/music';
 import { summarize } from '../services/stats';
 import { createTasks, TASK_ICONS, type Tasks } from '../services/tasks';
 import { createWallet, type Wallet } from '../services/wallet';
@@ -22,6 +23,9 @@ export class HubScene extends Phaser.Scene {
   private blips!: Blips;
   private journal!: Journal;
   private tasks!: Tasks;
+  private music!: MusicStore;
+  private musicTracks: { id: string; name: string }[] = [];
+  private musicAddBtn: Phaser.GameObjects.Image | null = null;
   private secretTaps: number[] = [];
   private parentObjects: Phaser.GameObjects.GameObject[] = [];
 
@@ -37,6 +41,9 @@ export class HubScene extends Phaser.Scene {
     this.wallet = createWallet(window.localStorage);
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.tasks = createTasks(window.localStorage);
+    this.music = createMusicStore(createIdbBackend());
+    this.musicTracks = [];
+    this.musicAddBtn = null;
     this.blips = createBlips();
     this.blips.setMuted(window.localStorage.getItem('omnigame.muted.v1') === '1');
     this.input.on('pointerdown', () => this.blips.unlock());
@@ -148,6 +155,7 @@ export class HubScene extends Phaser.Scene {
     if (this.parentObjects.length > 0) return;
     this.journal.log('parent_panel_viewed', {});
     this.buildParentPanel();
+    void this.refreshMusic();
   }
 
   /**
@@ -250,10 +258,121 @@ export class HubScene extends Phaser.Scene {
         },
       );
     });
+    // Her-playlist section (decision #37): note icon + stored-track count on the
+    // left, add button on the right, then up to 5 per-track rows. Parent-facing,
+    // so text is allowed. Sits below the task list; rows that would spill past
+    // the panel bottom are clipped (the count always shows the true total).
+    const musicY = 434 + rows.length * 74 + 30;
+    objs.push(this.add.sprite(120, musicY, 'ui-note').setDisplaySize(48, 48).setDepth(23));
+    objs.push(this.add.text(160, musicY, String(this.musicTracks.length), textStyle).setOrigin(0, 0.5).setDepth(23));
+    const addBtn = this.add.image(540, musicY, 'ui-panel').setDisplaySize(96, 96).setAlpha(0.5).setDepth(23).setInteractive();
+    this.musicAddBtn = addBtn;
+    objs.push(addBtn);
+    objs.push(this.add.sprite(526, musicY, 'ui-note').setDisplaySize(44, 44).setDepth(24));
+    objs.push(
+      this.add
+        .text(566, musicY - 2, '+', { fontSize: '44px', fontStyle: 'bold', color: '#f5e6c8' })
+        .setOrigin(0.5)
+        .setDepth(24),
+    );
+    addBtn.on(
+      'pointerup',
+      (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        this.pickMusicFiles();
+      },
+    );
+    this.musicTracks.slice(0, 5).forEach((track, i) => {
+      const y = musicY + 76 + i * 56;
+      if (y > 1108) return;
+      const name = track.name.length > 18 ? `${track.name.slice(0, 18)}\u2026` : track.name;
+      objs.push(
+        this.add.text(110, y, name, { fontSize: '26px', color: '#ffffff' }).setOrigin(0, 0.5).setDepth(23),
+      );
+      const removeTrack = this.add
+        .text(586, y, '\u00d7', { fontSize: '44px', color: '#777788' })
+        .setOrigin(0.5)
+        .setDepth(23)
+        .setInteractive();
+      objs.push(removeTrack);
+      removeTrack.on(
+        'pointerup',
+        (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+          event.stopPropagation();
+          void this.music.remove(track.id).then(
+            () => this.refreshMusic(),
+            () => {},
+          );
+        },
+      );
+    });
+  }
+
+  /** Re-reads the stored playlist; rebuilds the panel in place if it is open. */
+  private async refreshMusic(): Promise<void> {
+    try {
+      this.musicTracks = await this.music.tracks();
+    } catch {
+      this.musicTracks = []; // no IndexedDB in this browser: empty playlist
+    }
+    if (this.parentObjects.length > 0) this.buildParentPanel();
+  }
+
+  /**
+   * Hidden file input (audio/*, multiple), created on demand and removed from
+   * the DOM after change/cancel. Local-only: files go straight into the
+   * on-device IndexedDB store and never leave the device.
+   */
+  private pickMusicFiles(): void {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    input.multiple = true;
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('change', () => {
+      const files = Array.from(input.files ?? []);
+      input.remove();
+      void this.addMusicFiles(files);
+    });
+    input.addEventListener('cancel', () => input.remove());
+    input.click();
+  }
+
+  private async addMusicFiles(files: File[]): Promise<void> {
+    let added = 0;
+    let failed = false;
+    for (const f of files) {
+      if (f.size > MAX_TRACK_BYTES) {
+        failed = true; // size guard before reading the bytes at all
+        continue;
+      }
+      try {
+        await this.music.addFile(f.name, await f.arrayBuffer());
+        added += 1;
+      } catch {
+        failed = true; // 20-track cap (or backend failure)
+      }
+    }
+    if (added > 0) {
+      this.journal.log('music_added', { count: added });
+      this.blips.ding();
+    }
+    await this.refreshMusic();
+    if (failed) this.wiggleAdd();
+  }
+
+  /** Cap-hit feedback: quick horizontal wiggle on the add button (same feel as the board's no-match wiggle). */
+  private wiggleAdd(): void {
+    const btn = this.musicAddBtn;
+    if (btn === null || !btn.active) return;
+    const x = btn.x;
+    this.tweens.add({ targets: btn, x: x + 12, duration: 55, yoyo: true, repeat: 3, onComplete: () => btn.setX(x) });
   }
 
   private closeParentPanel(): void {
     for (const o of this.parentObjects) o.destroy();
     this.parentObjects = [];
+    this.musicAddBtn = null;
   }
 }
