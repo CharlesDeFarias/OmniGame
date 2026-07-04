@@ -164,7 +164,10 @@ export class HubScene extends Phaser.Scene {
       .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.75)
       .setDepth(21)
       .setInteractive();
-    dim.on('pointerup', () => this.closeParentPanel());
+    const openedAt = this.time.now;
+    dim.on('pointerup', (p: Phaser.Input.Pointer) => {
+      if (p.downTime > openedAt) this.closeParentPanel();
+    });
     objs.push(dim);
     objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-panel').setDisplaySize(620, 1000).setDepth(22));
     const textStyle = { fontSize: '32px', color: '#ffffff' };
