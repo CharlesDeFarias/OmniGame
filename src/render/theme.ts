@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 import type { Piece, PieceColor } from '../core/match3/index';
 import { ROOMS } from '../meta/rooms';
+import { PALETTE } from './palette';
 
 export const COLOR_HEX: Record<PieceColor, number> = {
   red: 0xe74c3c,
@@ -16,6 +17,12 @@ export function textureKeyFor(piece: Piece): string {
   if (piece.kind === 'special') return `sp-${piece.special}`;
   return piece.hp >= 2 ? 'ob-box2' : 'ob-box1';
 }
+
+/** Multiply each RGB channel by f (0..1). Used for the glossy darker rim strokes. */
+const darken = (hex: number, f: number): number => {
+  const chan = (shift: number): number => Math.round(((hex >> shift) & 0xff) * f) << shift;
+  return chan(16) | chan(8) | chan(0);
+};
 
 // Note: fillPoints is typed as Phaser.Math.Vector2[]; it only reads .x/.y at
 // runtime, so plain point objects are cast rather than allocating Vector2s.
@@ -75,21 +82,32 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   const s = size;
   const c = s / 2;
   const r = s * 0.38;
+  // Glossy finish (plan 7, decision #43): subtle bottom-inner shade (kept small so it
+  // stays inside every silhouette), the classic top-left highlight, plus a second
+  // smaller bright spot. Darker rim strokes are per-shape inside each draw via rim().
   const gem = (key: string, draw: (g: Phaser.GameObjects.Graphics) => void): void => {
     const g = scene.add.graphics();
     draw(g);
+    g.fillStyle(0x000000, 0.15);
+    g.fillEllipse(c, c + r * 0.28, r * 0.9, r * 0.36);
     g.fillStyle(0xffffff, 0.28);
     g.fillEllipse(c - r * 0.35, c - r * 0.4, r * 0.55, r * 0.35);
+    g.fillStyle(0xffffff, 0.5);
+    g.fillEllipse(c - r * 0.52, c - r * 0.55, r * 0.2, r * 0.13);
     g.generateTexture(key, s, s);
     g.destroy();
   };
+  /** Sets the darker-rim line style for a glossy piece; caller strokes its own shape. */
+  const rim = (g: Phaser.GameObjects.Graphics, color: number): void => {
+    g.lineStyle(s * 0.045, darken(color, 0.6));
+  };
 
-  gem('gem-red', (g) => { g.fillStyle(COLOR_HEX.red); g.fillCircle(c, c, r); });
-  gem('gem-blue', (g) => { g.fillStyle(COLOR_HEX.blue); g.fillPoints(poly(c, c, r * 1.05, 3, -Math.PI / 2), true); });
-  gem('gem-green', (g) => { g.fillStyle(COLOR_HEX.green); g.fillRoundedRect(c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.35); });
-  gem('gem-yellow', (g) => { g.fillStyle(COLOR_HEX.yellow); g.fillPoints(poly(c, c, r * 1.05, 4, -Math.PI / 2), true); });
-  gem('gem-purple', (g) => { g.fillStyle(COLOR_HEX.purple); g.fillPoints(poly(c, c, r, 6, 0), true); });
-  gem('gem-orange', (g) => { g.fillStyle(COLOR_HEX.orange); g.fillPoints(star(c, c, r * 1.05, r * 0.5, 5), true); });
+  gem('gem-red', (g) => { g.fillStyle(COLOR_HEX.red); g.fillCircle(c, c, r); rim(g, COLOR_HEX.red); g.strokeCircle(c, c, r); });
+  gem('gem-blue', (g) => { const p = poly(c, c, r * 1.05, 3, -Math.PI / 2); g.fillStyle(COLOR_HEX.blue); g.fillPoints(p, true); rim(g, COLOR_HEX.blue); g.strokePoints(p, true); });
+  gem('gem-green', (g) => { g.fillStyle(COLOR_HEX.green); g.fillRoundedRect(c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.35); rim(g, COLOR_HEX.green); g.strokeRoundedRect(c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.35); });
+  gem('gem-yellow', (g) => { const p = poly(c, c, r * 1.05, 4, -Math.PI / 2); g.fillStyle(COLOR_HEX.yellow); g.fillPoints(p, true); rim(g, COLOR_HEX.yellow); g.strokePoints(p, true); });
+  gem('gem-purple', (g) => { const p = poly(c, c, r, 6, 0); g.fillStyle(COLOR_HEX.purple); g.fillPoints(p, true); rim(g, COLOR_HEX.purple); g.strokePoints(p, true); });
+  gem('gem-orange', (g) => { const p = star(c, c, r * 1.05, r * 0.5, 5); g.fillStyle(COLOR_HEX.orange); g.fillPoints(p, true); rim(g, COLOR_HEX.orange); g.strokePoints(p, true); });
 
   // Music pack (plan 6.5, dance chapter): same 6 colors, new distinct shapes.
   // red = eighth note.
@@ -98,11 +116,15 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillEllipse(c - r * 0.3, c + r * 0.55, r * 0.85, r * 0.6);
     g.fillRect(c + r * 0.08, c - r * 0.95, r * 0.14, r * 1.55);
     g.fillTriangle(c + r * 0.22, c - r * 0.95, c + r * 0.8, c - r * 0.5, c + r * 0.22, c - r * 0.3);
+    rim(g, COLOR_HEX.red);
+    g.strokeEllipse(c - r * 0.3, c + r * 0.55, r * 0.85, r * 0.6);
   });
   // blue = vinyl disc.
   gem('music-blue', (g) => {
     g.fillStyle(COLOR_HEX.blue);
     g.fillCircle(c, c, r * 1.02);
+    rim(g, COLOR_HEX.blue);
+    g.strokeCircle(c, c, r * 1.02);
     g.lineStyle(s * 0.02, 0xffffff, 0.4);
     g.strokeCircle(c, c, r * 0.8);
     g.strokeCircle(c, c, r * 0.6);
@@ -124,9 +146,11 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     }
     g.fillStyle(COLOR_HEX.green);
     g.fillRoundedRect(c - r * 0.16, c - r * 0.05, r * 0.32, r * 1.05, r * 0.14);
+    rim(g, COLOR_HEX.green);
+    g.strokeRoundedRect(c - r * 0.45, c - r * 1.0, r * 0.9, r * 1.05, r * 0.44);
   });
   // yellow = star (slimmer than the orange gem's).
-  gem('music-yellow', (g) => { g.fillStyle(COLOR_HEX.yellow); g.fillPoints(star(c, c, r * 1.05, r * 0.42, 5), true); });
+  gem('music-yellow', (g) => { const p = star(c, c, r * 1.05, r * 0.42, 5); g.fillStyle(COLOR_HEX.yellow); g.fillPoints(p, true); rim(g, COLOR_HEX.yellow); g.strokePoints(p, true); });
   // purple = headphones.
   gem('music-purple', (g) => {
     g.lineStyle(s * 0.075, COLOR_HEX.purple);
@@ -136,22 +160,28 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillStyle(COLOR_HEX.purple);
     g.fillRoundedRect(c - r * 0.98, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16);
     g.fillRoundedRect(c + r * 0.52, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16);
+    rim(g, COLOR_HEX.purple);
+    g.strokeRoundedRect(c - r * 0.98, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16);
+    g.strokeRoundedRect(c + r * 0.52, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16);
   });
   // orange = speaker cone.
   gem('music-orange', (g) => {
     g.fillStyle(COLOR_HEX.orange);
     g.fillRoundedRect(c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.25);
+    rim(g, COLOR_HEX.orange);
+    g.strokeRoundedRect(c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.25);
     g.lineStyle(s * 0.03, 0x000000, 0.3);
     g.strokeCircle(c, c, r * 0.58);
     g.fillStyle(0x000000, 0.28);
     g.fillCircle(c, c, r * 0.3);
   });
 
+  // Special badges: cream disc in a gold ring (gold-frame motif); glyphs keep their colors.
   const sp = (key: string, draw: (g: Phaser.GameObjects.Graphics) => void): void => {
     const g = scene.add.graphics();
-    g.fillStyle(0xf5f0ff);
+    g.fillStyle(PALETTE.cream);
     g.fillCircle(c, c, r * 1.05);
-    g.lineStyle(s * 0.03, 0x2c2c54);
+    g.lineStyle(s * 0.03, PALETTE.gold);
     g.strokeCircle(c, c, r * 1.05);
     draw(g);
     g.generateTexture(key, s, s);
@@ -205,12 +235,14 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.generateTexture(key, s, s);
     g.destroy();
   };
-  ui('ui-star', (g) => { g.fillStyle(0xf1c40f); g.fillPoints(star(c, c, r * 1.1, r * 0.5, 5), true); });
+  ui('ui-star', (g) => { const p = star(c, c, r * 1.1, r * 0.5, 5); g.fillStyle(0xf1c40f); g.fillPoints(p, true); g.lineStyle(s * 0.045, PALETTE.goldDark); g.strokePoints(p, true); });
   ui('ui-play', (g) => {
     g.fillStyle(0x2ecc71);
     g.fillCircle(c, c, r * 1.1);
     g.fillStyle(0xffffff);
     g.fillTriangle(c - r * 0.35, c - r * 0.5, c - r * 0.35, c + r * 0.5, c + r * 0.55, c);
+    g.lineStyle(s * 0.035, PALETTE.gold);
+    g.strokeCircle(c, c, r * 1.1);
   });
   ui('ui-retry', (g) => {
     g.fillStyle(0x3498db);
@@ -221,6 +253,8 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.strokePath();
     g.fillStyle(0xffffff);
     g.fillTriangle(c + r * 0.75, c - r * 0.45, c + r * 0.2, c - r * 0.55, c + r * 0.55, c - r * 0.05);
+    g.lineStyle(s * 0.035, PALETTE.gold);
+    g.strokeCircle(c, c, r * 1.1);
   });
   ui('ui-pip', (g) => { g.fillStyle(0xffffff); g.fillCircle(c, c, r * 0.3); });
   // Tutorial pointer: white hand (palm circle + one finger) on transparent bg.
@@ -264,7 +298,32 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.strokePath();
   });
   ui('ui-tile', (g) => { g.fillStyle(0xffffff); g.fillRoundedRect(s * 0.02, s * 0.02, s * 0.96, s * 0.96, s * 0.16); });
-  ui('ui-panel', (g) => { g.fillStyle(0x000000); g.fillRoundedRect(0, 0, s, s, s * 0.2); });
+  // Thin gold outline matching ui-tile's footprint — board framing (plan 7 design pass).
+  ui('ui-tile-frame', (g) => {
+    g.lineStyle(s * 0.04, PALETTE.gold);
+    g.strokeRoundedRect(s * 0.04, s * 0.04, s * 0.92, s * 0.92, s * 0.15);
+  });
+  // Gold-framed midnight panel: plum-black fill, gold border, gold corner dots.
+  ui('ui-panel', (g) => {
+    g.fillStyle(PALETTE.panel);
+    g.fillRoundedRect(0, 0, s, s, s * 0.2);
+    g.lineStyle(s * 0.03, PALETTE.panelBorder);
+    g.strokeRoundedRect(s * 0.015, s * 0.015, s * 0.97, s * 0.97, s * 0.19);
+    g.fillStyle(PALETTE.gold);
+    for (const [dx, dy] of [[s * 0.1, s * 0.1], [s * 0.9, s * 0.1], [s * 0.1, s * 0.9], [s * 0.9, s * 0.9]] as const) {
+      g.fillCircle(dx, dy, s * 0.03);
+    }
+  });
+  // Studio ring-light: 12 cream bulbs on a faint ring, transparent centre.
+  ui('ui-ringlight', (g) => {
+    g.lineStyle(s * 0.02, PALETTE.cream, 0.35);
+    g.strokeCircle(c, c, r);
+    g.fillStyle(PALETTE.cream);
+    for (let i = 0; i < 12; i++) {
+      const a = (i * Math.PI * 2) / 12;
+      g.fillCircle(c + Math.cos(a) * r, c + Math.sin(a) * r, r * 0.09);
+    }
+  });
 
   // Obstacles. Wooden crate: base + darker border, X of diagonal planks, corner nails.
   const crate = (g: Phaser.GameObjects.Graphics): void => {
