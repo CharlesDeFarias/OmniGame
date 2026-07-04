@@ -1,2 +1,3 @@
 - All pre-run questions answered; decisions #47-50 recorded. Starting plan 7 (design pass).
 - Plan 7 design pass MERGED: studio-glam palette, glossy pieces, gold-framed UI, ring-light motifs, juice pass (bouncy falls, camera shake, flash rings), app renamed 'Luana Studio' with new icon. 254 tests, review approved. Deploying.
+- Plan 8 MERGED: cooking game (10 real recipes: toast->mini-pizza; gather/act/assemble steps; never-fail; stars by mistakes) + HubScene front door with game cards. Cooking earns shared coins/xp. 280 tests, adversarially reviewed (engine probed with input storms + duplicate-layer cases). Deploying.
