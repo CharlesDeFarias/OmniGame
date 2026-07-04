@@ -2,3 +2,4 @@
 - Plan 7 design pass MERGED: studio-glam palette, glossy pieces, gold-framed UI, ring-light motifs, juice pass (bouncy falls, camera shake, flash rings), app renamed 'Luana Studio' with new icon. 254 tests, review approved. Deploying.
 - Plan 8 MERGED: cooking game (10 real recipes: toast->mini-pizza; gather/act/assemble steps; never-fail; stars by mistakes) + HubScene front door with game cards. Cooking earns shared coins/xp. 280 tests, adversarially reviewed (engine probed with input storms + duplicate-layer cases). Deploying.
 - Manager panel MERGED (assign real-world practice tasks by icon from the hub's hidden parent panel; rewards on completion). Review harness caught + fixed a LIVE regression: the stats corner had been instant-closing since July 2. 289 tests. Deploying.
+- Adaptive v2 MERGED: rubber-band now injects obstacles at high tiers (sim-verified), never touches obstacle-goal levels, easing side unchanged. 299 tests. This closes decision #24 in full.
