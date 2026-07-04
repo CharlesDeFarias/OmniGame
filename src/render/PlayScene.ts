@@ -25,18 +25,24 @@ import { TS } from './textStyles';
 const key = (c: Coord): string => `${c.x},${c.y}`;
 
 /**
- * RM-style HUD geometry (rm-look milestone). Board top is 331 for both 6x6
- * and 7x7 boards (width-bound at cell 112.8/96.7 under TOP_RESERVE 220), so
- * everything here stays above y=311 (frame pad included):
- * - goals panel: x 18..(48+84n), y 104..232 (n = goal count, max 3 -> x<=300)
- * - moves badge: 180x110 centred at (596,168) -> x 506..686, y 113..223
+ * RM-anatomy-v2 HUD geometry (RM-parity pass). Board rect: top 331 for both
+ * 6x6 and 7x7 boards (width-bound at cell 112.8/96.7 under TOP_RESERVE 220;
+ * gold frame pad reaches ~311), bottom <= 1120 (BOTTOM_RESERVE 160).
+ * - unified goals+moves panel top-CENTER: 128 tall centred at (360,150), so
+ *   y 86..214; width 420/470/520 for 1/2/3 goals -> x 150..570 / 125..595 /
+ *   100..620. Moves badge: white circle r54 at (panelLeft+84, 150). Panel
+ *   left edge >= 100, so it clears the 90x90 parent hotspot at (45,45), and
+ *   bottom 214 clears the board frame top (~311).
  * - coin strip: icon at (512,44), text from x 534 (clears the mute button at
- *   x 624..696, y 24..96); parent hotspot 90x90 at (45,45) ends above y=104.
+ *   x 624..696, y 24..96).
+ * - booster bar: 3 inert slots r52 at (240|360|480, 1215) -> y 1163..1267,
+ *   below the board rect.
  */
-const GOALS_LEFT = 18;
-const GOALS_TOP = 104;
-const MOVES_X = 596;
-const MOVES_Y = 168;
+const HUD_Y = 150;
+const HUD_H = 128;
+const HUD_W_BASE = 420;
+const HUD_W_PER_GOAL = 50;
+const BOOSTER_BAR_Y = 1215;
 
 /** Particle tint from a sprite's texture key: '(img-)gem/candy/music-red' -> COLOR_HEX.red; crates -> brown; specials/unknown -> white. */
 const tintForTexture = (texKey: string): number => {
@@ -73,7 +79,7 @@ export class PlayScene extends Phaser.Scene {
   private retryCount = 0;
   private downAt: { cell: Coord; px: number; py: number } | null = null;
   private backdrop: Phaser.GameObjects.Image[] = [];
-  private hudPanels: Phaser.GameObjects.Image[] = [];
+  private hudPanels: Phaser.GameObjects.GameObject[] = [];
   private markerTween: Phaser.Tweens.Tween | null = null;
   private hand: Phaser.GameObjects.Sprite | null = null;
   private handTimer: Phaser.Time.TimerEvent | null = null;
@@ -130,12 +136,14 @@ export class PlayScene extends Phaser.Scene {
       .setFillStyle(0, 0)
       .setVisible(false)
       .setDepth(5);
-    // RM anatomy (rm-look milestone): moves live in a dedicated badge
-    // top-RIGHT (panel built per level in buildGoalHud; the number persists).
+    // RM anatomy v2: the moves number lives in a white circle badge inside
+    // the top-center panel (positioned per level in buildGoalHud -- big dark
+    // number on white, genre convention).
     this.movesText = this.add
-      .text(MOVES_X, MOVES_Y - 4, '', TS.number(64))
+      .text(0, -100, '', TS.numberTinted(56, '#0e1e3d'))
       .setOrigin(0.5)
       .setDepth(2);
+    this.buildBoosterBar();
     // Hidden parent corner (decision #17): invisible top-left hotspot, 5 quick taps open the stats overlay.
     this.add
       .rectangle(45, 45, 90, 90, 0xffffff, 0.001)
@@ -226,43 +234,64 @@ export class PlayScene extends Phaser.Scene {
     this.goalHud = [];
     for (const pnl of this.hudPanels) pnl.destroy();
     this.hudPanels = [];
-    // RM anatomy: goals panel top-LEFT (one column per goal: icon over its
-    // remaining count), moves badge top-RIGHT. Panel top sits below y=100 so
-    // it clears the 90x90 parent-corner hotspot at (45,45).
+    // RM anatomy v2 (RM-parity pass): ONE wide panel top-center -- the moves
+    // count in a white circle badge on its LEFT, goal icons + remaining
+    // counts to the right of it. Width adapts to the goal count.
     const n = this.state.goals.length;
-    const col = 84;
-    const panelW = n * col + 30;
+    const w = HUD_W_BASE + Math.max(0, n - 1) * HUD_W_PER_GOAL;
+    const left = GAME_WIDTH / 2 - w / 2;
+    const movesX = left + 84;
     this.hudPanels.push(
-      this.add
-        .image(GOALS_LEFT + panelW / 2, GOALS_TOP + 64, 'ui-panel')
-        .setDisplaySize(panelW, 128)
-        .setAlpha(0.35)
-        .setDepth(0),
-      // Round-ish moves badge + warm halo pulling the eye to the counter.
-      this.add
-        .image(MOVES_X, MOVES_Y, 'ui-panel')
-        .setDisplaySize(180, 110)
-        .setAlpha(0.35)
-        .setDepth(0),
-      this.add
-        .image(MOVES_X, MOVES_Y, 'ui-glow')
-        .setDisplaySize(260, 260)
-        .setAlpha(0.15)
-        .setDepth(-0.4),
+      this.add.image(GAME_WIDTH / 2, HUD_Y, 'ui-panel').setDisplaySize(w, HUD_H).setAlpha(0.35).setDepth(0),
+      // Warm halo behind the badge pulls the eye to the counter.
+      this.add.image(movesX, HUD_Y, 'ui-glow').setDisplaySize(240, 240).setAlpha(0.15).setDepth(-0.4),
+      this.add.circle(movesX, HUD_Y, 54, 0xffffff).setStrokeStyle(5, PALETTE.gold).setDepth(1),
     );
+    this.movesText.setPosition(movesX, HUD_Y);
+    // Goal columns, centered in the panel space right of the badge.
+    const x0 = left + 160 + (w - 180 - n * 84) / 2 + 42;
     this.state.goals.forEach((gs, i) => {
       const iconKey =
         gs.goal.type === 'collect' ? pieceTextureKey({ kind: 'normal', color: gs.goal.color }, this.pack)
         : gs.goal.type === 'clearBoxes' ? 'img-ob-box1'
         : 'img-ob-ice';
-      const cx = GOALS_LEFT + 15 + col / 2 + i * col;
-      const icon = this.add.sprite(cx, GOALS_TOP + 38, iconKey).setDisplaySize(54, 54).setDepth(2);
+      const cx = x0 + i * 84;
+      const icon = this.add.sprite(cx, HUD_Y - 26, iconKey).setDisplaySize(54, 54).setDepth(2);
       const txt = this.add
-        .text(cx, GOALS_TOP + 94, '', TS.number(34))
+        .text(cx, HUD_Y + 32, '', TS.number(34))
         .setOrigin(0.5)
         .setDepth(2);
       this.goalHud.push({ icon, txt });
     });
+    // Streak flame: gold spark + win-streak count on the badge shoulder once
+    // the streak reaches 3 (the free-booster threshold, adaptive.streakBonus).
+    const streak = this.adaptive.state().streak;
+    if (streak >= 3) {
+      this.hudPanels.push(
+        this.add.sprite(movesX + 48, HUD_Y - 40, 'img-fx-sparkle-1').setDisplaySize(48, 48).setTint(PALETTE.gold).setDepth(2),
+        this.add.text(movesX + 48, HUD_Y - 40, String(streak), TS.number(22)).setOrigin(0.5).setDepth(3),
+      );
+    }
+  }
+
+  /**
+   * RM anatomy: 3 round booster slots (rocket/tnt/lightball) under the board.
+   * Visual parity only this pass -- our boosters are bought PRE-level (picker)
+   * and consumed by placement at level start, so the in-level bar is INERT:
+   * dimmed type icons behind a lock ring (interactive in-level boosters are
+   * future work, tracked in docs/RM-PARITY.md).
+   */
+  private buildBoosterBar(): void {
+    const slots = [
+      { x: 240, key: 'img-sp-rocketH' },
+      { x: 360, key: 'img-sp-tnt' },
+      { x: 480, key: 'img-sp-lightball' },
+    ];
+    for (const sl of slots) {
+      this.add.circle(sl.x, BOOSTER_BAR_Y, 52, PALETTE.panel, 0.6).setStrokeStyle(4, 0x8a93a6, 0.9).setDepth(2);
+      this.add.sprite(sl.x, BOOSTER_BAR_Y, sl.key).setDisplaySize(62, 62).setAlpha(0.45).setTint(0xaab2c4).setDepth(2);
+      this.add.sprite(sl.x + 34, BOOSTER_BAR_Y + 34, 'img-ui-lock').setDisplaySize(34, 34).setDepth(3);
+    }
   }
 
   private updateHud(): void {
@@ -271,7 +300,7 @@ export class PlayScene extends Phaser.Scene {
       const remaining = Math.max(0, gs.goal.count - gs.collected);
       const hud = this.goalHud[i]!;
       hud.txt.setText(remaining === 0 ? '✓' : String(remaining));
-      hud.txt.setColor(remaining === 0 ? '#2ecc71' : PALETTE.textOnDark);
+      hud.txt.setColor(remaining === 0 ? '#54b842' : PALETTE.textOnDark);
     });
   }
 
@@ -804,9 +833,10 @@ export class PlayScene extends Phaser.Scene {
       );
     }
     await Promise.all(jobs);
-    // Counter pulse with a brief gold flash on the number itself.
-    this.movesText.setColor(PALETTE.textGold);
-    this.time.delayedCall(300, () => this.movesText.setColor(PALETTE.textOnDark));
+    // Counter pulse with a brief gold flash on the number itself (dark gold:
+    // the badge ground is white now).
+    this.movesText.setColor('#b8860b');
+    this.time.delayedCall(300, () => this.movesText.setColor('#0e1e3d'));
     await this.tweenAsync({ targets: this.movesText, scale: 1.6, duration: 140, yoyo: true });
   }
 
