@@ -67,6 +67,9 @@ export function parseGateLevel(input: unknown): GateLevelDef {
     if (!lanes.some((cell) => cell.kind === 'gate' || cell.kind === 'empty')) {
       fail(`${where} is a guaranteed-loss column: at least one lane must be a gate or empty`);
     }
+    if (lanes.filter((cell) => cell.kind === 'wall').length > 1) {
+      fail(`${where} has more than one wall: hard walls allow at most 1 wall per column`);
+    }
     return { d: co.d as number, lanes };
   });
   return {
