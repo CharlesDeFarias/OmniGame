@@ -605,6 +605,42 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.strokePath();
   });
 
+  // Grocery shop button (decision #52): line-drawn shopping basket, same cream
+  // stroke style as ui-hanger so the two shop buttons read as one family.
+  ui('ui-basket', (g) => {
+    g.lineStyle(s * 0.055, 0xecf0f1);
+    g.beginPath();
+    g.arc(c, s * 0.36, s * 0.2, Math.PI, Math.PI * 2, false);
+    g.strokePath();
+    g.beginPath();
+    g.moveTo(s * 0.14, s * 0.42);
+    g.lineTo(s * 0.86, s * 0.42);
+    g.lineTo(s * 0.74, s * 0.84);
+    g.lineTo(s * 0.26, s * 0.84);
+    g.closePath();
+    g.strokePath();
+    g.lineStyle(s * 0.035, 0xecf0f1, 0.8);
+    for (const t of [-0.15, 0, 0.15]) {
+      g.beginPath();
+      g.moveTo(c + s * t * 1.15, s * 0.48);
+      g.lineTo(c + s * t, s * 0.78);
+      g.strokePath();
+    }
+  });
+  // Happy check: green disc, white tick, gold ring (proper icon — not a text glyph).
+  ui('ui-check', (g) => {
+    g.fillStyle(0x2ecc71);
+    g.fillCircle(c, c, r * 1.05);
+    g.lineStyle(s * 0.09, 0xffffff);
+    g.beginPath();
+    g.moveTo(c - r * 0.5, c + r * 0.05);
+    g.lineTo(c - r * 0.12, c + r * 0.42);
+    g.lineTo(c + r * 0.55, c - r * 0.42);
+    g.strokePath();
+    g.lineStyle(s * 0.035, PALETTE.gold);
+    g.strokeCircle(c, c, r * 1.05);
+  });
+
   // --- Plan 8: cooking game + hub textures ---
   // Ingredient icons (ing-*) are plain, badge-free nouns — same visual class as gems
   // and furniture. Action icons (act-*) sit on the cream special badge so "cream badge
@@ -1038,6 +1074,34 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillCircle(c - r * 0.18, c - r * 0.12, r * 0.21);
     g.fillCircle(c + r * 0.18, c - r * 0.12, r * 0.21);
     g.fillTriangle(c - r * 0.37, c - r * 0.03, c + r * 0.37, c - r * 0.03, c, c + r * 0.38);
+  });
+
+  // --- Serving mode (decision #53) textures ---
+  // Three simple customer heads: hair disc behind, skin circle, dot eyes, smile.
+  // Distinct hair + skin combos so the row reads as three different people.
+  const custHead = (g: Phaser.GameObjects.Graphics, hair: number, skin: number): void => {
+    g.fillStyle(hair);
+    g.fillCircle(c, c - s * 0.06, s * 0.36);
+    g.fillStyle(skin);
+    g.fillCircle(c, c + s * 0.04, s * 0.32);
+    g.fillStyle(0x2c2c54);
+    g.fillCircle(c - s * 0.12, c, s * 0.045);
+    g.fillCircle(c + s * 0.12, c, s * 0.045);
+    g.lineStyle(s * 0.045, 0x2c2c54);
+    g.beginPath();
+    g.arc(c, c + s * 0.1, s * 0.13, Math.PI * 0.15, Math.PI * 0.85, false);
+    g.strokePath();
+  };
+  ui('cust-0', (g) => custHead(g, 0x4a3222, 0xf0c8a0));
+  ui('cust-1', (g) => custHead(g, 0x1b2631, 0x8d5524));
+  ui('cust-2', (g) => custHead(g, 0xb9770e, 0xffdbac));
+  // Speech bubble: cream rounded rect + tail pointing down-left toward the speaker.
+  ui('ui-bubble', (g) => {
+    g.fillStyle(PALETTE.cream);
+    g.fillRoundedRect(s * 0.04, s * 0.08, s * 0.92, s * 0.68, s * 0.16);
+    g.fillTriangle(s * 0.22, s * 0.72, s * 0.42, s * 0.72, s * 0.18, s * 0.96);
+    g.lineStyle(s * 0.025, PALETTE.gold, 0.8);
+    g.strokeRoundedRect(s * 0.04, s * 0.08, s * 0.92, s * 0.68, s * 0.16);
   });
 
   // --- Gate-runner (game #3) textures. Walls reuse ob-box2 at lane size. ---

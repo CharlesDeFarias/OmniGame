@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
-import { applyInput, currentStep, expectedNext, startRecipe } from '../core/cooking/engine';
+import { applyInput, currentStep, expectedNext, starsForMistakes, startRecipe } from '../core/cooking/engine';
 import { ALL_INGREDIENTS, RECIPES } from '../core/cooking/recipes';
+import { applyServe, startServing, type ServeEvent, type ServingState } from '../core/cooking/serving';
 import type { CookEvent, CookInput, CookingState, IngredientId, Recipe, Step } from '../core/cooking/types';
 import { createCooking, type CookingProgress } from '../services/cooking';
 import { createJournal, type Journal } from '../services/journal';
+import { createPantry, type Pantry } from '../services/pantry';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createBlips, type Blips } from './audio';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
@@ -64,6 +66,7 @@ export class CookingScene extends Phaser.Scene {
   private journal!: Journal;
   private wallet!: Wallet;
   private cooking!: CookingProgress;
+  private pantry!: Pantry;
   private blips!: Blips;
   private viewObjects: Phaser.GameObjects.GameObject[] = [];
   private state: CookingState | null = null;
@@ -77,6 +80,10 @@ export class CookingScene extends Phaser.Scene {
   private bowl: Phaser.GameObjects.Sprite | null = null;
   private plate: Phaser.GameObjects.Sprite | null = null;
   private stackCount = 0;
+  private protectedRun = false;
+  private serving: ServingState | null = null;
+  private custHeads: Phaser.GameObjects.Sprite[] = [];
+  private servingWrongLogs = 0;
 
   constructor() {
     super('cooking');
@@ -86,6 +93,7 @@ export class CookingScene extends Phaser.Scene {
     makeTextures(this, 96);
     this.viewObjects = [];
     this.state = null;
+    this.serving = null;
     this.justUnlocked = null;
     // Stage bands, same studio feel as PlayScene.
     this.add
@@ -97,6 +105,7 @@ export class CookingScene extends Phaser.Scene {
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.wallet = createWallet(window.localStorage);
     this.cooking = createCooking(window.localStorage);
+    this.pantry = createPantry(window.localStorage);
     this.blips = createBlips();
     this.blips.setMuted(window.localStorage.getItem('omnigame.muted.v1') === '1');
     this.input.on('pointerdown', () => this.blips.unlock());
@@ -115,6 +124,7 @@ export class CookingScene extends Phaser.Scene {
     for (const o of this.viewObjects) o.destroy();
     this.viewObjects = [];
     this.targets.clear();
+    this.custHeads = [];
     this.bowl = null;
     this.plate = null;
     this.transitioning = false;
@@ -178,26 +188,30 @@ export class CookingScene extends Phaser.Scene {
       // Hub registers in the boot rework; fall back to career until then.
       this.scene.start('hub');
     });
-    // 2x5 grid of recipe cards.
+    // 3x6 grid: 15 recipe cards + the serving card in the last cell (the old 2x5
+    // grid can't hold 16 cells on screen — smaller cards, same reading order).
+    const cellPos = (i: number): { x: number; y: number } => ({
+      x: 130 + (i % 3) * 230,
+      y: 250 + Math.floor(i / 3) * 162,
+    });
     RECIPES.forEach((recipe, i) => {
-      const x = i % 2 === 0 ? 190 : 530;
-      const y = 268 + Math.floor(i / 2) * 194;
+      const { x, y } = cellPos(i);
       const unlocked = this.cooking.isUnlocked(i);
       const card = this.add
         .image(x, y, 'ui-panel')
-        .setDisplaySize(316, 176)
+        .setDisplaySize(218, 148)
         .setAlpha(unlocked ? 0.95 : 0.4)
         .setDepth(0);
-      const dish = this.add.sprite(x - 80, y, `ing-${recipe.icon}`).setDisplaySize(96, 96).setDepth(1);
+      const dish = this.add.sprite(x - 56, y, `ing-${recipe.icon}`).setDisplaySize(70, 70).setDepth(1);
       this.viewObjects.push(card, dish);
       if (!unlocked) {
         dish.setTint(0x555566).setAlpha(0.55);
-        this.viewObjects.push(this.add.sprite(x + 62, y, 'ui-lock').setDisplaySize(64, 64).setDepth(2));
+        this.viewObjects.push(this.add.sprite(x + 44, y, 'ui-lock').setDisplaySize(48, 48).setDepth(2));
         return;
       }
       const best = this.cooking.bestFor(recipe.id);
       for (let st = 0; st < 3; st++) {
-        const starSp = this.add.sprite(x + 22 + st * 44, y, 'ui-star').setDisplaySize(38, 38).setDepth(1);
+        const starSp = this.add.sprite(x + 10 + st * 34, y, 'ui-star').setDisplaySize(28, 28).setDepth(1);
         if (st >= best) starSp.setTint(0x555566).setAlpha(0.6);
         this.viewObjects.push(starSp);
       }
@@ -214,8 +228,8 @@ export class CookingScene extends Phaser.Scene {
           this.viewObjects.push(pip);
           this.tweens.add({
             targets: pip,
-            x: x + Math.cos(ang) * 130,
-            y: y + Math.sin(ang) * 90,
+            x: x + Math.cos(ang) * 95,
+            y: y + Math.sin(ang) * 65,
             alpha: 0,
             scale: 0.3,
             duration: 620,
@@ -227,7 +241,249 @@ export class CookingScene extends Phaser.Scene {
         this.tweens.add({ targets: card, scaleX: card.scaleX * 1.05, scaleY: card.scaleY * 1.05, duration: 260, yoyo: true, repeat: 2 });
       }
     });
+    this.buildServingCard(cellPos(RECIPES.length));
     this.justUnlocked = null;
+  }
+
+  /** Serving-mode card (decision #53): plate + 3 order pips; locked shows a lock and a '5' badge. */
+  private buildServingCard(pos: { x: number; y: number }): void {
+    const { x, y } = pos;
+    const unlocked = this.cooking.servingUnlocked();
+    const card = this.add
+      .image(x, y, 'ui-panel')
+      .setDisplaySize(218, 148)
+      .setAlpha(unlocked ? 0.95 : 0.4)
+      .setDepth(0);
+    const plate = this.add.sprite(x - 56, y, 'ui-plate').setDisplaySize(74, 74).setDepth(1);
+    this.viewObjects.push(card, plate);
+    for (let i = 0; i < 3; i++) {
+      const pip = this.add.sprite(x + 14 + i * 30, y, 'ui-pip').setScale(1.5).setDepth(1);
+      if (!unlocked) pip.setAlpha(0.4);
+      this.viewObjects.push(pip);
+    }
+    if (!unlocked) {
+      plate.setTint(0x555566).setAlpha(0.55);
+      // Lock + '5' badge: five completed recipes open the diner (number-only text).
+      this.viewObjects.push(
+        this.add.sprite(x + 44, y - 30, 'ui-lock').setDisplaySize(44, 44).setDepth(2),
+        this.add.sprite(x + 44, y + 26, 'ui-levelbadge').setDisplaySize(38, 38).setDepth(2),
+        this.add
+          .text(x + 44, y + 28, '5', { fontSize: '24px', fontStyle: 'bold', color: '#ffffff' })
+          .setOrigin(0.5)
+          .setDepth(3),
+      );
+      return;
+    }
+    card.setInteractive();
+    card.on('pointerup', () => {
+      if (this.transitioning) return;
+      this.startServingView();
+    });
+  }
+
+  // --- SERVING view (decision #53) ---
+
+  private startServingView(): void {
+    // Orders come from recipes she has actually completed (best >= 1): every dish a
+    // customer asks for is one she already knows (judgment call — gentler than the
+    // raw unlocked list, and servingUnlocked() guarantees at least 5 of them).
+    const ids = RECIPES.filter((r) => this.cooking.bestFor(r.id) > 0).map((r) => r.id);
+    // Wall-clock seed for round-to-round variety; the round itself is pure and
+    // deterministic per seed via the core's seeded RNG (no Math.random anywhere).
+    const seed = Date.now() & 0x7fffffff;
+    this.serving = startServing(ids, seed);
+    this.servingWrongLogs = 0;
+    if (this.serving.done) {
+      // Defensive: empty completed list should be unreachable behind the unlock gate.
+      this.serving = null;
+      this.showList();
+      return;
+    }
+    this.journal.log('serving_start', { orders: this.serving.orders, seed });
+    this.buildServing();
+  }
+
+  /** Full rebuild at the start of each order: customer row + this order's pantry + bowl. */
+  private buildServing(): void {
+    this.clearView();
+    this.state = null;
+    const sv = this.serving;
+    if (sv === null) return;
+    const home = this.add.sprite(60, 62, 'ui-home').setDisplaySize(56, 56).setAlpha(0.85).setDepth(1).setInteractive();
+    this.viewObjects.push(home);
+    home.on('pointerup', () => {
+      if (this.transitioning) return;
+      this.serving = null;
+      this.showList();
+    });
+    // Customer row: three heads, each with a speech bubble showing the ordered dish.
+    // Done orders dim with a check; the current one wears a gold ring and bobs.
+    this.custHeads = [];
+    sv.orders.forEach((orderId, i) => {
+      const recipe = RECIPES.find((r) => r.id === orderId);
+      if (recipe === undefined) return;
+      const x = 150 + i * 210;
+      const head = this.add.sprite(x, 215, `cust-${i}`).setDisplaySize(110, 110).setDepth(1);
+      const bubble = this.add.sprite(x + 62, 118, 'ui-bubble').setDisplaySize(104, 104).setDepth(1);
+      const dishIcon = this.add.sprite(x + 62, 108, `ing-${recipe.icon}`).setDisplaySize(52, 52).setDepth(2);
+      this.custHeads.push(head);
+      this.viewObjects.push(head, bubble, dishIcon);
+      if (i < sv.orderIndex) {
+        bubble.setAlpha(0.35);
+        dishIcon.setAlpha(0.45);
+        this.viewObjects.push(this.add.sprite(x + 40, 250, 'ui-check').setDisplaySize(40, 40).setDepth(2));
+      } else if (i === sv.orderIndex) {
+        const ring = this.add.circle(x, 215, 62).setStrokeStyle(5, PALETTE.gold).setDepth(2);
+        this.viewObjects.push(ring);
+        this.tweens.add({ targets: head, y: 207, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      } else {
+        head.setAlpha(0.55);
+        bubble.setAlpha(0.55);
+        dishIcon.setAlpha(0.6);
+      }
+    });
+    const orderId = sv.orders[sv.orderIndex]!;
+    const recipe = RECIPES.find((r) => r.id === orderId)!;
+    // Bowl the order fills into, like the gather view.
+    const bowl = this.add.sprite(GAME_WIDTH / 2, 1090, 'ui-bowl').setDisplaySize(230, 230).setDepth(2);
+    this.bowl = bowl;
+    this.viewObjects.push(bowl);
+    // Pantry: the order's full gather set + the recipe's usual distractors, shuffled
+    // deterministically per order slot (seed string, not Math.random).
+    const required = [...sv.needed];
+    const items = shuffled(
+      [...required, ...distractorsFor(recipe, required)],
+      `serving:${recipe.id}:${sv.orderIndex}:pantry`,
+    );
+    items.forEach((id, i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const x = 165 + col * 195;
+      const y = 380 + row * 152;
+      const tile = this.add.image(x, y, 'ui-tile').setDisplaySize(138, 138).setAlpha(0.1).setDepth(0);
+      const icon = this.add.sprite(x, y, `ing-${id}`).setDisplaySize(102, 102).setDepth(1).setInteractive();
+      this.viewObjects.push(tile, icon);
+      icon.on('pointerup', () => this.handleServe(id, icon, bowl));
+    });
+  }
+
+  /** Serve taps funnel here: core decides, renderer reacts (mirrors handleInput). */
+  private handleServe(id: IngredientId, icon: Phaser.GameObjects.Sprite, bowl: Phaser.GameObjects.Sprite): void {
+    if (this.serving === null || this.transitioning) return;
+    const res = applyServe(this.serving, id);
+    this.serving = res.state;
+    if (!res.correct) {
+      // Same gentle refusal as cooking: wiggle only, no sad sound.
+      this.tweens.add({ targets: icon, x: icon.x + 9, duration: 45, yoyo: true, repeat: 3 });
+      if (this.servingWrongLogs < WRONG_LOG_CAP) {
+        this.servingWrongLogs += 1;
+        this.journal.log('serving_wrong', { order: this.serving.orderIndex });
+      }
+      return;
+    }
+    this.blips.match();
+    icon.disableInteractive().setAlpha(0.3);
+    const fly = this.add.sprite(icon.x, icon.y, `ing-${id}`).setDisplaySize(88, 88).setDepth(5);
+    this.viewObjects.push(fly);
+    this.tweens.add({
+      targets: fly,
+      x: bowl.x,
+      y: bowl.y - 24,
+      scale: fly.scale * 0.5,
+      duration: 430,
+      ease: 'Cubic.easeIn',
+      onComplete: () => {
+        fly.destroy();
+        this.tweens.add({ targets: bowl, scaleX: bowl.scaleX * 1.07, scaleY: bowl.scaleY * 1.07, duration: 110, yoyo: true });
+      },
+    });
+    const doneEvent = res.events.find((e): e is Extract<ServeEvent, { type: 'servingDone' }> => e.type === 'servingDone');
+    const orderDone = res.events.some((e) => e.type === 'orderDone');
+    if (orderDone) {
+      this.transitioning = true;
+      // Customer beams: happy hop + a check pop over their head.
+      const head = this.custHeads[Math.max(0, this.serving.orderIndex - 1)];
+      if (head !== undefined) {
+        this.tweens.killTweensOf(head);
+        this.tweens.add({ targets: head, y: head.y - 26, duration: 180, yoyo: true, repeat: 2, ease: 'Quad.easeOut' });
+        const check = this.add.sprite(head.x + 40, head.y + 35, 'ui-check').setDisplaySize(44, 44).setScale(0).setDepth(3);
+        this.viewObjects.push(check);
+        this.tweens.add({ targets: check, scale: 44 / 96, duration: 240, ease: 'Back.easeOut' });
+      }
+      this.blips.ding();
+      this.sparkle(bowl.x, bowl.y);
+      if (doneEvent !== undefined) {
+        this.time.delayedCall(950, () => this.showServingResult(doneEvent.stars, doneEvent.mistakes));
+      } else {
+        this.time.delayedCall(950, () => this.buildServing());
+      }
+    }
+  }
+
+  /** Round finished: pay out (earnCooking reused), journal, stars + coins ceremony. */
+  private showServingResult(stars: 1 | 2 | 3, mistakes: number): void {
+    this.clearView();
+    this.serving = null;
+    // Payout + journal first, celebration after (interruptions can't lose the round).
+    this.wallet.earnCooking(stars);
+    this.journal.log('serving_done', { stars, mistakes });
+    this.blips.win();
+    // The three customers, all beaming over a shared plate.
+    for (let i = 0; i < 3; i++) {
+      const head = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, 470, `cust-${i}`).setDisplaySize(120, 120).setDepth(2);
+      this.viewObjects.push(head);
+      this.tweens.add({ targets: head, y: 455, duration: 420, yoyo: true, repeat: -1, delay: i * 130, ease: 'Sine.easeInOut' });
+    }
+    this.viewObjects.push(this.add.sprite(GAME_WIDTH / 2, 640, 'ui-plate').setDisplaySize(320, 320).setDepth(1));
+    for (let i = 0; i < 3; i++) {
+      const slot = this.add
+        .sprite(GAME_WIDTH / 2 + (i - 1) * 150, 250, 'ui-star')
+        .setDisplaySize(104, 104)
+        .setTint(0x555566)
+        .setDepth(2);
+      this.viewObjects.push(slot);
+    }
+    for (let i = 0; i < stars; i++) {
+      const st = this.add
+        .sprite(GAME_WIDTH / 2 + (i - 1) * 150, 250, 'ui-star')
+        .setDisplaySize(104, 104)
+        .setScale(0)
+        .setDepth(3);
+      this.viewObjects.push(st);
+      this.tweens.add({ targets: st, scale: 104 / 96, duration: 260, delay: 350 + i * 240, ease: 'Back.easeOut' });
+    }
+    const coinIcon = this.add.sprite(GAME_WIDTH / 2 - 40, 850, 'ui-coin').setDisplaySize(48, 48).setDepth(2);
+    const coinText = this.add
+      .text(GAME_WIDTH / 2 - 8, 850, String(this.wallet.data().coins), {
+        fontSize: '36px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6,
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(2);
+    this.viewObjects.push(coinIcon, coinText);
+    for (let i = 0; i < 6; i++) {
+      const pip = this.add
+        .sprite(GAME_WIDTH / 2 + (i - 2.5) * 40, 640, 'ui-pip')
+        .setTint(0xf1c40f)
+        .setScale(1.6)
+        .setDepth(5);
+      this.viewObjects.push(pip);
+      this.tweens.add({
+        targets: pip,
+        x: coinIcon.x,
+        y: coinIcon.y,
+        scale: 0.5,
+        duration: 520,
+        delay: 400 + i * 80,
+        ease: 'Cubic.easeIn',
+        onComplete: () => pip.destroy(),
+      });
+    }
+    // Serve again + back to the list.
+    const retry = this.add.sprite(GAME_WIDTH / 2 - 120, 1070, 'ui-retry').setDisplaySize(120, 120).setDepth(2).setInteractive();
+    const list = this.add.sprite(GAME_WIDTH / 2 + 120, 1070, 'ui-home').setDisplaySize(120, 120).setDepth(2).setInteractive();
+    this.viewObjects.push(retry, list);
+    retry.once('pointerup', () => this.startServingView());
+    list.once('pointerup', () => this.showList());
   }
 
   // --- PLAY view ---
@@ -236,8 +492,11 @@ export class CookingScene extends Phaser.Scene {
     this.recipeIndex = index;
     this.wrongLogs = 0;
     const recipe = RECIPES[index]!;
+    // Star protection (decision #52): a fully stocked pantry is consumed the moment
+    // cooking starts (all-or-nothing inside consumeFor) and buys one free mistake.
+    this.protectedRun = this.pantry.consumeFor(recipe);
     this.state = startRecipe(recipe);
-    this.journal.log('recipe_start', { id: recipe.id });
+    this.journal.log('recipe_start', { id: recipe.id, protected: this.protectedRun });
     this.buildStep();
   }
 
@@ -270,6 +529,14 @@ export class CookingScene extends Phaser.Scene {
       if (this.transitioning) return;
       this.showList();
     });
+    if (this.protectedRun) {
+      // Shield-ish indicator: cream-filled heart pinned to the header panel's corner.
+      // Rendered ONLY when the pantry actually consumed stock for this run; reuses
+      // ui-heart with a flat cream fill so no new texture is needed (judgment call).
+      this.viewObjects.push(
+        this.add.sprite(GAME_WIDTH / 2 + 96, 60, 'ui-heart').setDisplaySize(44, 44).setTintFill(PALETTE.cream).setDepth(2),
+      );
+    }
     if (step.type === 'gather') this.buildGather(step);
     else if (step.type === 'sequence') this.buildSequence(step);
     else this.buildAssemble(step);
@@ -416,7 +683,12 @@ export class CookingScene extends Phaser.Scene {
     const doneEvent = res.events.find((e): e is Extract<CookEvent, { type: 'recipeDone' }> => e.type === 'recipeDone');
     if (doneEvent !== undefined) {
       this.transitioning = true;
-      this.time.delayedCall(750, () => this.showPlating(doneEvent.stars, doneEvent.mistakes));
+      // Protected runs forgive one mistake in the star math (raw mistake count still
+      // shown/journaled); recordCompletion itself is unchanged.
+      const stars = this.protectedRun
+        ? starsForMistakes(Math.max(0, doneEvent.mistakes - 1))
+        : doneEvent.stars;
+      this.time.delayedCall(750, () => this.showPlating(stars, doneEvent.mistakes));
       return;
     }
     if (res.events.some((e) => e.type === 'stepDone')) {
