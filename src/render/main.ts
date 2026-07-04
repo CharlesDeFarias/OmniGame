@@ -1,21 +1,14 @@
 import Phaser from 'phaser';
 import { APP_IDENTITY } from '../config/appIdentity';
-import { loadProgress } from '../services/progress';
-import { createWallet } from '../services/wallet';
 import { CareerScene } from './CareerScene';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
+import { CookingScene } from './CookingScene';
+import { HubScene } from './HubScene';
 import { PlayScene } from './PlayScene';
 
-// Returning players land on the career hub; a fresh save boots straight into level 1.
-// "Returning" = ANY progress: a level index moved in any chapter, any completed level,
-// or coins in the wallet (covers chapter-replay resets, where indices return to 0).
-// Phaser auto-starts the first scene in the array.
-const progress = loadProgress(window.localStorage);
-const returning =
-  Object.values(progress.levelIndexByChapter).some((i) => i > 0) ||
-  Object.keys(progress.completed).length > 0 ||
-  createWallet(window.localStorage).data().coins > 0;
-
+// The hub is the front door for everyone (plan 8): Phaser auto-starts the first
+// scene in the array. PlayScene's zero-text tutorial still triggers on its own
+// fresh-save condition the first time the match-3 game is entered.
 new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'app',
@@ -26,5 +19,5 @@ new Phaser.Game({
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
   },
-  scene: returning ? [CareerScene, PlayScene] : [PlayScene, CareerScene],
+  scene: [HubScene, CareerScene, PlayScene, CookingScene],
 });

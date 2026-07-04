@@ -112,3 +112,17 @@ describe('wallet', () => {
     expect(w.data().coins).toBe(30);
   });
 });
+
+describe('wallet cooking rewards', () => {
+  it('earnCooking pays coins and xp per stars, no hearts or followers, and persists', () => {
+    const storage = memStorage();
+    const w = createWallet(storage);
+    w.earnCooking(3);
+    expect(w.data()).toEqual({ version: 1, coins: 60, followers: 0, hearts: 0, xp: 30 });
+    w.earnCooking(1);
+    expect(w.data()).toEqual({ version: 1, coins: 100, followers: 0, hearts: 0, xp: 40 });
+    const reloaded = createWallet(storage);
+    expect(reloaded.data().coins).toBe(100);
+    expect(reloaded.data().xp).toBe(40);
+  });
+});

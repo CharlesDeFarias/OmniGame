@@ -94,9 +94,21 @@ export class CareerScene extends Phaser.Scene {
     this.buildBar();
     this.drawRoom();
     this.buildChapterStrip();
-    // Wardrobe shop button: hanger, top-left of the room view.
+    // Home button back to the hub (plan 8). The literal top-left corner is the
+    // currency bar's coin panel, so "top-left" means top-left of the room view;
+    // the hanger moves one slot down to make space (judgment call).
+    const home = this.add
+      .sprite(64, ROOM_TOP + 56, 'ui-home')
+      .setDisplaySize(64, 64)
+      .setDepth(2)
+      .setInteractive();
+    home.on('pointerup', () => {
+      if (this.overlayOpen()) return;
+      this.scene.start('hub');
+    });
+    // Wardrobe shop button: hanger, below the home button.
     const hanger = this.add
-      .sprite(64, ROOM_TOP + 56, 'ui-hanger')
+      .sprite(64, ROOM_TOP + 156, 'ui-hanger')
       .setDisplaySize(64, 64)
       .setDepth(2)
       .setInteractive();
