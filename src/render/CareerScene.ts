@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PROFILE } from '../config/profile';
 import { CHAPTERS, chapterById, type ChapterId } from '../meta/chapters';
 import { ROOMS, type RoomSlot } from '../meta/rooms';
 import { RECIPES } from '../core/cooking/recipes';
@@ -790,6 +791,7 @@ export class CareerScene extends Phaser.Scene {
 
   /** Pulsing clipboard under the home/hanger column, only while assignments are pending. */
   private buildClipboardButton(): void {
+    if (!PROFILE.features.managerTasks) return;
     if (this.tasks.pending().length === 0) return;
     const clip = this.add
       .sprite(64, ROOM_TOP + 356, 'ui-clipboard')
@@ -808,7 +810,7 @@ export class CareerScene extends Phaser.Scene {
     clip.on('pointerup', () => this.openAssignments());
   }
 
-  /** Luana-facing assignment view: zero text — clipboard title + big bright pending icons; dim tap closes. */
+  /** Player-facing assignment view: zero text — clipboard title + big bright pending icons; dim tap closes. */
   private openAssignments(): void {
     if (this.overlayOpen()) return;
     this.journal.log('assignments_viewed', {});
@@ -855,6 +857,7 @@ export class CareerScene extends Phaser.Scene {
    * scene entries stay snappy and the pattern matches videoPayout.
    */
   private rewardCompletedTasks(): void {
+    if (!PROFILE.features.managerTasks) return;
     const due = this.tasks.unrewarded();
     if (due.length === 0) return;
     for (const task of due) {

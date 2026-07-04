@@ -148,7 +148,7 @@ function enemyAi(next: TowerState, level: TowerLevelDef, events: TowerEvent[], t
  *  3. enemy AI per level policy (fresh armies start at the full 2-tick travel);
  *  4. terminal check: win = player owns every tower; loss = player owns none AND has no
  *     armies in flight; timeout at maxTicks is generous — loss only if the enemy owns
- *     MORE towers, otherwise a win (Luana layer, decision pending renderer review).
+ *     MORE towers, otherwise a win (personal layer, decision pending renderer review).
  *  Post-done ticks are inert. Never mutates its input. */
 export function tick(state: TowerState, level: TowerLevelDef): TowerTickResult {
   const next = cloneState(state);
