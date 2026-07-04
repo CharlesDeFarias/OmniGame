@@ -1,0 +1,212 @@
+{
+  "id": "r03",
+  "seed": 303,
+  "startCount": 8,
+  "finishBonusPerSquad": 15,
+  "columns": [
+    {
+      "d": 1,
+      "lanes": [
+        {
+          "kind": "gate",
+          "op": "mul",
+          "value": 2
+        },
+        {
+          "kind": "foe",
+          "count": 4
+        },
+        {
+          "kind": "wall"
+        }
+      ]
+    },
+    {
+      "d": 2,
+      "lanes": [
+        {
+          "kind": "foe",
+          "count": 6
+        },
+        {
+          "kind": "gate",
+          "op": "mul",
+          "value": 2
+        },
+        {
+          "kind": "empty"
+        }
+      ]
+    },
+    {
+      "d": 3,
+      "lanes": [
+        {
+          "kind": "wall"
+        },
+        {
+          "kind": "foe",
+          "count": 8
+        },
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 6
+        }
+      ]
+    },
+    {
+      "d": 4,
+      "lanes": [
+        {
+          "kind": "gate",
+          "op": "mul",
+          "value": 2
+        },
+        {
+          "kind": "wall"
+        },
+        {
+          "kind": "foe",
+          "count": 9
+        }
+      ]
+    },
+    {
+      "d": 5,
+      "lanes": [
+        {
+          "kind": "foe",
+          "count": 11
+        },
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 8
+        },
+        {
+          "kind": "wall"
+        }
+      ]
+    },
+    {
+      "d": 6,
+      "lanes": [
+        {
+          "kind": "wall"
+        },
+        {
+          "kind": "gate",
+          "op": "mul",
+          "value": 2
+        },
+        {
+          "kind": "foe",
+          "count": 13
+        }
+      ]
+    },
+    {
+      "d": 7,
+      "lanes": [
+        {
+          "kind": "foe",
+          "count": 15
+        },
+        {
+          "kind": "wall"
+        },
+        {
+          "kind": "gate",
+          "op": "mul",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "d": 8,
+      "lanes": [
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 10
+        },
+        {
+          "kind": "foe",
+          "count": 17
+        },
+        {
+          "kind": "empty"
+        }
+      ]
+    },
+    {
+      "d": 9,
+      "lanes": [
+        {
+          "kind": "wall"
+        },
+        {
+          "kind": "gate",
+          "op": "mul",
+          "value": 3
+        },
+        {
+          "kind": "foe",
+          "count": 20
+        }
+      ]
+    },
+    {
+      "d": 10,
+      "lanes": [
+        {
+          "kind": "foe",
+          "count": 23
+        },
+        {
+          "kind": "wall"
+        },
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 12
+        }
+      ]
+    },
+    {
+      "d": 11,
+      "lanes": [
+        {
+          "kind": "gate",
+          "op": "mul",
+          "value": 2
+        },
+        {
+          "kind": "foe",
+          "count": 26
+        },
+        {
+          "kind": "wall"
+        }
+      ]
+    },
+    {
+      "d": 12,
+      "lanes": [
+        {
+          "kind": "wall"
+        },
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 15
+        },
+        {
+          "kind": "foe",
+          "count": 30
+        }
+      ]
+    }
+  ]
+}

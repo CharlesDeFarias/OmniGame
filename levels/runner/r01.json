@@ -1,0 +1,14 @@
+{
+  "id": "r01",
+  "seed": 101,
+  "startCount": 5,
+  "finishBonusPerSquad": 10,
+  "columns": [
+    { "d": 1, "lanes": [{ "kind": "gate", "op": "add", "value": 3 }, { "kind": "gate", "op": "add", "value": 2 }, { "kind": "empty" }] },
+    { "d": 2, "lanes": [{ "kind": "gate", "op": "add", "value": 2 }, { "kind": "empty" }, { "kind": "gate", "op": "add", "value": 4 }] },
+    { "d": 3, "lanes": [{ "kind": "foe", "count": 3 }, { "kind": "gate", "op": "add", "value": 3 }, { "kind": "gate", "op": "add", "value": 2 }] },
+    { "d": 4, "lanes": [{ "kind": "gate", "op": "add", "value": 4 }, { "kind": "gate", "op": "add", "value": 2 }, { "kind": "empty" }] },
+    { "d": 5, "lanes": [{ "kind": "empty" }, { "kind": "gate", "op": "add", "value": 3 }, { "kind": "foe", "count": 4 }] },
+    { "d": 6, "lanes": [{ "kind": "gate", "op": "add", "value": 5 }, { "kind": "gate", "op": "add", "value": 3 }, { "kind": "gate", "op": "add", "value": 2 }] }
+  ]
+}
