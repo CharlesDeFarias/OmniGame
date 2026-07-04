@@ -15,6 +15,7 @@ import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
 import { boardLayout, cellToXY, xyToCell, type Layout } from './layout';
 import { loadLevels } from './levels';
 import { pieceTextureKey, type PackId } from './packs';
+import { PALETTE } from './palette';
 import { COLOR_HEX, makeAvatarTexture, makeTextures, textureKeyFor } from './theme';
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
@@ -67,12 +68,13 @@ export class PlayScene extends Phaser.Scene {
 
   create(): void {
     makeTextures(this, 96);
-    // Vertical vignette over the 0x1a1a2e canvas color: cheap gradient illusion.
+    // Stage bands over the 0x141428 canvas: plum wash up top, deep shadow below,
+    // canvas color showing through the middle — subtle studio-stage feel.
     this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.2, GAME_WIDTH, GAME_HEIGHT * 0.4, 0x24244a, 0.35)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.125, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgPlum, 0.8)
       .setDepth(-2);
     this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.8, GAME_WIDTH, GAME_HEIGHT * 0.4, 0x101020, 0.35)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.875, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgDeep, 0.9)
       .setDepth(-2);
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.progress = loadProgress(window.localStorage);
@@ -106,12 +108,12 @@ export class PlayScene extends Phaser.Scene {
     this.levels = loadLevels(this.chapter);
     this.marker = this.add
       .rectangle(0, 0, 10, 10)
-      .setStrokeStyle(5, 0xffffff)
+      .setStrokeStyle(5, PALETTE.gold)
       .setFillStyle(0, 0)
       .setVisible(false)
       .setDepth(5);
     this.movesText = this.add
-      .text(GAME_WIDTH / 2, TOP_RESERVE * 0.72, '', { fontSize: '64px', fontStyle: 'bold', color: '#ffffff' })
+      .text(GAME_WIDTH / 2, TOP_RESERVE * 0.72, '', { fontSize: '64px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6 })
       .setOrigin(0.5)
       .setDepth(2);
     // Hidden parent corner (decision #17): invisible top-left hotspot, 5 quick taps open the stats overlay.
@@ -122,7 +124,7 @@ export class PlayScene extends Phaser.Scene {
       .on('pointerdown', () => this.onSecretTap());
     this.coinIcon = this.add.sprite(90, 170, 'ui-coin').setDisplaySize(40, 40).setDepth(2);
     this.coinText = this.add
-      .text(120, 170, String(this.wallet.data().coins), { fontSize: '28px', fontStyle: 'bold', color: '#ffffff' })
+      .text(120, 170, String(this.wallet.data().coins), { fontSize: '28px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6 })
       .setOrigin(0, 0.5)
       .setDepth(2);
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
@@ -178,6 +180,17 @@ export class PlayScene extends Phaser.Scene {
         this.backdrop.push(tile);
       }
     }
+    // Gold board frame (plan 7 design pass): one ui-tile-frame stretched over the board rect.
+    const framePad = this.layout.cell * 0.18;
+    const boardW = this.layout.cell * this.layout.cols;
+    const boardH = this.layout.cell * this.layout.rows;
+    this.backdrop.push(
+      this.add
+        .image(this.layout.originX + boardW / 2, this.layout.originY + boardH / 2, 'ui-tile-frame')
+        .setDisplaySize(boardW + framePad * 2, boardH + framePad * 2)
+        .setAlpha(0.9)
+        .setDepth(-0.5),
+    );
     this.journal.log('level_start', { level: def.id, chapter: this.chapter, retry: this.retryCount, tier: this.adaptive.state().tier });
     this.buildGoalHud();
     this.syncBoard();
@@ -212,7 +225,7 @@ export class PlayScene extends Phaser.Scene {
         : 'ob-ice';
       const icon = this.add.sprite(x0 + i * spacing - 34, TOP_RESERVE * 0.32, iconKey).setDisplaySize(64, 64).setDepth(2);
       const txt = this.add
-        .text(x0 + i * spacing + 14, TOP_RESERVE * 0.32, '', { fontSize: '44px', fontStyle: 'bold', color: '#ffffff' })
+        .text(x0 + i * spacing + 14, TOP_RESERVE * 0.32, '', { fontSize: '44px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6 })
         .setOrigin(0, 0.5)
         .setDepth(2);
       this.goalHud.push({ icon, txt });
@@ -225,7 +238,7 @@ export class PlayScene extends Phaser.Scene {
       const remaining = Math.max(0, gs.goal.count - gs.collected);
       const hud = this.goalHud[i]!;
       hud.txt.setText(remaining === 0 ? '✓' : String(remaining));
-      hud.txt.setColor(remaining === 0 ? '#2ecc71' : '#ffffff');
+      hud.txt.setColor(remaining === 0 ? '#2ecc71' : PALETTE.textOnDark);
     });
   }
 
@@ -756,6 +769,12 @@ export class PlayScene extends Phaser.Scene {
     this.flyCoinPips();
     this.blips.win();
     this.overlay();
+    // Gold banner sweeps in behind the stars (depth 10.5: between dim and stars).
+    const bannerW = GAME_WIDTH * 0.7;
+    const bannerY = GAME_HEIGHT * 0.38;
+    const banner = this.add.rectangle(-bannerW / 2, bannerY, bannerW, 130, PALETTE.panel, 0.95).setDepth(10.5);
+    const bannerFrame = this.add.image(-bannerW / 2, bannerY, 'ui-tile-frame').setDisplaySize(bannerW, 130).setDepth(10.5);
+    this.tweens.add({ targets: [banner, bannerFrame], x: GAME_WIDTH / 2, duration: 300, ease: 'Back.easeOut' });
     const starSprites: Phaser.GameObjects.Sprite[] = [];
     for (let i = 0; i < 3; i++) {
       const slot = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'ui-star')
