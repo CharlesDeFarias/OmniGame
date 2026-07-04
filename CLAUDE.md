@@ -16,7 +16,11 @@ A personal omnibus of ad-free, non-exploitative casual games. First MVP: a Royal
 - **Spec:** `docs/superpowers/specs/2026-07-01-omnigame-match3-design.md`
 - **Code:** src/core/ (match3 + barrel) + src/sim/ + src/render/ (PlayScene, layout, choreo, theme, audio, levels loader) + src/services/ (journal, progress) + scripts/. npm test / typecheck / simulate / build. Workflows: ci.yml (typecheck+tests) + deploy.yml (Pages). Phaser PINNED to v3 (npm latest = v4 — do not upgrade casually).
 
-## Autonomous run (COMPLETE)
+## Autonomous run 2 (ACTIVE, decisions #51-54)
+
+Order: gate-runner renderer (feel package #51) -> grocery runs (#52) -> serving mode + ~5 recipes -> tower core seed -> public config split (#54). Same protocol: full autonomy, log judgment calls to REVIEW-QUEUE.md, continuous deploy. If session dies: fresh session reads ledger + current plan, continues.
+
+## Autonomous run 1 (COMPLETE)
 
 Run finished: plans 7 + 8, manager panel, adaptive v2, gate-runner core, playlist infra all shipped (see docs/RUN-LOG.md). 335 tests. Next session: walk Charles through docs/REVIEW-QUEUE.md (21 items) and collect answers for: gate-runner renderer (queue #20), groceries/shopping sinks (#17), match-3-vs-cooking pay feel (#10), art references for the illustrated pass, serving mode, tower game.
 

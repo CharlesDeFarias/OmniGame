@@ -54,3 +54,7 @@ One line of context per decision; newest last. Full reasoning lives in the specs
 | 48 | 2026-07-02 | Cooking recipes: simple everyday basics (toast, fruit salad, sandwich, eggs, pasta, pancakes, smoothie tier) | Charles's pick |
 | 49 | 2026-07-02 | Her build is named 'Luana Studio' (config-driven appIdentity; public layer keeps a generic name) | Charles picked personal naming; exact name mine to propose |
 | 50 | 2026-07-02 | Stretch order after design+cooking: manager panel first | Charles's pick |
+| 51 | 2026-07-04 | Gate-runner feel: adjacent-lane-only swipes, walls hard-block, one-time squad revival on wipe (half of start squad), score->coins with soft cap targeting 20-60 coins/run | Charles picked the recommended package (queue #20 resolved) |
+| 52 | 2026-07-04 | Grocery runs: coin-purchased picture shopping lists stock the pantry; a stocked recipe gets one free mistake (star protection) | Charles's pick; ties match-3 earnings to cooking |
+| 53 | 2026-07-04 | Run 2 queue: gate-runner renderer, serving mode + ~5 recipes, tower-conquest core seed, grocery runs, public-layer config split. Card game deferred | Charles's selection |
+| 54 | 2026-07-04 | Public layer this run = config split only (all Luana-specific values behind one profile config; generic build = one-file swap; no public deploy) | Charles's pick |
