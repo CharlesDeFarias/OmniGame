@@ -18,7 +18,7 @@ A personal omnibus of ad-free, non-exploitative casual games. First MVP: a Royal
 
 ## Autonomous run 2 (COMPLETE)
 
-Shipped: gate-runner playable (#51), grocery runs (#52), serving mode + recipes 11-15, tower core seed (renderer Qs in docs/superpowers/calibration/2026-07-04-tower-seed.md), profile config split (#54, see docs/PUBLIC-BUILD.md). 404 tests. Remaining backlog: tower renderer, card game (deferred by Charles), real illustrated art (needs references), match-3 pay-feel holistic look (queue #10/#23), reachability-aware runner level validation (queue #24), serving/grocery playtest items (queue #25-27).
+Shipped: gate-runner playable (#51), grocery runs (#52), serving mode + recipes 11-15, tower core seed (renderer Qs in docs/superpowers/calibration/2026-07-04-tower-seed.md), profile config split (#54, see docs/PUBLIC-BUILD.md). 404 tests. Plan 9 legit-look pass DONE (decision #55). Remaining backlog: tower renderer, card game (deferred by Charles), real illustrated art (needs references), match-3 pay-feel holistic look (queue #10/#23), reachability-aware runner level validation (queue #24), serving/grocery playtest items (queue #25-27).
 
 ## Autonomous run 1 (COMPLETE)
 

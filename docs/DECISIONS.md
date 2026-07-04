@@ -58,3 +58,5 @@ One line of context per decision; newest last. Full reasoning lives in the specs
 | 52 | 2026-07-04 | Grocery runs: coin-purchased picture shopping lists stock the pantry; a stocked recipe gets one free mistake (star protection) | Charles's pick; ties match-3 earnings to cooking |
 | 53 | 2026-07-04 | Run 2 queue: gate-runner renderer, serving mode + ~5 recipes, tower-conquest core seed, grocery runs, public-layer config split. Card game deferred | Charles's selection |
 | 54 | 2026-07-04 | Public layer this run = config split only (all Luana-specific values behind one profile config; generic build = one-file swap; no public deploy) | Charles's pick |
+| 55 | 2026-07-04 | Legit-look pass (plan 9): Fredoka display font (OFL, self-hosted), banded-gradient + baked-shadow texture v2, smooth gradient backgrounds with bokeh ambience, camera fade transitions, press-down button feel, hub logo lockup + branded splash screen | Charles: 'feels very amateur' — typography/gradients/transitions are the official-feel levers |
+
