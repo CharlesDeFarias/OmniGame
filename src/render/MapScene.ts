@@ -8,6 +8,7 @@ import { createBlips, type Blips } from './audio';
 import { fadeIn, goto, pressify } from './chrome';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { loadLevels } from './levels';
+import { mapWindow } from './mapWindow';
 import { PALETTE } from './palette';
 import { makeAvatarTexture } from './theme';
 import { TS } from './textStyles';
@@ -96,17 +97,24 @@ export class MapScene extends Phaser.Scene {
     const chapter = this.progress.chapter;
     const levels = loadLevels(chapter);
     const levelIndex = Math.min(this.progress.levelIndexByChapter[chapter], levels.length - 1);
+    // The anchor tables hold exactly 10 positions: page chapters longer than
+    // ten levels, showing the 10-level window that contains the current level
+    // (LOCAL index li drives anchors; the global index i drives level data).
+    const { start, end } = mapWindow(levels.length, levelIndex);
     // Dotted trail: 3 small cream dots interpolated along each straight segment.
-    for (let i = 0; i < levels.length - 1; i++) {
+    for (let i = start; i < end - 1; i++) {
+      const li = i - start;
       for (const t of [0.25, 0.5, 0.75]) {
-        const x = NODE_X[i]! + (NODE_X[i + 1]! - NODE_X[i]!) * t;
-        const y = nodeY(i) + (nodeY(i + 1) - nodeY(i)) * t;
+        const x = NODE_X[li]! + (NODE_X[li + 1]! - NODE_X[li]!) * t;
+        const y = nodeY(li) + (nodeY(li + 1) - nodeY(li)) * t;
         this.add.sprite(x, y, 'ui-pip').setTint(PALETTE.cream).setScale(1.5).setAlpha(0.5).setDepth(0);
       }
     }
-    levels.forEach((def, i) => {
-      const x = NODE_X[i]!;
-      const y = nodeY(i);
+    for (let i = start; i < end; i++) {
+      const def = levels[i]!;
+      const li = i - start;
+      const x = NODE_X[li]!;
+      const y = nodeY(li);
       const completed = this.progress.completed[def.id] === true;
       const current = i === levelIndex;
       // Global level number (kitchen-003 -> 3, vanity-041 -> 41): matches the
@@ -132,8 +140,10 @@ export class MapScene extends Phaser.Scene {
           .setDisplaySize(24, 24)
           .setDepth(2);
       }
-    });
-    this.maybeChapterArrow(levels, levelIndex);
+    }
+    // Chapter-forward arrow lives at the path top: only meaningful (and only
+    // positioned correctly) on the last page.
+    if (end === levels.length) this.maybeChapterArrow(levels, levelIndex);
   }
 
   /** Current level: bigger blue node, pulsing gold ring, avatar standing on it; tap -> play. */

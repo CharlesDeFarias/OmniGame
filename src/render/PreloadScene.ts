@@ -79,7 +79,6 @@ export const ART_FILES: ReadonlyArray<readonly [string, string]> = [
   ['img-collect-candygold', `${CANDY}/fx/candy_wrapped_v.png`],
   // --- Backgrounds ---
   ['img-bg-map', `${CANDY}/map/bg_candyland.png`],
-  ['img-bg-play', `${CANDY}/map/bg_candyland_blur.png`],
   // --- GUI (pzUH) ---
   ['img-ui-play', `${GUI}/btn_play_blue.png`],
   ['img-ui-retry', `${GUI}/btn_restart_blue.png`],
