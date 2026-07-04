@@ -996,6 +996,23 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillCircle(c, s * 0.58, s * 0.05);
     g.fillRect(c - s * 0.02, s * 0.58, s * 0.04, s * 0.12);
   });
+  // Manager clipboard (decision #50): board + cream sheet, gold clip, three task lines.
+  ui('ui-clipboard', (g) => {
+    g.fillStyle(0x8d6e3f);
+    g.fillRoundedRect(s * 0.18, s * 0.1, s * 0.64, s * 0.82, s * 0.08);
+    g.fillStyle(PALETTE.cream);
+    g.fillRoundedRect(s * 0.24, s * 0.22, s * 0.52, s * 0.62, s * 0.04);
+    g.fillStyle(PALETTE.gold);
+    g.fillRoundedRect(s * 0.38, s * 0.05, s * 0.24, s * 0.13, s * 0.05);
+    g.lineStyle(s * 0.035, PALETTE.bgPlum);
+    for (let i = 0; i < 3; i++) {
+      const ly = s * (0.38 + i * 0.16);
+      g.beginPath();
+      g.moveTo(s * 0.31, ly);
+      g.lineTo(s * 0.69, ly);
+      g.strokePath();
+    }
+  });
   // Home button: blush circle + white house, gold ring (matches ui-play/ui-retry).
   ui('ui-home', (g) => {
     g.fillStyle(PALETTE.blush);
