@@ -5,6 +5,7 @@ import { CHAPTERS, chapterById, type ChapterId } from '../meta/chapters';
 import { CHAPTER_COIN_BONUS_PER_INDEX } from '../meta/rooms';
 import { createAdaptive, type Adaptive } from '../services/adaptive';
 import { createJournal, type Journal } from '../services/journal';
+import { createIdbBackend, createMusicStore, type MusicStore } from '../services/music';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
 import { summarize } from '../services/stats';
 import { createWallet, type Wallet } from '../services/wallet';
@@ -43,6 +44,7 @@ export class PlayScene extends Phaser.Scene {
   private wardrobe!: Wardrobe;
   private adaptive!: Adaptive;
   private blips!: Blips;
+  private music!: MusicStore;
   private coinIcon!: Phaser.GameObjects.Sprite;
   private coinText!: Phaser.GameObjects.Text;
   private movesText!: Phaser.GameObjects.Text;
@@ -82,6 +84,7 @@ export class PlayScene extends Phaser.Scene {
     this.wardrobe = createWardrobe(window.localStorage);
     this.adaptive = createAdaptive(window.localStorage);
     this.blips = createBlips();
+    this.music = createMusicStore(createIdbBackend());
     // Keep the screen awake during play (best effort; re-request when the tab returns).
     const requestWake = () => { try { void (navigator as Navigator & { wakeLock?: { request(type: string): Promise<unknown> } }).wakeLock?.request('screen').then(undefined, () => {}); } catch { /* ignore */ } };
     requestWake();
@@ -904,16 +907,58 @@ export class PlayScene extends Phaser.Scene {
       .setTint(0x888899)
       .setInteractive();
     let done = false;
+    let usingMusic = false;
+    let musicEl: HTMLAudioElement | null = null;
+    let musicUrl: string | null = null;
+    const stopMusic = (): void => {
+      if (musicEl !== null) {
+        musicEl.pause();
+        musicEl = null;
+      }
+      if (musicUrl !== null) {
+        URL.revokeObjectURL(musicUrl);
+        musicUrl = null;
+      }
+    };
+    // Her playlist (decision #37): if tracks are stored, a random one replaces
+    // the procedural beat blips (the avatar keeps bouncing on the 600ms timer).
+    // Muted -> no music at all. Empty playlist, no IndexedDB or an autoplay
+    // refusal -> the procedural beat below runs exactly as before.
+    if (!this.blips.muted()) {
+      this.music
+        .randomTrack(Date.now() >>> 0)
+        .then((track) => {
+          if (track === null || done) return;
+          const url = URL.createObjectURL(new Blob([track.data]));
+          const el = new Audio(url);
+          el.play().then(
+            () => {
+              if (done) {
+                // Break already ended while play() settled: clean up immediately.
+                el.pause();
+                URL.revokeObjectURL(url);
+                return;
+              }
+              usingMusic = true;
+              musicEl = el;
+              musicUrl = url;
+            },
+            () => URL.revokeObjectURL(url),
+          );
+        })
+        .catch(() => {});
+    }
     const finish = (completed: boolean): void => {
       if (done) return;
       done = true;
       timer.remove();
       this.tweens.killTweensOf(avatar);
+      stopMusic();
       dim.destroy();
       avatar.destroy();
       skip.destroy();
       this.adaptive.resetBreakCounter();
-      this.journal.log('dance_break', { completed });
+      this.journal.log('dance_break', { completed, music: usingMusic });
       this.scene.start('career');
     };
     let pose = 0;
@@ -923,7 +968,7 @@ export class PlayScene extends Phaser.Scene {
       repeat: TOTAL_BEATS - 1,
       callback: () => {
         ticks += 1;
-        this.blips.beat();
+        if (!usingMusic) this.blips.beat();
         pose = (pose + 1) % 3;
         avatar.setTexture(`${prefix}-p${pose}`);
         if (ticks >= TOTAL_BEATS) finish(true);
