@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAdaptive, type AdaptiveState } from './adaptive';
+import { applyTierTo, createAdaptive, describeTier, type AdaptiveState } from './adaptive';
 import type { JournalStorage } from './journal';
 import type { LevelDef } from '../core/match3/index';
 
@@ -277,5 +277,145 @@ describe('adaptive', () => {
       recent: [],
       winsSinceBreak: 2,
     });
+  });
+});
+
+function collectLevel(overrides: Partial<LevelDef> = {}): LevelDef {
+  return {
+    id: 'test-collect',
+    seed: 4242,
+    board: { width: 6, height: 6, colorCount: 5 },
+    moves: 20,
+    giftMoves: 5,
+    goals: [{ type: 'collect', color: 'red', count: 20 }],
+    ...overrides,
+  };
+}
+
+function countChars(layout: string[], ch: string): number {
+  return layout.join('').split('').filter((c) => c === ch).length;
+}
+
+function cellsOf(layout: string[], ch: string): string[] {
+  const out: string[] = [];
+  layout.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) if (row[x] === ch) out.push(`${x},${y}`);
+  });
+  return out;
+}
+
+describe('adaptive v2 obstacle injection', () => {
+  it('tiers 0/-1/-2 never add a layout and keep v1 moves math', () => {
+    for (const tier of [0, -1, -2]) {
+      const level = collectLevel();
+      const adjusted = applyTierTo(level, tier);
+      expect(adjusted.moves).toBe(Math.max(5, 20 - tier));
+      expect(adjusted.board.layout).toBeUndefined();
+      expect(adjusted.board).toEqual(level.board);
+    }
+  });
+
+  it('tier -1 never removes authored obstacles', () => {
+    const layout = ['......', '.b..B.', '......', '..ii..', '......', '......'];
+    const level = collectLevel({ board: { width: 6, height: 6, colorCount: 5, layout } });
+    const adjusted = applyTierTo(level, -1);
+    expect(adjusted.moves).toBe(21);
+    expect(adjusted.board.layout).toEqual(layout);
+  });
+
+  it('tier +1 on a layoutless collect-only level injects exactly 3 ice, deterministically, without mutating input', () => {
+    const level = collectLevel();
+    const frozen = JSON.stringify(level);
+    const a = applyTierTo(level, 1);
+    const b = applyTierTo(level, 1);
+    expect(JSON.stringify(level)).toBe(frozen); // input unmutated
+    expect(a.moves).toBe(19);
+    expect(a.board.layout).toBeDefined();
+    expect(a.board.layout!.length).toBe(6);
+    expect(countChars(a.board.layout!, 'i')).toBe(3);
+    expect(countChars(a.board.layout!, 'b')).toBe(0);
+    expect(countChars(a.board.layout!, 'B')).toBe(0);
+    expect(a.board.layout).toEqual(b.board.layout); // same input -> same layout
+  });
+
+  it('tier +2 injects 5 ice + 1 hp1 box and holds the blocker/movable constraints', () => {
+    const level = collectLevel();
+    const adjusted = applyTierTo(level, 2);
+    const layout = adjusted.board.layout!;
+    expect(adjusted.moves).toBe(18);
+    expect(countChars(layout, 'i')).toBe(5);
+    expect(countChars(layout, 'b')).toBe(1);
+    expect(countChars(layout, 'B')).toBe(0);
+    const boxes = countChars(layout, 'b') + countChars(layout, 'B');
+    expect(boxes).toBeLessThanOrEqual(Math.floor((6 * 6) / 9)); // blockers <= w*h/9
+    expect(6 * 6 - boxes).toBeGreaterThanOrEqual(Math.ceil((2 * 6 * 6) / 3)); // movable >= 2/3
+  });
+
+  it('tier +1 on a level WITH a layout preserves authored b/B/i and adds ice only on "." cells', () => {
+    const layout = ['b.....', '.B....', '......', '...i..', '......', '.....b'];
+    const level = collectLevel({ board: { width: 6, height: 6, colorCount: 5, layout } });
+    const adjusted = applyTierTo(level, 1);
+    const out = adjusted.board.layout!;
+    // authored cells untouched
+    expect(cellsOf(out, 'b')).toEqual(cellsOf(layout, 'b'));
+    expect(cellsOf(out, 'B')).toEqual(cellsOf(layout, 'B'));
+    for (const cell of cellsOf(layout, 'i')) expect(cellsOf(out, 'i')).toContain(cell);
+    // exactly 3 new ice, all on formerly-open cells
+    expect(countChars(out, 'i')).toBe(countChars(layout, 'i') + 3);
+    const openBefore = new Set(cellsOf(layout, '.'));
+    const newIce = cellsOf(out, 'i').filter((c) => !cellsOf(layout, 'i').includes(c));
+    for (const c of newIce) expect(openBefore.has(c)).toBe(true);
+  });
+
+  it('tier +2 skips the box (never violates) when authored boxes already meet the cap', () => {
+    const layout = ['b....b', '......', '......', '......', '......', 'b....b']; // 4 boxes = floor(36/9)
+    const level = collectLevel({ board: { width: 6, height: 6, colorCount: 5, layout } });
+    const adjusted = applyTierTo(level, 2);
+    const out = adjusted.board.layout!;
+    expect(countChars(out, 'b')).toBe(4); // no box added
+    expect(countChars(out, 'i')).toBe(5); // ice still injected
+  });
+
+  it('falls back to moves-only for levels with obstacle goals (never distorts goal economies)', () => {
+    const layout = ['......', '.b..b.', '......', '......', '.b..b.', '......'];
+    const level = collectLevel({
+      board: { width: 6, height: 6, colorCount: 5, layout },
+      goals: [
+        { type: 'clearBoxes', count: 4 },
+        { type: 'collect', color: 'red', count: 20 },
+      ],
+    });
+    const adjusted = applyTierTo(level, 2);
+    expect(adjusted.moves).toBe(18);
+    expect(adjusted.board.layout).toEqual(layout); // untouched
+  });
+
+  it('injection differs across tiers (tier participates in the seed)', () => {
+    const level = collectLevel();
+    const ice1 = cellsOf(applyTierTo(level, 1).board.layout!, 'i');
+    const ice2 = cellsOf(applyTierTo(level, 2).board.layout!, 'i');
+    // not just a prefix relationship: the +1 placement is not reproduced verbatim inside +2
+    expect(ice2.slice(0, 3)).not.toEqual(ice1);
+  });
+
+  it('instance applyTier delegates to v2 injection at promoted tiers', () => {
+    const s = memStorage();
+    const a = createAdaptive(s);
+    a.recordOutcome(true, 3);
+    a.recordOutcome(true, 3);
+    a.recordOutcome(true, 3); // tier 1
+    const level = collectLevel();
+    const adjusted = a.applyTier(level);
+    expect(adjusted.moves).toBe(19);
+    expect(countChars(adjusted.board.layout!, 'i')).toBe(3);
+    expect(adjusted.board.layout).toEqual(applyTierTo(level, 1).board.layout);
+  });
+
+  it('describeTier reports the parent-corner table', () => {
+    expect(describeTier(-2)).toEqual({ movesDelta: 2, ice: 0, boxes: 0 });
+    expect(describeTier(-1)).toEqual({ movesDelta: 1, ice: 0, boxes: 0 });
+    expect(describeTier(0)).toEqual({ movesDelta: 0, ice: 0, boxes: 0 });
+    expect(describeTier(1)).toEqual({ movesDelta: -1, ice: 3, boxes: 0 });
+    expect(describeTier(2)).toEqual({ movesDelta: -2, ice: 5, boxes: 1 });
   });
 });
