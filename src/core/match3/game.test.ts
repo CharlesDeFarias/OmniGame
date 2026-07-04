@@ -123,3 +123,55 @@ describe('goalHintsFrom', () => {
     ])).toEqual({ colors: ['red'], wantBoxes: true, wantIce: false });
   });
 });
+
+describe('pre-level booster placement (startBoosters)', () => {
+  it('places up to 2 boosters at the central cell and the cell to its left', () => {
+    const s = startLevel(level, { startBoosters: ['tnt', 'rocketH'] });
+    // 6x6: central = (3,3), left = (2,3)
+    expect(s.board.cells[3 * 6 + 3]).toEqual({ kind: 'special', special: 'tnt' });
+    expect(s.board.cells[3 * 6 + 2]).toEqual({ kind: 'special', special: 'rocketH' });
+  });
+
+  it('caps at 2 boosters', () => {
+    const s = startLevel(level, { startBoosters: ['tnt', 'rocketH', 'lightball'] });
+    const specials = s.board.cells.filter((c) => c?.kind === 'special');
+    expect(specials).toHaveLength(2);
+  });
+
+  it('leaves the rest of the board and the RNG stream untouched', () => {
+    const plain = startLevel(level);
+    const boosted = startLevel(level, { startBoosters: ['lightball'] });
+    expect(boosted.rng.getState()).toBe(plain.rng.getState());
+    expect(boosted.board.ice).toEqual(plain.board.ice);
+    for (let i = 0; i < plain.board.cells.length; i++) {
+      if (i === 3 * 6 + 3) continue; // the substituted cell
+      expect(boosted.board.cells[i]).toEqual(plain.board.cells[i]);
+    }
+    expect(boosted.board.cells[3 * 6 + 3]).toEqual({ kind: 'special', special: 'lightball' });
+  });
+
+  it('walks outward to the nearest normal cells when central cells are blockers', () => {
+    const layoutLevel: LevelDef = {
+      ...level,
+      board: {
+        width: 5, height: 5, colorCount: 4,
+        layout: ['.....', '.....', '.bb..', '.....', '.....'],
+      },
+    };
+    // central = (2,2) blocked, left = (1,2) blocked; scanline walk finds (3,2) then (4,2)... first normal outward.
+    const s = startLevel(layoutLevel, { startBoosters: ['tnt', 'rocketV'] });
+    expect(s.board.cells[2 * 5 + 3]).toEqual({ kind: 'special', special: 'tnt' });
+    expect(s.board.cells[2 * 5 + 0]).toEqual({ kind: 'special', special: 'rocketV' });
+  });
+
+  it('no boosters (undefined or empty) is identical to today', () => {
+    const plain = startLevel(level);
+    for (const s of [startLevel(level, {}), startLevel(level, { startBoosters: [] })]) {
+      expect(s.board).toEqual(plain.board);
+      expect(s.rng.getState()).toBe(plain.rng.getState());
+      expect(s.movesLeft).toBe(plain.movesLeft);
+      expect(s.goals).toEqual(plain.goals);
+      expect(s.status).toBe(plain.status);
+    }
+  });
+});
