@@ -1,7 +1,11 @@
 import Phaser from 'phaser';
 import { CHAPTERS, chapterById, type ChapterId } from '../meta/chapters';
 import { ROOMS, type RoomSlot } from '../meta/rooms';
+import { RECIPES } from '../core/cooking/recipes';
+import type { IngredientId } from '../core/cooking/types';
 import { WARDROBE } from '../meta/wardrobe';
+import { createCooking, type CookingProgress } from '../services/cooking';
+import { createPantry, groceryListFor, GROCERY_PRICE, type Pantry } from '../services/pantry';
 import { createFurnishing, type Furnishing } from '../services/furnishing';
 import { createJournal, type Journal } from '../services/journal';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
@@ -43,6 +47,8 @@ export class CareerScene extends Phaser.Scene {
   private furnishing!: Furnishing;
   private wardrobe!: Wardrobe;
   private tasks!: Tasks;
+  private cooking!: CookingProgress;
+  private pantry!: Pantry;
   private progress!: ProgressData;
   private journal!: Journal;
   private blips!: Blips;
@@ -54,6 +60,7 @@ export class CareerScene extends Phaser.Scene {
   private videoObjects: Phaser.GameObjects.GameObject[] = [];
   private wardrobeObjects: Phaser.GameObjects.GameObject[] = [];
   private assignObjects: Phaser.GameObjects.GameObject[] = [];
+  private groceryObjects: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super('career');
@@ -69,12 +76,15 @@ export class CareerScene extends Phaser.Scene {
     this.videoObjects = [];
     this.wardrobeObjects = [];
     this.assignObjects = [];
+    this.groceryObjects = [];
     // Fresh services from storage each create (cheap; shared state lives in localStorage).
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.wallet = createWallet(window.localStorage);
     this.furnishing = createFurnishing(window.localStorage);
     this.wardrobe = createWardrobe(window.localStorage);
     this.tasks = createTasks(window.localStorage);
+    this.cooking = createCooking(window.localStorage);
+    this.pantry = createPantry(window.localStorage);
     this.progress = loadProgress(window.localStorage);
     // Safety: never leave the player parked on a chapter their level no longer unlocks.
     if (this.wallet.level() < chapterById(this.progress.chapter).unlockLevel) {
@@ -119,6 +129,14 @@ export class CareerScene extends Phaser.Scene {
       .setDepth(2)
       .setInteractive();
     hanger.on('pointerup', () => this.openWardrobe());
+    // Grocery shop button (decision #52): basket right below the hanger — the
+    // clipboard moves one slot further down (judgment call, same column rhythm).
+    const basket = this.add
+      .sprite(64, ROOM_TOP + 256, 'ui-basket')
+      .setDisplaySize(64, 64)
+      .setDepth(2)
+      .setInteractive();
+    basket.on('pointerup', () => this.openGrocery());
     const play = this.add
       .sprite(GAME_WIDTH / 2, GAME_HEIGHT - 220, 'ui-play')
       .setScale(2.8)
@@ -139,7 +157,8 @@ export class CareerScene extends Phaser.Scene {
       this.pickerObjects.length > 0 ||
       this.videoObjects.length > 0 ||
       this.wardrobeObjects.length > 0 ||
-      this.assignObjects.length > 0
+      this.assignObjects.length > 0 ||
+      this.groceryObjects.length > 0
     );
   }
 
@@ -416,6 +435,134 @@ export class CareerScene extends Phaser.Scene {
     this.wardrobeObjects = [];
   }
 
+  // --- Grocery shop (decision #52) ---
+
+  /** Unique gather-set ingredients across all UNLOCKED recipes that are currently stocked. */
+  private stockedItems(): IngredientId[] {
+    const unlocked = RECIPES.slice(0, this.cooking.data().unlocked);
+    const seen = new Set<IngredientId>();
+    for (const recipe of unlocked) {
+      for (const step of recipe.steps) {
+        if (step.type !== 'gather') continue;
+        for (const id of step.ingredients) seen.add(id);
+      }
+    }
+    return [...seen].filter((id) => this.pantry.stockOf(id) > 0).sort();
+  }
+
+  private openGrocery(): void {
+    if (this.overlayOpen()) return;
+    this.buildGrocery();
+  }
+
+  /**
+   * Picture shopping list: the groceryListFor items (icon + coin price, tap to buy)
+   * followed by already-stocked items wearing a count badge. Stocked items remain
+   * tappable — buying spare units means more protected runs (judgment call).
+   * Empty list -> big happy check. Near-zero text: only price/count numbers.
+   */
+  private buildGrocery(): void {
+    for (const o of this.groceryObjects) o.destroy();
+    this.groceryObjects = [];
+    const objs = this.groceryObjects;
+    const dim = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.6)
+      .setDepth(10)
+      .setInteractive();
+    dim.on('pointerup', () => this.closeGrocery());
+    objs.push(dim);
+    objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-panel').setDisplaySize(660, 780).setDepth(11));
+    objs.push(this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 310, 'ui-basket').setDisplaySize(96, 96).setDepth(12));
+    const unlocked = RECIPES.slice(0, this.cooking.data().unlocked);
+    const need = groceryListFor(unlocked, this.pantry);
+    const stocked = this.stockedItems();
+    const cellX = (col: number): number => GAME_WIDTH / 2 + (col - 1.5) * 152;
+    const gridTop = GAME_HEIGHT / 2 - 180;
+    let row = 0;
+    if (need.length === 0) {
+      // Everything on the list is stocked: happy check with a little pop.
+      const check = this.add.sprite(GAME_WIDTH / 2, gridTop + 10, 'ui-check').setDisplaySize(150, 150).setDepth(12);
+      objs.push(check);
+      this.tweens.add({ targets: check, scaleX: check.scaleX * 1.12, scaleY: check.scaleY * 1.12, duration: 420, yoyo: true, repeat: 1, ease: 'Sine.easeInOut' });
+      row = 1;
+    }
+    const cells: { id: IngredientId; isStocked: boolean }[] = [
+      ...need.map((id) => ({ id, isStocked: false })),
+      ...stocked.map((id) => ({ id, isStocked: true })),
+    ].slice(0, 12);
+    cells.forEach((cell, i) => {
+      const col = i % 4;
+      const y = gridTop + (row + Math.floor(i / 4)) * 178;
+      const x = cellX(col);
+      const icon = this.add.sprite(x, y, `ing-${cell.id}`).setDisplaySize(96, 96).setDepth(12).setInteractive();
+      objs.push(icon);
+      objs.push(this.add.sprite(x - 22, y + 68, 'ui-coin').setDisplaySize(28, 28).setDepth(12));
+      objs.push(
+        this.add
+          .text(x - 2, y + 68, String(GROCERY_PRICE), { fontSize: '26px', fontStyle: 'bold', color: '#ffffff' })
+          .setOrigin(0, 0.5)
+          .setDepth(12),
+      );
+      if (cell.isStocked) {
+        // Small count badge, top-right of the icon.
+        objs.push(this.add.circle(x + 42, y - 40, 20, 0x2ecc71).setDepth(13));
+        objs.push(
+          this.add
+            .text(x + 42, y - 40, String(this.pantry.stockOf(cell.id)), { fontSize: '24px', fontStyle: 'bold', color: '#ffffff' })
+            .setOrigin(0.5)
+            .setDepth(14),
+        );
+      }
+      icon.on(
+        'pointerup',
+        (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+          event.stopPropagation();
+          if (this.pantry.buyItem(cell.id, this.wallet)) {
+            this.journal.log('grocery_buy', { id: cell.id });
+            this.blips.ding();
+            this.refreshBar();
+            this.buildGrocery();
+          } else {
+            // Broke: gentle wiggle, no sound (matches picker/wardrobe refusal feel).
+            this.tweens.add({ targets: icon, x: icon.x + 9, duration: 45, yoyo: true, repeat: 3 });
+          }
+        },
+      );
+    });
+    // Buy-the-whole-list button: gold-ringed basket at the panel foot (only when
+    // something is left to buy). Buys as many list items as coins allow.
+    if (need.length > 0) {
+      const allBg = this.add.circle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 310, 46, 0x2c2c54, 0.95).setDepth(12).setInteractive();
+      const allRing = this.add.circle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 310, 46).setStrokeStyle(4, 0xf5c542).setDepth(13);
+      const allIcon = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 310, 'ui-basket').setDisplaySize(52, 52).setDepth(13);
+      objs.push(allBg, allRing, allIcon);
+      allBg.on(
+        'pointerup',
+        (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+          event.stopPropagation();
+          let bought = 0;
+          for (const id of need) {
+            if (!this.pantry.buyItem(id, this.wallet)) break;
+            this.journal.log('grocery_buy', { id });
+            bought += 1;
+          }
+          if (bought > 0) {
+            this.blips.ding();
+            this.refreshBar();
+            this.buildGrocery();
+          } else {
+            this.tweens.add({ targets: [allIcon, allRing], x: '+=9', duration: 45, yoyo: true, repeat: 3 });
+          }
+        },
+      );
+    }
+  }
+
+  private closeGrocery(): void {
+    for (const o of this.groceryObjects) o.destroy();
+    this.groceryObjects = [];
+  }
+
   // --- Film-a-video milestone ---
 
   /** Fires once per room, only when the ACTIVE chapter's room is fully furnished. */
@@ -645,7 +792,7 @@ export class CareerScene extends Phaser.Scene {
   private buildClipboardButton(): void {
     if (this.tasks.pending().length === 0) return;
     const clip = this.add
-      .sprite(64, ROOM_TOP + 256, 'ui-clipboard')
+      .sprite(64, ROOM_TOP + 356, 'ui-clipboard')
       .setDisplaySize(64, 64)
       .setDepth(2)
       .setInteractive();

@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
-import { applyInput, currentStep, expectedNext, startRecipe } from '../core/cooking/engine';
+import { applyInput, currentStep, expectedNext, starsForMistakes, startRecipe } from '../core/cooking/engine';
 import { ALL_INGREDIENTS, RECIPES } from '../core/cooking/recipes';
 import type { CookEvent, CookInput, CookingState, IngredientId, Recipe, Step } from '../core/cooking/types';
 import { createCooking, type CookingProgress } from '../services/cooking';
 import { createJournal, type Journal } from '../services/journal';
+import { createPantry, type Pantry } from '../services/pantry';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createBlips, type Blips } from './audio';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
@@ -64,6 +65,7 @@ export class CookingScene extends Phaser.Scene {
   private journal!: Journal;
   private wallet!: Wallet;
   private cooking!: CookingProgress;
+  private pantry!: Pantry;
   private blips!: Blips;
   private viewObjects: Phaser.GameObjects.GameObject[] = [];
   private state: CookingState | null = null;
@@ -77,6 +79,7 @@ export class CookingScene extends Phaser.Scene {
   private bowl: Phaser.GameObjects.Sprite | null = null;
   private plate: Phaser.GameObjects.Sprite | null = null;
   private stackCount = 0;
+  private protectedRun = false;
 
   constructor() {
     super('cooking');
@@ -97,6 +100,7 @@ export class CookingScene extends Phaser.Scene {
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.wallet = createWallet(window.localStorage);
     this.cooking = createCooking(window.localStorage);
+    this.pantry = createPantry(window.localStorage);
     this.blips = createBlips();
     this.blips.setMuted(window.localStorage.getItem('omnigame.muted.v1') === '1');
     this.input.on('pointerdown', () => this.blips.unlock());
@@ -236,8 +240,11 @@ export class CookingScene extends Phaser.Scene {
     this.recipeIndex = index;
     this.wrongLogs = 0;
     const recipe = RECIPES[index]!;
+    // Star protection (decision #52): a fully stocked pantry is consumed the moment
+    // cooking starts (all-or-nothing inside consumeFor) and buys one free mistake.
+    this.protectedRun = this.pantry.consumeFor(recipe);
     this.state = startRecipe(recipe);
-    this.journal.log('recipe_start', { id: recipe.id });
+    this.journal.log('recipe_start', { id: recipe.id, protected: this.protectedRun });
     this.buildStep();
   }
 
@@ -270,6 +277,14 @@ export class CookingScene extends Phaser.Scene {
       if (this.transitioning) return;
       this.showList();
     });
+    if (this.protectedRun) {
+      // Shield-ish indicator: cream-filled heart pinned to the header panel's corner.
+      // Rendered ONLY when the pantry actually consumed stock for this run; reuses
+      // ui-heart with a flat cream fill so no new texture is needed (judgment call).
+      this.viewObjects.push(
+        this.add.sprite(GAME_WIDTH / 2 + 96, 60, 'ui-heart').setDisplaySize(44, 44).setTintFill(PALETTE.cream).setDepth(2),
+      );
+    }
     if (step.type === 'gather') this.buildGather(step);
     else if (step.type === 'sequence') this.buildSequence(step);
     else this.buildAssemble(step);
@@ -416,7 +431,12 @@ export class CookingScene extends Phaser.Scene {
     const doneEvent = res.events.find((e): e is Extract<CookEvent, { type: 'recipeDone' }> => e.type === 'recipeDone');
     if (doneEvent !== undefined) {
       this.transitioning = true;
-      this.time.delayedCall(750, () => this.showPlating(doneEvent.stars, doneEvent.mistakes));
+      // Protected runs forgive one mistake in the star math (raw mistake count still
+      // shown/journaled); recordCompletion itself is unchanged.
+      const stars = this.protectedRun
+        ? starsForMistakes(Math.max(0, doneEvent.mistakes - 1))
+        : doneEvent.stars;
+      this.time.delayedCall(750, () => this.showPlating(stars, doneEvent.mistakes));
       return;
     }
     if (res.events.some((e) => e.type === 'stepDone')) {

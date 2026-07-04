@@ -605,6 +605,42 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.strokePath();
   });
 
+  // Grocery shop button (decision #52): line-drawn shopping basket, same cream
+  // stroke style as ui-hanger so the two shop buttons read as one family.
+  ui('ui-basket', (g) => {
+    g.lineStyle(s * 0.055, 0xecf0f1);
+    g.beginPath();
+    g.arc(c, s * 0.36, s * 0.2, Math.PI, Math.PI * 2, false);
+    g.strokePath();
+    g.beginPath();
+    g.moveTo(s * 0.14, s * 0.42);
+    g.lineTo(s * 0.86, s * 0.42);
+    g.lineTo(s * 0.74, s * 0.84);
+    g.lineTo(s * 0.26, s * 0.84);
+    g.closePath();
+    g.strokePath();
+    g.lineStyle(s * 0.035, 0xecf0f1, 0.8);
+    for (const t of [-0.15, 0, 0.15]) {
+      g.beginPath();
+      g.moveTo(c + s * t * 1.15, s * 0.48);
+      g.lineTo(c + s * t, s * 0.78);
+      g.strokePath();
+    }
+  });
+  // Happy check: green disc, white tick, gold ring (proper icon — not a text glyph).
+  ui('ui-check', (g) => {
+    g.fillStyle(0x2ecc71);
+    g.fillCircle(c, c, r * 1.05);
+    g.lineStyle(s * 0.09, 0xffffff);
+    g.beginPath();
+    g.moveTo(c - r * 0.5, c + r * 0.05);
+    g.lineTo(c - r * 0.12, c + r * 0.42);
+    g.lineTo(c + r * 0.55, c - r * 0.42);
+    g.strokePath();
+    g.lineStyle(s * 0.035, PALETTE.gold);
+    g.strokeCircle(c, c, r * 1.05);
+  });
+
   // --- Plan 8: cooking game + hub textures ---
   // Ingredient icons (ing-*) are plain, badge-free nouns — same visual class as gems
   // and furniture. Action icons (act-*) sit on the cream special badge so "cream badge
