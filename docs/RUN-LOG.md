@@ -10,3 +10,4 @@
 ## Run 2 (2026-07-04)
 - Questions answered, decisions #51-54 recorded. Order: gate-runner renderer -> grocery runs -> serving mode+recipes -> tower core seed -> config split.
 - Gate-runner MERGED and playable: hub card, 3 levels, swipe lanes, revival moment, stars+coins. Core recalibrated for the feel package (all doc numbers reviewer-reproduced). 353 tests. Deploying.
+- Grocery runs + serving mode + 5 recipes MERGED (pantry star-protection, 3-customer serving rounds, 15 recipes total). 372 tests. Deploying.
