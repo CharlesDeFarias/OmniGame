@@ -1,15 +1,22 @@
 import Phaser from 'phaser';
+import { APP_IDENTITY } from '../config/appIdentity';
 import { PROFILE } from '../config/profile';
+import { createCooking } from '../services/cooking';
 import { createJournal, type Journal } from '../services/journal';
 import { createIdbBackend, createMusicStore, MAX_TRACK_BYTES, type MusicStore } from '../services/music';
+import { loadProgress } from '../services/progress';
+import { createRunner } from '../services/runner';
 import { summarize } from '../services/stats';
 import { createTasks, TASK_ICONS, type Tasks } from '../services/tasks';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createBlips, type Blips } from './audio';
+import { buildBackground, fadeIn, goto, pressify } from './chrome';
+import { loadRunnerLevels } from './levels';
 import { TASK_ICON_TEXTURE } from './taskIcons';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
 import { makeTextures } from './theme';
+import { TS } from './textStyles';
 
 const BAR_Y = 70;
 
@@ -39,6 +46,7 @@ export class HubScene extends Phaser.Scene {
 
   create(): void {
     makeTextures(this, 96);
+    fadeIn(this);
     // Scene instances persist across start/stop: reset per-run refs.
     this.secretTaps = [];
     this.parentObjects = [];
@@ -51,19 +59,17 @@ export class HubScene extends Phaser.Scene {
     this.blips = createBlips();
     this.blips.setMuted(window.localStorage.getItem('omnigame.muted.v1') === '1');
     this.input.on('pointerdown', () => this.blips.unlock());
-    // Stage bands, same studio feel as PlayScene.
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.125, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgPlum, 0.8)
-      .setDepth(-2);
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.875, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgDeep, 0.9)
-      .setDepth(-2);
-    // Logo: static heart-ring on top of a slowly rotating plain ring light
-    // (judgment call: rotating the heart itself looks broken; the spin lives
-    // on the bulb ring behind it).
-    const spin = this.add.image(GAME_WIDTH / 2, 230, 'ui-ringlight').setDisplaySize(300, 300).setAlpha(0.45);
+    // Smooth studio-night gradient + ambient glow + bokeh (plan 9 legit-look).
+    buildBackground(this, PALETTE.bgPlumLight, PALETTE.bgPlum, PALETTE.bgDeep);
+    // Logo lockup (plan 9): gold glow + slowly rotating ring light + static
+    // heart-ring + the app name beneath. The name is brand chrome, exempt from
+    // the near-zero-text rule (judgment call, logged); it comes from the
+    // profile so a public-layer swap rebrands the hub too.
+    this.add.image(GAME_WIDTH / 2, 190, 'ui-glow').setDisplaySize(430, 430).setAlpha(0.35).setDepth(-1);
+    const spin = this.add.image(GAME_WIDTH / 2, 190, 'ui-ringlight').setDisplaySize(250, 250).setAlpha(0.45);
     this.tweens.add({ targets: spin, angle: 360, duration: 24000, repeat: -1 });
-    this.add.image(GAME_WIDTH / 2, 230, 'ui-logo-ring').setDisplaySize(250, 250);
+    this.add.image(GAME_WIDTH / 2, 190, 'ui-logo-ring').setDisplaySize(210, 210);
+    this.add.text(GAME_WIDTH / 2, 340, APP_IDENTITY.name, TS.display(64)).setOrigin(0.5).setDepth(1);
     this.buildBar();
     // Hidden parent corner (decision #17 pattern, same as PlayScene): invisible
     // top-left hotspot, 5 quick taps open the manager/parent panel.
@@ -72,23 +78,27 @@ export class HubScene extends Phaser.Scene {
       .setDepth(20)
       .setInteractive()
       .on('pointerdown', () => this.onSecretTap());
-    // Two big game cards, stacked (portrait).
-    this.gameCard(510, 'career', (x, y) => {
+    // Two big game cards, stacked (portrait): icon cluster left, progress
+    // hint right (numbers only — stays inside the near-zero-text rule).
+    const matchStars = Object.values(loadProgress(window.localStorage).stars).reduce((a, b) => a + b, 0);
+    const recipesDone = Object.keys(createCooking(window.localStorage).data().best).length;
+    this.gameCard(510, 'career', { icon: 'ui-star', value: matchStars }, (x, y) => {
       // Match-3: gem cluster.
-      this.add.sprite(x - 70, y + 6, 'gem-red').setDisplaySize(108, 108).setDepth(2);
-      this.add.sprite(x + 62, y - 34, 'gem-blue').setDisplaySize(100, 100).setDepth(2);
-      this.add.sprite(x + 40, y + 56, 'gem-green').setDisplaySize(92, 92).setDepth(2);
+      this.add.sprite(x - 36, y + 8, 'gem-red').setDisplaySize(96, 96).setDepth(2);
+      this.add.sprite(x + 50, y - 34, 'gem-blue').setDisplaySize(84, 84).setDepth(2);
+      this.add.sprite(x + 40, y + 50, 'gem-green').setDisplaySize(76, 76).setDepth(2);
     });
-    this.gameCard(830, 'cooking', (x, y) => {
-      this.add.sprite(x, y, 'ui-pan-card').setDisplaySize(170, 170).setDepth(2);
+    this.gameCard(830, 'cooking', { icon: 'ui-check', value: recipesDone }, (x, y) => {
+      this.add.sprite(x, y, 'ui-pan-card').setDisplaySize(150, 150).setDepth(2);
     });
     // Gate-runner card (game #3): real once influencer level >= 2 (early treat);
     // below that it stays dimmed with a lock + level badge, chapter-strip style.
     this.runnerCard(210, 1090);
-    // Tower teaser card: future game, purely visual (no handler).
-    this.add.image(510, 1090, 'ui-panel').setDisplaySize(250, 170).setAlpha(0.35);
-    this.add.sprite(476, 1090, 'ob-box2').setDisplaySize(84, 84).setTint(0x555566).setAlpha(0.55).setDepth(1);
-    this.add.sprite(572, 1090, 'ui-lock').setDisplaySize(56, 56).setDepth(2);
+    // Tower teaser card: future game, purely visual (no handler) — dimmer and
+    // smaller than the real cards so it reads as 'someday', not 'tap me'.
+    this.add.image(515, 1090, 'ui-panel').setDisplaySize(210, 144).setAlpha(0.26);
+    this.add.sprite(486, 1090, 'ob-box2').setDisplaySize(70, 70).setTint(0x555566).setAlpha(0.45).setDepth(1);
+    this.add.sprite(566, 1090, 'ui-lock').setDisplaySize(48, 48).setAlpha(0.8).setDepth(2);
   }
 
   /** Gate-runner hub card: squad-pip cluster + finish flag; tap starts the runner. */
@@ -110,11 +120,19 @@ export class HubScene extends Phaser.Scene {
       this.add.sprite(x + 74, y + 52, 'ui-lock').setDisplaySize(52, 52).setDepth(2);
       this.add.sprite(x + 74, y - 44, 'ui-levelbadge').setDisplaySize(40, 40).setDepth(2);
       this.add
-        .text(x + 74, y - 42, String(RUNNER_UNLOCK_LEVEL), { fontSize: '24px', fontStyle: 'bold', color: '#ffffff' })
+        .text(x + 74, y - 42, String(RUNNER_UNLOCK_LEVEL), TS.number(24))
         .setOrigin(0.5)
         .setDepth(3);
       return;
     }
+    // Star-progress hint, bottom-right: total stars across runner levels.
+    const rp = createRunner(window.localStorage);
+    const runnerStars = loadRunnerLevels().reduce((a, l) => a + rp.bestFor(l.id), 0);
+    this.add
+      .text(x + 40, y + 56, String(runnerStars), TS.number(30))
+      .setOrigin(1, 0.5)
+      .setDepth(2);
+    this.add.sprite(x + 68, y + 56, 'ui-star').setDisplaySize(34, 34).setDepth(2);
     this.tweens.add({
       targets: card,
       scaleX: card.scaleX * 1.02,
@@ -125,16 +143,28 @@ export class HubScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
     card.setInteractive();
+    pressify(this, card);
     card.on('pointerup', () => {
       this.blips.ding();
-      this.scene.start('runner');
+      goto(this, 'runner');
     });
   }
 
-  /** Big gold-framed card: panel + gentle pulse; tap starts the target scene. */
-  private gameCard(y: number, target: string, decorate: (x: number, y: number) => void): void {
+  /**
+   * Big gold-framed game card (plan 9 facelift): shadow panel + a thin blush
+   * CTA strip (btn-pill stretched — judgment call: restretching the pill keeps
+   * one texture instead of baking a bespoke strip) + icon cluster left + a
+   * mini progress hint right. Gentle pulse; tap starts the target scene.
+   */
+  private gameCard(
+    y: number,
+    target: string,
+    hint: { icon: string; value: number },
+    decorate: (x: number, y: number) => void,
+  ): void {
     const x = GAME_WIDTH / 2;
-    const card = this.add.image(x, y, 'ui-panel').setDisplaySize(520, 280).setAlpha(0.95).setDepth(1).setInteractive();
+    const card = this.add.image(x, y, 'ui-panel').setDisplaySize(560, 250).setAlpha(0.97).setDepth(1).setInteractive();
+    const strip = this.add.image(x, y + 82, 'btn-pill').setDisplaySize(480, 46).setAlpha(0.4).setDepth(1.5);
     this.tweens.add({
       targets: card,
       scaleX: card.scaleX * 1.02,
@@ -144,10 +174,17 @@ export class HubScene extends Phaser.Scene {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
-    decorate(x, y);
+    decorate(x - 150, y - 14);
+    // Progress hint: number + icon on the card's right half (TS.number(30)).
+    this.add
+      .text(x + 128, y - 14, String(hint.value), TS.number(30))
+      .setOrigin(1, 0.5)
+      .setDepth(2);
+    this.add.sprite(x + 160, y - 14, hint.icon).setDisplaySize(44, 44).setDepth(2);
+    pressify(this, card, strip);
     card.on('pointerup', () => {
       this.blips.ding();
-      this.scene.start(target);
+      goto(this, target);
     });
   }
 
@@ -170,14 +207,13 @@ export class HubScene extends Phaser.Scene {
       hearts: String(d.hearts),
       level: String(this.wallet.level()),
     };
+    // One wide strip instead of four floating chips (plan 9 facelift).
+    this.add.image(GAME_WIDTH / 2, BAR_Y, 'ui-panel').setDisplaySize(704, 92).setAlpha(0.35).setDepth(1);
     items.forEach((it, i) => {
       const x = 90 + i * 180;
-      this.add.image(x, BAR_Y, 'ui-panel').setDisplaySize(168, 84).setAlpha(0.3).setDepth(1);
       this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(44, 44).setDepth(2);
       this.add
-        .text(x - 14, BAR_Y, values[it.k], {
-          fontSize: '30px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6,
-        })
+        .text(x - 14, BAR_Y, values[it.k], TS.number(30))
         .setOrigin(0, 0.5)
         .setDepth(2);
     });
@@ -219,7 +255,7 @@ export class HubScene extends Phaser.Scene {
     });
     objs.push(dim);
     objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-panel').setDisplaySize(620, 1000).setDepth(22));
-    const textStyle = { fontSize: '32px', color: '#ffffff' };
+    const textStyle = TS.number(32);
     // Compact stats summary: plays / wins / win rate (full detail stays in PlayScene's overlay).
     const stats = summarize(this.journal.read());
     const summary: { icon: string | null; value: string }[] = [
@@ -238,6 +274,7 @@ export class HubScene extends Phaser.Scene {
         const x = 130 + i * 115;
         const y = 330;
         const btn = this.add.image(x, y, 'ui-panel').setDisplaySize(96, 96).setAlpha(0.5).setDepth(23).setInteractive();
+        pressify(this, btn);
         objs.push(btn);
         objs.push(this.add.sprite(x, y, TASK_ICON_TEXTURE[icon]).setDisplaySize(56, 56).setDepth(24));
         btn.on(
@@ -266,11 +303,12 @@ export class HubScene extends Phaser.Scene {
         .setStrokeStyle(4, PALETTE.gold)
         .setDepth(23)
         .setInteractive();
+      pressify(this, toggle);
       objs.push(toggle);
       if (task.done) {
         objs.push(
           this.add
-            .text(510, y, '\u2713', { fontSize: '30px', fontStyle: 'bold', color: '#141428' })
+            .text(510, y, '\u2713', TS.glyph(30, '#141428'))
             .setOrigin(0.5)
             .setDepth(24),
         );
@@ -286,10 +324,11 @@ export class HubScene extends Phaser.Scene {
         },
       );
       const remove = this.add
-        .text(586, y, '\u00d7', { fontSize: '44px', color: '#777788' })
+        .text(586, y, '\u00d7', TS.glyph(44, '#777788'))
         .setOrigin(0.5)
         .setDepth(23)
         .setInteractive();
+      pressify(this, remove);
       objs.push(remove);
       remove.on(
         'pointerup',
@@ -310,12 +349,13 @@ export class HubScene extends Phaser.Scene {
       objs.push(this.add.sprite(120, musicY, 'ui-note').setDisplaySize(48, 48).setDepth(23));
       objs.push(this.add.text(160, musicY, String(this.musicTracks.length), textStyle).setOrigin(0, 0.5).setDepth(23));
       const addBtn = this.add.image(540, musicY, 'ui-panel').setDisplaySize(96, 96).setAlpha(0.5).setDepth(23).setInteractive();
+      pressify(this, addBtn);
       this.musicAddBtn = addBtn;
       objs.push(addBtn);
       objs.push(this.add.sprite(526, musicY, 'ui-note').setDisplaySize(44, 44).setDepth(24));
       objs.push(
         this.add
-          .text(566, musicY - 2, '+', { fontSize: '44px', fontStyle: 'bold', color: '#f5e6c8' })
+          .text(566, musicY - 2, '+', TS.glyph(44, '#f5e6c8'))
           .setOrigin(0.5)
           .setDepth(24),
       );
@@ -331,13 +371,14 @@ export class HubScene extends Phaser.Scene {
         if (y > 1108) return;
         const name = track.name.length > 18 ? `${track.name.slice(0, 18)}\u2026` : track.name;
         objs.push(
-          this.add.text(110, y, name, { fontSize: '26px', color: '#ffffff' }).setOrigin(0, 0.5).setDepth(23),
+          this.add.text(110, y, name, TS.glyph(26, '#ffffff')).setOrigin(0, 0.5).setDepth(23),
         );
         const removeTrack = this.add
-          .text(586, y, '\u00d7', { fontSize: '44px', color: '#777788' })
+          .text(586, y, '\u00d7', TS.glyph(44, '#777788'))
           .setOrigin(0.5)
           .setDepth(23)
           .setInteractive();
+        pressify(this, removeTrack);
         objs.push(removeTrack);
         removeTrack.on(
           'pointerup',

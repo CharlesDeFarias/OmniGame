@@ -25,6 +25,108 @@ const darken = (hex: number, f: number): number => {
   return chan(16) | chan(8) | chan(0);
 };
 
+/** Channel-wise interpolation from color toward target by t (0..1). */
+const mix = (color: number, target: number, t: number): number => {
+  const chan = (shift: number): number => {
+    const from = (color >> shift) & 0xff;
+    const to = (target >> shift) & 0xff;
+    return Math.round(from + (to - from) * t) << shift;
+  };
+  return chan(16) | chan(8) | chan(0);
+};
+
+/** Push each RGB channel toward white by f (0..1). Counterpart of darken. */
+const lighten = (hex: number, f: number): number => mix(hex, 0xffffff, f);
+
+// --- Baked-gradient helpers (texture v2, plan 9 legit-look pass) ---
+// generateTexture always renders through the CANVAS pipeline, where Phaser's
+// fillGradientStyle is a no-op (GraphicsCanvasRenderer skips the command), so
+// gradients are baked as stacked interpolated fills instead. Step counts are
+// tuned for 96px textures: bands read as smooth shading at gameplay sizes.
+
+/** Vertical banded gradient inside a rounded rect. Layers keep square bottoms
+ * and stop above the bottom-corner arcs so nothing pokes past the silhouette;
+ * for radius-heavy shapes (pills) the lower part stays the solid base color. */
+const gradRoundedRect = (
+  g: Phaser.GameObjects.Graphics,
+  x: number, y: number, w: number, h: number, rad: number,
+  cTop: number, cBottom: number,
+): void => {
+  const n = 12;
+  g.fillStyle(cBottom);
+  g.fillRoundedRect(x, y, w, h, rad);
+  for (let k = n - 1; k >= 1; k--) {
+    const hk = (h * k) / n;
+    if (hk > h - rad) continue;
+    const rr = Math.min(rad, hk / 2, w / 2);
+    g.fillStyle(mix(cTop, cBottom, (k - 0.5) / n));
+    g.fillRoundedRect(x, y, w, hk, { tl: rr, tr: rr, bl: 0, br: 0 });
+  }
+};
+
+/** Top-lit sphere shading: stacked circles shrinking toward the upper half. */
+const gradCircle = (
+  g: Phaser.GameObjects.Graphics,
+  cx: number, cy: number, radius: number,
+  cTop: number, cBottom: number,
+): void => {
+  const n = 10;
+  for (let i = 0; i < n; i++) {
+    const f = i / (n - 1);
+    g.fillStyle(mix(cBottom, cTop, f));
+    g.fillCircle(cx, cy - radius * 0.42 * f, radius * (1 - 0.55 * f));
+  }
+};
+
+/** Ellipse variant of gradCircle (w/h are full sizes, Phaser convention). */
+const gradEllipse = (
+  g: Phaser.GameObjects.Graphics,
+  cx: number, cy: number, w: number, h: number,
+  cTop: number, cBottom: number,
+): void => {
+  const n = 8;
+  for (let i = 0; i < n; i++) {
+    const f = i / (n - 1);
+    g.fillStyle(mix(cBottom, cTop, f));
+    g.fillEllipse(cx, cy - h * 0.21 * f, w * (1 - 0.55 * f), h * (1 - 0.55 * f));
+  }
+};
+
+/** Polygon shading: layers scale toward a pivot above the centroid, so any
+ * triangle/diamond/hex/star silhouette gets the same top-lit treatment. */
+const gradPoly = (
+  g: Phaser.GameObjects.Graphics,
+  p: Phaser.Math.Vector2[],
+  cTop: number, cBottom: number,
+): void => {
+  const n = 10;
+  const cx0 = p.reduce((a, pt) => a + pt.x, 0) / p.length;
+  const cy0 = p.reduce((a, pt) => a + pt.y, 0) / p.length;
+  const minY = Math.min(...p.map((pt) => pt.y));
+  const px = cx0;
+  const py = cy0 - (cy0 - minY) * 0.5;
+  for (let i = 0; i < n; i++) {
+    const f = i / (n - 1);
+    const sc = 1 - 0.55 * f;
+    g.fillStyle(mix(cBottom, cTop, f));
+    g.fillPoints(
+      p.map((pt) => ({ x: px + (pt.x - px) * sc, y: py + (pt.y - py) * sc })) as Phaser.Math.Vector2[],
+      true,
+    );
+  }
+};
+
+/** Two-layer soft baked drop shadow (flat fills fake the blur). */
+const softShadow = (
+  g: Phaser.GameObjects.Graphics,
+  cx: number, cy: number, w: number, h: number,
+): void => {
+  g.fillStyle(0x000000, 0.12);
+  g.fillEllipse(cx, cy, w, h);
+  g.fillStyle(0x000000, 0.16);
+  g.fillEllipse(cx, cy, w * 0.86, h * 0.86);
+};
+
 // Note: fillPoints is typed as Phaser.Math.Vector2[]; it only reads .x/.y at
 // runtime, so plain point objects are cast rather than allocating Vector2s.
 const poly = (cx: number, cy: number, r: number, n: number, rot: number): Phaser.Math.Vector2[] =>
@@ -88,6 +190,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   // smaller bright spot. Darker rim strokes are per-shape inside each draw via rim().
   const gem = (key: string, draw: (g: Phaser.GameObjects.Graphics) => void): void => {
     const g = scene.add.graphics();
+    softShadow(g, c, c + r * 0.18, r * 2.3, r * 2.1);
     draw(g);
     g.fillStyle(0x000000, 0.15);
     g.fillEllipse(c, c + r * 0.28, r * 0.9, r * 0.36);
@@ -103,18 +206,18 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.lineStyle(s * 0.045, darken(color, 0.6));
   };
 
-  gem('gem-red', (g) => { g.fillStyle(COLOR_HEX.red); g.fillCircle(c, c, r); rim(g, COLOR_HEX.red); g.strokeCircle(c, c, r); });
-  gem('gem-blue', (g) => { const p = poly(c, c, r * 1.05, 3, -Math.PI / 2); g.fillStyle(COLOR_HEX.blue); g.fillPoints(p, true); rim(g, COLOR_HEX.blue); g.strokePoints(p, true); });
-  gem('gem-green', (g) => { g.fillStyle(COLOR_HEX.green); g.fillRoundedRect(c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.35); rim(g, COLOR_HEX.green); g.strokeRoundedRect(c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.35); });
-  gem('gem-yellow', (g) => { const p = poly(c, c, r * 1.05, 4, -Math.PI / 2); g.fillStyle(COLOR_HEX.yellow); g.fillPoints(p, true); rim(g, COLOR_HEX.yellow); g.strokePoints(p, true); });
-  gem('gem-purple', (g) => { const p = poly(c, c, r, 6, 0); g.fillStyle(COLOR_HEX.purple); g.fillPoints(p, true); rim(g, COLOR_HEX.purple); g.strokePoints(p, true); });
-  gem('gem-orange', (g) => { const p = star(c, c, r * 1.05, r * 0.5, 5); g.fillStyle(COLOR_HEX.orange); g.fillPoints(p, true); rim(g, COLOR_HEX.orange); g.strokePoints(p, true); });
+  gem('gem-red', (g) => { gradCircle(g, c, c, r, lighten(COLOR_HEX.red, 0.25), darken(COLOR_HEX.red, 0.75)); rim(g, COLOR_HEX.red); g.strokeCircle(c, c, r); });
+  gem('gem-blue', (g) => { const p = poly(c, c, r * 1.05, 3, -Math.PI / 2); gradPoly(g, p, lighten(COLOR_HEX.blue, 0.25), darken(COLOR_HEX.blue, 0.75)); rim(g, COLOR_HEX.blue); g.strokePoints(p, true); });
+  gem('gem-green', (g) => { gradRoundedRect(g, c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.35, lighten(COLOR_HEX.green, 0.25), darken(COLOR_HEX.green, 0.75)); rim(g, COLOR_HEX.green); g.strokeRoundedRect(c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.35); });
+  gem('gem-yellow', (g) => { const p = poly(c, c, r * 1.05, 4, -Math.PI / 2); gradPoly(g, p, lighten(COLOR_HEX.yellow, 0.25), darken(COLOR_HEX.yellow, 0.75)); rim(g, COLOR_HEX.yellow); g.strokePoints(p, true); });
+  gem('gem-purple', (g) => { const p = poly(c, c, r, 6, 0); gradPoly(g, p, lighten(COLOR_HEX.purple, 0.25), darken(COLOR_HEX.purple, 0.75)); rim(g, COLOR_HEX.purple); g.strokePoints(p, true); });
+  gem('gem-orange', (g) => { const p = star(c, c, r * 1.05, r * 0.5, 5); gradPoly(g, p, lighten(COLOR_HEX.orange, 0.25), darken(COLOR_HEX.orange, 0.75)); rim(g, COLOR_HEX.orange); g.strokePoints(p, true); });
 
   // Music pack (plan 6.5, dance chapter): same 6 colors, new distinct shapes.
   // red = eighth note.
   gem('music-red', (g) => {
+    gradEllipse(g, c - r * 0.3, c + r * 0.55, r * 0.85, r * 0.6, lighten(COLOR_HEX.red, 0.25), darken(COLOR_HEX.red, 0.75));
     g.fillStyle(COLOR_HEX.red);
-    g.fillEllipse(c - r * 0.3, c + r * 0.55, r * 0.85, r * 0.6);
     g.fillRect(c + r * 0.08, c - r * 0.95, r * 0.14, r * 1.55);
     g.fillTriangle(c + r * 0.22, c - r * 0.95, c + r * 0.8, c - r * 0.5, c + r * 0.22, c - r * 0.3);
     rim(g, COLOR_HEX.red);
@@ -122,8 +225,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   });
   // blue = vinyl disc.
   gem('music-blue', (g) => {
-    g.fillStyle(COLOR_HEX.blue);
-    g.fillCircle(c, c, r * 1.02);
+    gradCircle(g, c, c, r * 1.02, lighten(COLOR_HEX.blue, 0.25), darken(COLOR_HEX.blue, 0.75));
     rim(g, COLOR_HEX.blue);
     g.strokeCircle(c, c, r * 1.02);
     g.lineStyle(s * 0.02, 0xffffff, 0.4);
@@ -136,8 +238,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   });
   // green = microphone.
   gem('music-green', (g) => {
-    g.fillStyle(COLOR_HEX.green);
-    g.fillRoundedRect(c - r * 0.45, c - r * 1.0, r * 0.9, r * 1.05, r * 0.44);
+    gradRoundedRect(g, c - r * 0.45, c - r * 1.0, r * 0.9, r * 1.05, r * 0.44, lighten(COLOR_HEX.green, 0.25), darken(COLOR_HEX.green, 0.75));
     g.lineStyle(s * 0.015, 0x0e6b3e, 0.8);
     for (let i = 0; i < 3; i++) {
       g.beginPath();
@@ -151,24 +252,22 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.strokeRoundedRect(c - r * 0.45, c - r * 1.0, r * 0.9, r * 1.05, r * 0.44);
   });
   // yellow = star (slimmer than the orange gem's).
-  gem('music-yellow', (g) => { const p = star(c, c, r * 1.05, r * 0.42, 5); g.fillStyle(COLOR_HEX.yellow); g.fillPoints(p, true); rim(g, COLOR_HEX.yellow); g.strokePoints(p, true); });
+  gem('music-yellow', (g) => { const p = star(c, c, r * 1.05, r * 0.42, 5); gradPoly(g, p, lighten(COLOR_HEX.yellow, 0.25), darken(COLOR_HEX.yellow, 0.75)); rim(g, COLOR_HEX.yellow); g.strokePoints(p, true); });
   // purple = headphones.
   gem('music-purple', (g) => {
     g.lineStyle(s * 0.075, COLOR_HEX.purple);
     g.beginPath();
     g.arc(c, c + r * 0.1, r * 0.72, Math.PI, Math.PI * 2, false);
     g.strokePath();
-    g.fillStyle(COLOR_HEX.purple);
-    g.fillRoundedRect(c - r * 0.98, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16);
-    g.fillRoundedRect(c + r * 0.52, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16);
+    gradRoundedRect(g, c - r * 0.98, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16, lighten(COLOR_HEX.purple, 0.25), darken(COLOR_HEX.purple, 0.75));
+    gradRoundedRect(g, c + r * 0.52, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16, lighten(COLOR_HEX.purple, 0.25), darken(COLOR_HEX.purple, 0.75));
     rim(g, COLOR_HEX.purple);
     g.strokeRoundedRect(c - r * 0.98, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16);
     g.strokeRoundedRect(c + r * 0.52, c - r * 0.05, r * 0.46, r * 0.7, r * 0.16);
   });
   // orange = speaker cone.
   gem('music-orange', (g) => {
-    g.fillStyle(COLOR_HEX.orange);
-    g.fillRoundedRect(c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.25);
+    gradRoundedRect(g, c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.25, lighten(COLOR_HEX.orange, 0.25), darken(COLOR_HEX.orange, 0.75));
     rim(g, COLOR_HEX.orange);
     g.strokeRoundedRect(c - r * 0.85, c - r * 0.85, r * 1.7, r * 1.7, r * 0.25);
     g.lineStyle(s * 0.03, 0x000000, 0.3);
@@ -180,8 +279,8 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   // Special badges: cream disc in a gold ring (gold-frame motif); glyphs keep their colors.
   const sp = (key: string, draw: (g: Phaser.GameObjects.Graphics) => void): void => {
     const g = scene.add.graphics();
-    g.fillStyle(PALETTE.cream);
-    g.fillCircle(c, c, r * 1.05);
+    softShadow(g, c, c + r * 0.18, r * 2.3, r * 2.1);
+    gradCircle(g, c, c, r * 1.05, lighten(PALETTE.cream, 0.4), darken(PALETTE.cream, 0.82));
     g.lineStyle(s * 0.03, PALETTE.gold);
     g.strokeCircle(c, c, r * 1.05);
     draw(g);
@@ -236,26 +335,40 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.generateTexture(key, s, s);
     g.destroy();
   };
-  ui('ui-star', (g) => { const p = star(c, c, r * 1.1, r * 0.5, 5); g.fillStyle(0xf1c40f); g.fillPoints(p, true); g.lineStyle(s * 0.045, PALETTE.goldDark); g.strokePoints(p, true); });
-  ui('ui-play', (g) => {
-    g.fillStyle(0x2ecc71);
-    g.fillCircle(c, c, r * 1.1);
-    g.fillStyle(0xffffff);
-    g.fillTriangle(c - r * 0.35, c - r * 0.5, c - r * 0.35, c + r * 0.5, c + r * 0.55, c);
+  /** Round action-button base: baked shadow, top-lit gradient, top bevel, gold ring. */
+  const circleButton = (g: Phaser.GameObjects.Graphics, color: number): void => {
+    softShadow(g, c, c + r * 0.22, r * 2.42, r * 2.0);
+    gradCircle(g, c, c, r * 1.1, lighten(color, 0.28), color);
+    g.fillStyle(0xffffff, 0.35);
+    g.fillEllipse(c, c - r * 0.52, r * 1.5, r * 0.7);
     g.lineStyle(s * 0.035, PALETTE.gold);
     g.strokeCircle(c, c, r * 1.1);
+  };
+  /** Wraps a texture draw with a baked ground-contact shadow (cheap uniform lift). */
+  const withShadow = (draw: (g: Phaser.GameObjects.Graphics) => void) =>
+    (g: Phaser.GameObjects.Graphics): void => {
+      g.fillStyle(0x000000, 0.1);
+      g.fillEllipse(c, s * 0.88, s * 0.66, s * 0.11);
+      g.fillStyle(0x000000, 0.16);
+      g.fillEllipse(c, s * 0.88, s * 0.55, s * 0.085);
+      draw(g);
+    };
+  const shadowed = (key: string, draw: (g: Phaser.GameObjects.Graphics) => void): void =>
+    ui(key, withShadow(draw));
+  ui('ui-star', (g) => { const p = star(c, c, r * 1.1, r * 0.5, 5); g.fillStyle(0xf1c40f); g.fillPoints(p, true); g.lineStyle(s * 0.045, PALETTE.goldDark); g.strokePoints(p, true); });
+  ui('ui-play', (g) => {
+    circleButton(g, 0x2ecc71);
+    g.fillStyle(0xffffff);
+    g.fillTriangle(c - r * 0.35, c - r * 0.5, c - r * 0.35, c + r * 0.5, c + r * 0.55, c);
   });
   ui('ui-retry', (g) => {
-    g.fillStyle(0x3498db);
-    g.fillCircle(c, c, r * 1.1);
+    circleButton(g, 0x3498db);
     g.lineStyle(s * 0.07, 0xffffff);
     g.beginPath();
     g.arc(c, c, r * 0.55, -Math.PI * 0.25, Math.PI, false);
     g.strokePath();
     g.fillStyle(0xffffff);
     g.fillTriangle(c + r * 0.75, c - r * 0.45, c + r * 0.2, c - r * 0.55, c + r * 0.55, c - r * 0.05);
-    g.lineStyle(s * 0.035, PALETTE.gold);
-    g.strokeCircle(c, c, r * 1.1);
   });
   ui('ui-pip', (g) => { g.fillStyle(0xffffff); g.fillCircle(c, c, r * 0.3); });
   // Tutorial pointer: white hand (palm circle + one finger) on transparent bg.
@@ -298,7 +411,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.lineTo(c + r * 0.85, c + r * 0.85);
     g.strokePath();
   });
-  ui('ui-tile', (g) => { g.fillStyle(0xffffff); g.fillRoundedRect(s * 0.02, s * 0.02, s * 0.96, s * 0.96, s * 0.16); });
+  ui('ui-tile', (g) => { gradRoundedRect(g, s * 0.02, s * 0.02, s * 0.96, s * 0.96, s * 0.16, 0xffffff, 0xd9d3e8); });
   // Thin gold outline matching ui-tile's footprint — board framing (plan 7 design pass).
   ui('ui-tile-frame', (g) => {
     g.lineStyle(s * 0.04, PALETTE.gold);
@@ -306,12 +419,16 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   });
   // Gold-framed midnight panel: plum-black fill, gold border, gold corner dots.
   ui('ui-panel', (g) => {
-    g.fillStyle(PALETTE.panel);
-    g.fillRoundedRect(0, 0, s, s, s * 0.2);
+    // Baked drop shadow peeks past the bottom edge; body sits slightly high.
+    g.fillStyle(0x000000, 0.35);
+    g.fillRoundedRect(s * 0.02, s * 0.05, s * 0.96, s * 0.95, s * 0.2);
+    gradRoundedRect(g, 0, 0, s, s * 0.965, s * 0.2, lighten(PALETTE.panel, 0.15), PALETTE.panel);
     g.lineStyle(s * 0.03, PALETTE.panelBorder);
-    g.strokeRoundedRect(s * 0.015, s * 0.015, s * 0.97, s * 0.97, s * 0.19);
+    g.strokeRoundedRect(s * 0.015, s * 0.015, s * 0.97, s * 0.935, s * 0.19);
+    g.lineStyle(s * 0.012, darken(PALETTE.gold, 0.62));
+    g.strokeRoundedRect(s * 0.045, s * 0.045, s * 0.91, s * 0.875, s * 0.16);
     g.fillStyle(PALETTE.gold);
-    for (const [dx, dy] of [[s * 0.1, s * 0.1], [s * 0.9, s * 0.1], [s * 0.1, s * 0.9], [s * 0.9, s * 0.9]] as const) {
+    for (const [dx, dy] of [[s * 0.1, s * 0.1], [s * 0.9, s * 0.1], [s * 0.1, s * 0.865], [s * 0.9, s * 0.865]] as const) {
       g.fillCircle(dx, dy, s * 0.03);
     }
   });
@@ -433,7 +550,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   };
   for (const slot of ['counter', 'fridge', 'table', 'lamp', 'plant', 'art']) {
     for (const style of ['a', 'b', 'c']) {
-      ui(`furn-${slot}-${style}`, (g) => furnDraw[slot]!(g, FURN_ACCENT[style]!));
+      ui(`furn-${slot}-${style}`, withShadow((g) => furnDraw[slot]!(g, FURN_ACCENT[style]!)));
     }
   }
 
@@ -525,16 +642,8 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   // --- Plan 6.5: generic furniture for dance/gym/vanity rooms (plan 7 replaces with real art) ---
   // Per-chapter accent hue, modulated per style: a = base, b = lightened, c = darkened.
   const CHAPTER_FURN_ACCENT: Record<string, number> = { dance: 0x9b59b6, gym: 0x2ecc71, vanity: 0xfd79a8 };
-  const mixColor = (color: number, target: number, t: number): number => {
-    const chan = (shift: number): number => {
-      const from = (color >> shift) & 0xff;
-      const to = (target >> shift) & 0xff;
-      return Math.round(from + (to - from) * t) << shift;
-    };
-    return chan(16) | chan(8) | chan(0);
-  };
   const styleAccent = (base: number, style: string): number =>
-    style === 'b' ? mixColor(base, 0xffffff, 0.35) : style === 'c' ? mixColor(base, 0x2c2c54, 0.35) : base;
+    style === 'b' ? mix(base, 0xffffff, 0.35) : style === 'c' ? mix(base, 0x2c2c54, 0.35) : base;
   // Recognizable-ish silhouettes keyed by slot INDEX within the room:
   // 0 tall rect, 1 wide rect, 2 slab+legs, 3 pole+top, 4 round, 5 frame.
   const furnGeneric = (g: Phaser.GameObjects.Graphics, slotIndex: number, accent: number): void => {
@@ -649,14 +758,14 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   const pts = (arr: { x: number; y: number }[]): Phaser.Math.Vector2[] => arr as Phaser.Math.Vector2[];
 
   // Bread slice: crust rounded-rect, lighter crumb inset.
-  ui('ing-bread', (g) => {
+  shadowed('ing-bread', (g) => {
     g.fillStyle(0xc68642);
     g.fillRoundedRect(s * 0.14, s * 0.1, s * 0.72, s * 0.8, { tl: s * 0.3, tr: s * 0.3, bl: s * 0.1, br: s * 0.1 });
     g.fillStyle(0xf5deb3);
     g.fillRoundedRect(s * 0.2, s * 0.18, s * 0.6, s * 0.66, { tl: s * 0.24, tr: s * 0.24, bl: s * 0.07, br: s * 0.07 });
   });
   // Butter: yellow block (lighter top face) on a grey dish.
-  ui('ing-butter', (g) => {
+  shadowed('ing-butter', (g) => {
     g.fillStyle(0xd7dbdd);
     g.fillEllipse(c, s * 0.72, s * 0.78, s * 0.2);
     g.fillStyle(0xf7dc6f);
@@ -665,7 +774,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillRoundedRect(s * 0.24, s * 0.34, s * 0.52, s * 0.12, s * 0.05);
   });
   // Banana: thick yellow arc crescent with brown tips.
-  ui('ing-banana', (g) => {
+  shadowed('ing-banana', (g) => {
     g.lineStyle(s * 0.16, 0xf4d03f);
     g.beginPath();
     g.arc(c, s * 0.3, s * 0.32, Math.PI * 0.15, Math.PI * 0.85, false);
@@ -675,7 +784,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillCircle(c + s * 0.285, s * 0.445, s * 0.05);
   });
   // Apple: red circle, stem, leaf, small shine.
-  ui('ing-apple', (g) => {
+  shadowed('ing-apple', (g) => {
     g.fillStyle(0xe74c3c);
     g.fillCircle(c, s * 0.56, s * 0.3);
     g.fillStyle(0x784212);
@@ -686,7 +795,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillEllipse(c - s * 0.11, s * 0.46, s * 0.12, s * 0.08);
   });
   // Strawberry: rounded-down triangle, leafy top, pale seed dots.
-  ui('ing-strawberry', (g) => {
+  shadowed('ing-strawberry', (g) => {
     g.fillStyle(0xe74c3c);
     g.fillPoints(pts([
       { x: c - s * 0.28, y: s * 0.32 }, { x: c + s * 0.28, y: s * 0.32 },
@@ -702,7 +811,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillCircle(c + s * 0.06, s * 0.68, s * 0.022);
   });
   // Orange: circle with pale segment lines and a leaf.
-  ui('ing-orange', (g) => {
+  shadowed('ing-orange', (g) => {
     g.fillStyle(0xe67e22);
     g.fillCircle(c, c, s * 0.32);
     g.lineStyle(s * 0.028, 0xf8c471, 0.9);
@@ -717,7 +826,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillEllipse(c + s * 0.09, s * 0.13, s * 0.15, s * 0.07);
   });
   // Yogurt: white tapered cup, blush foil lid + label band.
-  ui('ing-yogurt', (g) => {
+  shadowed('ing-yogurt', (g) => {
     g.fillStyle(0xfdfefe);
     g.fillPoints(pts([
       { x: s * 0.28, y: s * 0.32 }, { x: s * 0.72, y: s * 0.32 },
@@ -729,14 +838,14 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillRect(s * 0.33, s * 0.5, s * 0.34, s * 0.14);
   });
   // Egg: white oval + yolk circle.
-  ui('ing-egg', (g) => {
+  shadowed('ing-egg', (g) => {
     g.fillStyle(0xfdfefe);
     g.fillEllipse(c, c, s * 0.62, s * 0.72);
     g.fillStyle(0xf1c40f);
     g.fillCircle(c, c + s * 0.05, s * 0.15);
   });
   // Milk: white gable-top carton with a blue band.
-  ui('ing-milk', (g) => {
+  shadowed('ing-milk', (g) => {
     g.fillStyle(0xfdfefe);
     g.fillRect(s * 0.3, s * 0.34, s * 0.4, s * 0.52);
     g.fillTriangle(s * 0.3, s * 0.35, s * 0.7, s * 0.35, c, s * 0.14);
@@ -744,7 +853,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillRect(s * 0.3, s * 0.52, s * 0.4, s * 0.16);
   });
   // Cheese: yellow wedge with darker holes.
-  ui('ing-cheese', (g) => {
+  shadowed('ing-cheese', (g) => {
     g.fillStyle(0xf4d03f);
     g.fillPoints(pts([
       { x: s * 0.08, y: s * 0.72 }, { x: s * 0.92, y: s * 0.72 }, { x: s * 0.92, y: s * 0.3 },
@@ -755,7 +864,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillCircle(s * 0.52, s * 0.66, s * 0.032);
   });
   // Ham: pink oval with lighter inner rings.
-  ui('ing-ham', (g) => {
+  shadowed('ing-ham', (g) => {
     g.fillStyle(0xf1948a);
     g.fillEllipse(c, c, s * 0.68, s * 0.5);
     g.fillStyle(0xfadbd8);
@@ -764,7 +873,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillEllipse(c, c, s * 0.16, s * 0.11);
   });
   // Lettuce: ring of ruffle bumps around a lighter heart.
-  ui('ing-lettuce', (g) => {
+  shadowed('ing-lettuce', (g) => {
     g.fillStyle(0x58d68d);
     for (let i = 0; i < 8; i++) {
       const a = (i * Math.PI * 2) / 8;
@@ -774,14 +883,14 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillCircle(c, c, s * 0.2);
   });
   // Tomato: red circle with a green star calyx on top.
-  ui('ing-tomato', (g) => {
+  shadowed('ing-tomato', (g) => {
     g.fillStyle(0xe74c3c);
     g.fillCircle(c, s * 0.55, s * 0.3);
     g.fillStyle(0x229954);
     g.fillPoints(star(c, s * 0.28, s * 0.15, s * 0.055, 5), true);
   });
   // Pasta: yellow noodle squiggles sticking out of a blue bowl.
-  ui('ing-pasta', (g) => {
+  shadowed('ing-pasta', (g) => {
     g.lineStyle(s * 0.045, 0xf4d03f);
     for (let i = 0; i < 3; i++) {
       const y0 = s * 0.28 + i * s * 0.1;
@@ -799,7 +908,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     ]), true);
   });
   // Sauce: red jar, grey lid, glass shine.
-  ui('ing-sauce', (g) => {
+  shadowed('ing-sauce', (g) => {
     g.fillStyle(0xa93226);
     g.fillRoundedRect(s * 0.28, s * 0.3, s * 0.44, s * 0.56, s * 0.08);
     g.fillStyle(0x839192);
@@ -808,7 +917,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillRoundedRect(s * 0.34, s * 0.38, s * 0.08, s * 0.4, s * 0.03);
   });
   // Tortilla: flat tan circle with toasted spots.
-  ui('ing-tortilla', (g) => {
+  shadowed('ing-tortilla', (g) => {
     g.fillStyle(0xf0d9a8);
     g.fillCircle(c, c, s * 0.36);
     g.fillStyle(0xd8b571, 0.85);
@@ -819,7 +928,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillCircle(c - s * 0.02, c - s * 0.2, s * 0.026);
   });
   // Flour: tan sack with tied ears and a white label patch.
-  ui('ing-flour', (g) => {
+  shadowed('ing-flour', (g) => {
     g.fillStyle(0xcbb28f);
     g.fillRoundedRect(s * 0.22, s * 0.3, s * 0.56, s * 0.56, s * 0.1);
     g.fillTriangle(s * 0.36, s * 0.32, s * 0.26, s * 0.12, s * 0.46, s * 0.3);
@@ -828,7 +937,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillRoundedRect(s * 0.32, s * 0.46, s * 0.36, s * 0.24, s * 0.04);
   });
   // Sugar: stack of three white cubes.
-  ui('ing-sugar', (g) => {
+  shadowed('ing-sugar', (g) => {
     g.lineStyle(s * 0.025, 0xd5dbdb);
     g.fillStyle(0xfdfefe);
     for (const [x, y] of [[s * 0.2, s * 0.52], [s * 0.54, s * 0.52], [s * 0.37, s * 0.24]] as const) {
@@ -837,7 +946,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     }
   });
   // Carrot: orange triangle pointing down, leafy green top.
-  ui('ing-carrot', (g) => {
+  shadowed('ing-carrot', (g) => {
     g.fillStyle(0xe67e22);
     g.fillTriangle(c - s * 0.14, s * 0.3, c + s * 0.14, s * 0.3, c, s * 0.88);
     g.fillStyle(0x27ae60);
@@ -846,7 +955,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillEllipse(c, s * 0.15, s * 0.1, s * 0.22);
   });
   // Potato: brown oval with darker eye dots.
-  ui('ing-potato', (g) => {
+  shadowed('ing-potato', (g) => {
     g.fillStyle(0xb7855a);
     g.fillEllipse(c, c, s * 0.68, s * 0.5);
     g.fillStyle(0x8c6239);
@@ -855,7 +964,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillCircle(c + s * 0.03, c - s * 0.12, s * 0.026);
   });
   // Onion: golden layered circle (concentric rings) with a top sprout.
-  ui('ing-onion', (g) => {
+  shadowed('ing-onion', (g) => {
     g.fillStyle(0xdfb98a);
     g.fillCircle(c, s * 0.56, s * 0.3);
     g.lineStyle(s * 0.025, 0xb9905f);
@@ -865,14 +974,14 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillTriangle(c - s * 0.05, s * 0.3, c + s * 0.05, s * 0.3, c, s * 0.12);
   });
   // Dough: pale ball with a soft highlight.
-  ui('ing-dough', (g) => {
+  shadowed('ing-dough', (g) => {
     g.fillStyle(0xf3e5c2);
     g.fillEllipse(c, s * 0.58, s * 0.62, s * 0.46);
     g.fillStyle(0xffffff, 0.4);
     g.fillEllipse(c - s * 0.12, s * 0.47, s * 0.18, s * 0.1);
   });
   // Oil: olive-green bottle, dark cap, shine stripe.
-  ui('ing-oil', (g) => {
+  shadowed('ing-oil', (g) => {
     g.fillStyle(0xb5b93c);
     g.fillRoundedRect(s * 0.32, s * 0.4, s * 0.36, s * 0.46, s * 0.08);
     g.fillRect(s * 0.44, s * 0.22, s * 0.12, s * 0.2);
@@ -882,7 +991,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillRoundedRect(s * 0.37, s * 0.46, s * 0.07, s * 0.32, s * 0.03);
   });
   // Salt: white shaker with a metal cap and holes.
-  ui('ing-salt', (g) => {
+  shadowed('ing-salt', (g) => {
     g.fillStyle(0xfdfefe);
     g.fillRoundedRect(s * 0.32, s * 0.36, s * 0.36, s * 0.5, { tl: s * 0.12, tr: s * 0.12, bl: s * 0.06, br: s * 0.06 });
     g.fillStyle(0xaab7b8);
@@ -991,7 +1100,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   });
 
   // Mixing bowl: blue tapered bowl, darker rim, grey foot.
-  ui('ui-bowl', (g) => {
+  shadowed('ui-bowl', (g) => {
     g.fillStyle(0x5dade2);
     g.fillPoints(pts([
       { x: s * 0.08, y: s * 0.36 }, { x: s * 0.92, y: s * 0.36 },
@@ -1003,7 +1112,7 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillRect(s * 0.38, s * 0.78, s * 0.24, s * 0.08);
   });
   // Plate: white ellipse with an inner well ring.
-  ui('ui-plate', (g) => {
+  shadowed('ui-plate', (g) => {
     g.fillStyle(0xfdfefe);
     g.fillEllipse(c, c, s * 0.9, s * 0.52);
     g.lineStyle(s * 0.02, 0xaab7b8, 0.8);
@@ -1052,15 +1161,12 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
   });
   // Home button: blush circle + white house, gold ring (matches ui-play/ui-retry).
   ui('ui-home', (g) => {
-    g.fillStyle(PALETTE.blush);
-    g.fillCircle(c, c, r * 1.1);
+    circleButton(g, PALETTE.blush);
     g.fillStyle(0xffffff);
     g.fillTriangle(c - r * 0.62, c - r * 0.02, c + r * 0.62, c - r * 0.02, c, c - r * 0.62);
     g.fillRoundedRect(c - r * 0.4, c - r * 0.02, r * 0.8, r * 0.56, r * 0.08);
     g.fillStyle(PALETTE.blush);
     g.fillRect(c - r * 0.1, c + r * 0.16, r * 0.2, r * 0.38);
-    g.lineStyle(s * 0.035, PALETTE.gold);
-    g.strokeCircle(c, c, r * 1.1);
   });
   // Hub logo: the studio ring light with a blush heart centre.
   ui('ui-logo-ring', (g) => {
@@ -1135,4 +1241,40 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.lineStyle(s * 0.025, darken(PALETTE.blush, 0.6));
     g.strokeTriangle(c - s * 0.07, s * 0.08, c - s * 0.07, s * 0.42, c + s * 0.42, s * 0.25);
   });
+
+  // --- Plan 9 (legit-look pass): scene-dressing textures for the next agent ---
+
+  // Radial gold glow: 16 stacked low-alpha circles, ~0.5 alpha at the centre
+  // falling off to ~0 at the rim. 256px so it scales up without pixel edges.
+  {
+    const gs = 256;
+    const g = scene.add.graphics();
+    g.fillStyle(PALETTE.gold, 0.032);
+    for (let i = 16; i >= 1; i--) {
+      g.fillCircle(gs / 2, gs / 2, ((gs / 2 - 6) * i) / 16);
+    }
+    g.generateTexture('ui-glow', gs, gs);
+    g.destroy();
+  }
+
+  // Wide pill CTA base (320x110): baked shadow, blush gradient body, top bevel,
+  // gold ring. Generic button background for scene work; label is scene text.
+  {
+    const w = 320;
+    const h = 110;
+    const bodyH = h - 18;
+    const rad = bodyH / 2;
+    const g = scene.add.graphics();
+    g.fillStyle(0x000000, 0.12);
+    g.fillRoundedRect(6, 12, w - 12, h - 14, (h - 14) / 2);
+    g.fillStyle(0x000000, 0.18);
+    g.fillRoundedRect(10, 14, w - 20, h - 20, (h - 20) / 2);
+    gradRoundedRect(g, 8, 4, w - 16, bodyH, rad, lighten(PALETTE.blush, 0.3), darken(PALETTE.blush, 0.72));
+    g.fillStyle(0xffffff, 0.32);
+    g.fillEllipse(w / 2, 4 + bodyH * 0.26, (w - 16) * 0.82, bodyH * 0.42);
+    g.lineStyle(4, PALETTE.gold);
+    g.strokeRoundedRect(8, 4, w - 16, bodyH, rad);
+    g.generateTexture('btn-pill', w, h);
+    g.destroy();
+  }
 }

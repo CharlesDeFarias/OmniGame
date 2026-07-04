@@ -14,10 +14,12 @@ import { createJournal, type Journal } from '../services/journal';
 import { createRunner, starsForRun, type RunnerProgress } from '../services/runner';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createBlips, type Blips } from './audio';
+import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { loadRunnerLevels } from './levels';
 import { PALETTE } from './palette';
 import { makeTextures } from './theme';
+import { TS } from './textStyles';
 
 /** Squad anchor: world scrolls left, the runners stay put. */
 const SQUAD_X = GAME_WIDTH * 0.25;
@@ -77,6 +79,7 @@ export class RunnerScene extends Phaser.Scene {
 
   create(): void {
     makeTextures(this, 96);
+    fadeIn(this);
     // Scene instances persist across start/stop: reset per-run refs.
     this.viewObjects = [];
     this.timers = [];
@@ -92,13 +95,8 @@ export class RunnerScene extends Phaser.Scene {
     this.blips = createBlips();
     this.blips.setMuted(window.localStorage.getItem('omnigame.muted.v1') === '1');
     this.input.on('pointerdown', () => this.blips.unlock());
-    // Stage bands, same studio feel as the other scenes.
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.125, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgPlum, 0.8)
-      .setDepth(-2);
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.875, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgDeep, 0.9)
-      .setDepth(-2);
+    // Cool night-run variant of the shared gradient (plan 9 legit-look).
+    buildBackground(this, 0x1f2b4a, PALETTE.bgPlum, PALETTE.bgDeep);
     // Lane-change input (only live while phase === 'run').
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onUp(p));
@@ -148,19 +146,19 @@ export class RunnerScene extends Phaser.Scene {
       this.add.sprite(GAME_WIDTH / 2, 96, 'gr-flag').setDisplaySize(96, 96).setDepth(1),
       this.add.sprite(530, 96, 'ui-coin').setDisplaySize(44, 44).setDepth(1),
       this.add
-        .text(560, 96, String(this.wallet.data().coins), {
-          fontSize: '32px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6,
-        })
+        .text(560, 96, String(this.wallet.data().coins), TS.number(32))
         .setOrigin(0, 0.5)
         .setDepth(1),
     );
     const home = this.add.sprite(78, 96, 'ui-home').setDisplaySize(68, 68).setDepth(1).setInteractive();
+    pressify(this, home);
     this.viewObjects.push(home);
-    home.on('pointerup', () => this.scene.start('hub'));
+    home.on('pointerup', () => goto(this, 'hub'));
     this.levels.forEach((level, i) => {
       const y = 400 + i * 230;
       const x = GAME_WIDTH / 2;
       const card = this.add.image(x, y, 'ui-panel').setDisplaySize(540, 200).setAlpha(0.95).setDepth(0).setInteractive();
+      pressify(this, card);
       this.viewObjects.push(card);
       // Mini squad cluster + level number on the left.
       for (let pip = 0; pip < 3; pip++) {
@@ -171,9 +169,7 @@ export class RunnerScene extends Phaser.Scene {
       }
       this.viewObjects.push(
         this.add
-          .text(x - 92, y, String(i + 1), {
-            fontSize: '52px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 8,
-          })
+          .text(x - 92, y, String(i + 1), TS.number(52))
           .setOrigin(0.5)
           .setDepth(1),
       );
@@ -219,6 +215,7 @@ export class RunnerScene extends Phaser.Scene {
     this.buildSquad(level.startCount);
     // Small home escape back to the level list (pausing/quitting is always fine).
     const home = this.add.sprite(60, 62, 'ui-home').setDisplaySize(56, 56).setAlpha(0.85).setDepth(6).setInteractive();
+    pressify(this, home);
     this.viewObjects.push(home);
     home.on('pointerup', () => {
       if (this.phase !== 'run') return;
@@ -241,9 +238,7 @@ export class RunnerScene extends Phaser.Scene {
         if (cell.kind === 'gate') {
           const panel = this.add.image(0, 0, 'gr-gate').setDisplaySize(190, 168);
           const label = this.add
-            .text(0, 0, `${cell.op === 'add' ? '+' : '×'}${cell.value}`, {
-              fontSize: '54px', fontStyle: 'bold', color: PALETTE.textGold, stroke: '#141428', strokeThickness: 8,
-            })
+            .text(0, 0, `${cell.op === 'add' ? '+' : '×'}${cell.value}`, TS.numberGold(54))
             .setOrigin(0.5);
           const cont = this.add.container(x, y, [panel, label]);
           world.add(cont);
@@ -258,9 +253,7 @@ export class RunnerScene extends Phaser.Scene {
           }
           cont.add(
             this.add
-              .text(0, -74, String(cell.count), {
-                fontSize: '38px', fontStyle: 'bold', color: '#fd79a8', stroke: '#141428', strokeThickness: 7,
-              })
+              .text(0, -74, String(cell.count), TS.numberTinted(38, '#fd79a8'))
               .setOrigin(0.5),
           );
           world.add(cont);
@@ -283,9 +276,7 @@ export class RunnerScene extends Phaser.Scene {
     this.viewObjects.push(squad);
     this.pips = [];
     this.countText = this.add
-      .text(SQUAD_X, LANE_Y[1] - 118, String(count), {
-        fontSize: '46px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 8,
-      })
+      .text(SQUAD_X, LANE_Y[1] - 118, String(count), TS.number(46))
       .setOrigin(0.5)
       .setDepth(4);
     this.viewObjects.push(this.countText);
@@ -589,9 +580,7 @@ export class RunnerScene extends Phaser.Scene {
     this.viewObjects.push(
       this.add.sprite(GAME_WIDTH / 2 - 56, GAME_HEIGHT / 2, 'ui-coin').setDisplaySize(56, 56).setDepth(12),
       this.add
-        .text(GAME_WIDTH / 2 - 16, GAME_HEIGHT / 2, `+${coins}`, {
-          fontSize: '44px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 7,
-        })
+        .text(GAME_WIDTH / 2 - 16, GAME_HEIGHT / 2, `+${coins}`, TS.number(44))
         .setOrigin(0, 0.5)
         .setDepth(12),
     );
@@ -623,12 +612,14 @@ export class RunnerScene extends Phaser.Scene {
       .setDepth(12)
       .setInteractive();
     const home = this.add.sprite(GAME_WIDTH / 2 + 110, y, 'ui-home').setDisplaySize(130, 130).setDepth(12).setInteractive();
+    pressify(this, retry);
+    pressify(this, home);
     this.viewObjects.push(retry, home);
     this.tweens.add({ targets: retry, scale: retry.scale * 1.08, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     retry.once('pointerup', () => {
       this.blips.ding();
       this.startRun(this.levelIndex);
     });
-    home.once('pointerup', () => this.scene.start('hub'));
+    home.once('pointerup', () => goto(this, 'hub'));
   }
 }

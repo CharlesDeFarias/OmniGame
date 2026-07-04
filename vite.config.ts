@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon-192.png', 'icon-512.png'],
+      includeAssets: ['icon-192.png', 'icon-512.png', 'fonts/fredoka-latin.woff2'],
       manifest: {
         name: APP_IDENTITY.name,
         short_name: APP_IDENTITY.shortName,
