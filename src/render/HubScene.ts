@@ -80,7 +80,7 @@ export class HubScene extends Phaser.Scene {
     // hint right (numbers only — stays inside the near-zero-text rule).
     const matchStars = Object.values(loadProgress(window.localStorage).stars).reduce((a, b) => a + b, 0);
     const recipesDone = Object.keys(createCooking(window.localStorage).data().best).length;
-    this.gameCard(510, 'career', { icon: 'ui-star', value: matchStars }, (x, y) => {
+    this.gameCard(510, 'career', { icon: 'img-ui-star', value: matchStars }, (x, y) => {
       // Match-3: gem cluster.
       this.add.sprite(x - 36, y + 8, 'img-gem-red').setDisplaySize(96, 96).setDepth(2);
       this.add.sprite(x + 50, y - 34, 'img-gem-blue').setDisplaySize(84, 84).setDepth(2);
@@ -96,7 +96,7 @@ export class HubScene extends Phaser.Scene {
     // smaller than the real cards so it reads as 'someday', not 'tap me'.
     this.add.image(515, 1090, 'ui-panel').setDisplaySize(210, 144).setAlpha(0.26);
     this.add.sprite(486, 1090, 'img-ob-box2').setDisplaySize(70, 70).setTint(0x555566).setAlpha(0.45).setDepth(1);
-    this.add.sprite(566, 1090, 'ui-lock').setDisplaySize(48, 48).setAlpha(0.8).setDepth(2);
+    this.add.sprite(566, 1090, 'img-ui-lock').setDisplaySize(48, 48).setAlpha(0.8).setDepth(2);
   }
 
   /** Gate-runner hub card: squad-pip cluster + finish flag; tap starts the runner. */
@@ -115,7 +115,7 @@ export class HubScene extends Phaser.Scene {
     if (!unlocked) {
       flag.setTint(0x555566).setAlpha(0.55);
       for (const pip of pips) pip.setTint(0x555566).setAlpha(0.55);
-      this.add.sprite(x + 74, y + 52, 'ui-lock').setDisplaySize(52, 52).setDepth(2);
+      this.add.sprite(x + 74, y + 52, 'img-ui-lock').setDisplaySize(52, 52).setDepth(2);
       this.add.sprite(x + 74, y - 44, 'ui-levelbadge').setDisplaySize(40, 40).setDepth(2);
       this.add
         .text(x + 74, y - 42, String(RUNNER_UNLOCK_LEVEL), TS.number(24))
@@ -130,7 +130,7 @@ export class HubScene extends Phaser.Scene {
       .text(x + 40, y + 56, String(runnerStars), TS.number(30))
       .setOrigin(1, 0.5)
       .setDepth(2);
-    this.add.sprite(x + 68, y + 56, 'ui-star').setDisplaySize(34, 34).setDepth(2);
+    this.add.sprite(x + 68, y + 56, 'img-ui-star').setDisplaySize(34, 34).setDepth(2);
     this.tweens.add({
       targets: card,
       scaleX: card.scaleX * 1.02,
@@ -193,9 +193,9 @@ export class HubScene extends Phaser.Scene {
    */
   private buildBar(): void {
     const items: { icon: string; k: BarKey }[] = [
-      { icon: 'ui-coin', k: 'coins' },
+      { icon: 'img-ui-coin', k: 'coins' },
       { icon: 'ui-follower', k: 'followers' },
-      { icon: 'ui-heart', k: 'hearts' },
+      { icon: 'img-ui-heart', k: 'hearts' },
       { icon: 'ui-levelbadge', k: 'level' },
     ];
     const d = this.wallet.data();
@@ -209,7 +209,7 @@ export class HubScene extends Phaser.Scene {
     this.add.image(GAME_WIDTH / 2, BAR_Y, 'ui-panel').setDisplaySize(704, 92).setAlpha(0.35).setDepth(1);
     items.forEach((it, i) => {
       const x = 90 + i * 180;
-      this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(44, 44).setDepth(2);
+      this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(it.icon === 'img-ui-coin' ? 30 : 44, 44).setDepth(2);
       this.add
         .text(x - 14, BAR_Y, values[it.k], TS.number(30))
         .setOrigin(0, 0.5)
@@ -252,13 +252,15 @@ export class HubScene extends Phaser.Scene {
       if (p.downTime > openedAt) this.closeParentPanel();
     });
     objs.push(dim);
-    objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-panel').setDisplaySize(620, 1000).setDepth(22));
+    // Parent-facing overlay: cream FGG panel (commit-3 GUI pass); the plum task
+    // chips + dark-outlined text keep their contrast on the light ground.
+    objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-panel-cream').setDisplaySize(620, 1000).setDepth(22));
     const textStyle = TS.number(32);
     // Compact stats summary: plays / wins / win rate (full detail stays in PlayScene's overlay).
     const stats = summarize(this.journal.read());
     const summary: { icon: string | null; value: string }[] = [
-      { icon: 'ui-play', value: String(stats.levelsPlayed) },
-      { icon: 'ui-star', value: String(stats.wins) },
+      { icon: 'img-ui-play', value: String(stats.levelsPlayed) },
+      { icon: 'img-ui-star', value: String(stats.wins) },
       { icon: null, value: `${Math.round(stats.winRate * 100)}%` },
     ];
     summary.forEach((row, i) => {

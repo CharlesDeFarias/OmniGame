@@ -41,7 +41,7 @@ const STRIP_ICON: Record<ChapterId, string> = {
   kitchen: 'ui-video',
   dance: 'ui-note',
   gym: 'ui-dumbbell',
-  vanity: 'ui-heart',
+  vanity: 'img-ui-heart',
 };
 
 /** Influencer career hub: currency bar, furnishable room per chapter, chapter strip, wardrobe, play button. */
@@ -126,7 +126,7 @@ export class CareerScene extends Phaser.Scene {
     // currency bar's coin panel, so "top-left" means top-left of the room view;
     // the hanger moves one slot down to make space (judgment call).
     const home = this.add
-      .sprite(64, ROOM_TOP + 56, 'ui-home')
+      .sprite(64, ROOM_TOP + 56, 'img-ui-home')
       .setDisplaySize(64, 64)
       .setDepth(2)
       .setInteractive();
@@ -153,12 +153,12 @@ export class CareerScene extends Phaser.Scene {
     pressify(this, basket);
     basket.on('pointerup', () => this.openGrocery());
     const play = this.add
-      .sprite(GAME_WIDTH / 2, GAME_HEIGHT - 220, 'ui-play')
-      .setScale(2.8)
+      .sprite(GAME_WIDTH / 2, GAME_HEIGHT - 220, 'img-ui-play')
+      .setScale(1.43)
       .setDepth(2)
       .setInteractive();
     pressify(this, play);
-    this.tweens.add({ targets: play, scale: 3.0, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: play, scale: 1.53, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     play.on('pointerup', () => {
       if (this.overlayOpen()) return;
       goto(this, 'play');
@@ -184,16 +184,16 @@ export class CareerScene extends Phaser.Scene {
 
   private buildBar(): void {
     const items: { icon: string; k: BarKey }[] = [
-      { icon: 'ui-coin', k: 'coins' },
+      { icon: 'img-ui-coin', k: 'coins' },
       { icon: 'ui-follower', k: 'followers' },
-      { icon: 'ui-heart', k: 'hearts' },
+      { icon: 'img-ui-heart', k: 'hearts' },
       { icon: 'ui-levelbadge', k: 'level' },
     ];
     const texts = {} as Record<BarKey, Phaser.GameObjects.Text>;
     items.forEach((it, i) => {
       const x = 90 + i * 180;
       this.add.image(x, BAR_Y, 'ui-panel').setDisplaySize(168, 84).setAlpha(0.3).setDepth(1);
-      this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(44, 44).setDepth(2);
+      this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(it.icon === 'img-ui-coin' ? 30 : 44, 44).setDepth(2);
       texts[it.k] = this.add
         .text(x - 14, BAR_Y, '', TS.number(30))
         .setOrigin(0, 0.5)
@@ -243,7 +243,7 @@ export class CareerScene extends Phaser.Scene {
         .setInteractive();
       pressify(this, marker);
       marker.on('pointerup', () => this.openPicker(slot));
-      const tagIcon = this.add.sprite(x - 28, y + 96, 'ui-coin').setDisplaySize(34, 34).setDepth(1);
+      const tagIcon = this.add.sprite(x - 28, y + 96, 'img-ui-coin').setDisplaySize(24, 34).setDepth(1);
       const tagTxt = this.add
         .text(x - 6, y + 96, String(price), TS.number(28))
         .setOrigin(0, 0.5)
@@ -283,7 +283,7 @@ export class CareerScene extends Phaser.Scene {
         .setDepth(12)
         .setInteractive();
       pressify(this, sp);
-      const icon = this.add.sprite(x - 26, y + 112, 'ui-coin').setDisplaySize(32, 32).setDepth(12);
+      const icon = this.add.sprite(x - 26, y + 112, 'img-ui-coin').setDisplaySize(22, 32).setDepth(12);
       const txt = this.add
         .text(x - 4, y + 112, String(choice.price), TS.number(28))
         .setOrigin(0, 0.5)
@@ -421,7 +421,7 @@ export class CareerScene extends Phaser.Scene {
             .setDepth(12),
         );
       } else {
-        objs.push(this.add.sprite(x - 28, y + 112, 'ui-coin').setDisplaySize(32, 32).setDepth(12));
+        objs.push(this.add.sprite(x - 28, y + 112, 'img-ui-coin').setDisplaySize(22, 32).setDepth(12));
         objs.push(
           this.add
             .text(x - 6, y + 112, String(item.price), TS.number(28))
@@ -519,7 +519,7 @@ export class CareerScene extends Phaser.Scene {
       const icon = this.add.sprite(x, y, `ing-${cell.id}`).setDisplaySize(96, 96).setDepth(12).setInteractive();
       pressify(this, icon);
       objs.push(icon);
-      objs.push(this.add.sprite(x - 22, y + 68, 'ui-coin').setDisplaySize(28, 28).setDepth(12));
+      objs.push(this.add.sprite(x - 22, y + 68, 'img-ui-coin').setDisplaySize(19, 28).setDepth(12));
       objs.push(
         this.add
           .text(x - 2, y + 68, String(GROCERY_PRICE), TS.number(26))
@@ -677,7 +677,7 @@ export class CareerScene extends Phaser.Scene {
       .setDepth(31);
     const note = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.24, 'ui-note').setDisplaySize(90, 90).setDepth(31);
     const skip = this.add
-      .sprite(GAME_WIDTH - 70, GAME_HEIGHT * 0.1, 'ui-play')
+      .sprite(GAME_WIDTH - 70, GAME_HEIGHT * 0.1, 'img-ui-play')
       .setDisplaySize(64, 64)
       .setTint(0x888899)
       .setDepth(31)

@@ -170,13 +170,13 @@ export class CookingScene extends Phaser.Scene {
     this.viewObjects.push(
       this.add.image(GAME_WIDTH / 2, 96, 'ui-panel').setDisplaySize(664, 128).setAlpha(0.45).setDepth(0),
       this.add.sprite(GAME_WIDTH / 2, 96, 'ui-pan-card').setDisplaySize(92, 92).setDepth(1),
-      this.add.sprite(530, 96, 'ui-coin').setDisplaySize(44, 44).setDepth(1),
+      this.add.sprite(530, 96, 'img-ui-coin').setDisplaySize(30, 44).setDepth(1),
       this.add
         .text(560, 96, String(this.wallet.data().coins), TS.number(32))
         .setOrigin(0, 0.5)
         .setDepth(1),
     );
-    const home = this.add.sprite(78, 96, 'ui-home').setDisplaySize(68, 68).setDepth(1).setInteractive();
+    const home = this.add.sprite(78, 96, 'img-ui-home').setDisplaySize(68, 68).setDepth(1).setInteractive();
     pressify(this, home);
     this.viewObjects.push(home);
     home.on('pointerup', () => goto(this, 'hub'));
@@ -198,12 +198,12 @@ export class CookingScene extends Phaser.Scene {
       this.viewObjects.push(card, dish);
       if (!unlocked) {
         dish.setTint(0x555566).setAlpha(0.55);
-        this.viewObjects.push(this.add.sprite(x + 44, y, 'ui-lock').setDisplaySize(48, 48).setDepth(2));
+        this.viewObjects.push(this.add.sprite(x + 44, y, 'img-ui-lock').setDisplaySize(48, 48).setDepth(2));
         return;
       }
       const best = this.cooking.bestFor(recipe.id);
       for (let st = 0; st < 3; st++) {
-        const starSp = this.add.sprite(x + 10 + st * 34, y, 'ui-star').setDisplaySize(28, 28).setDepth(1);
+        const starSp = this.add.sprite(x + 10 + st * 34, y, 'img-ui-star').setDisplaySize(28, 28).setDepth(1);
         if (st >= best) starSp.setTint(0x555566).setAlpha(0.6);
         this.viewObjects.push(starSp);
       }
@@ -258,7 +258,7 @@ export class CookingScene extends Phaser.Scene {
       plate.setTint(0x555566).setAlpha(0.55);
       // Lock + '5' badge: five completed recipes open the diner (number-only text).
       this.viewObjects.push(
-        this.add.sprite(x + 44, y - 30, 'ui-lock').setDisplaySize(44, 44).setDepth(2),
+        this.add.sprite(x + 44, y - 30, 'img-ui-lock').setDisplaySize(44, 44).setDepth(2),
         this.add.sprite(x + 44, y + 26, 'ui-levelbadge').setDisplaySize(38, 38).setDepth(2),
         this.add
           .text(x + 44, y + 28, '5', TS.number(24))
@@ -303,7 +303,7 @@ export class CookingScene extends Phaser.Scene {
     this.state = null;
     const sv = this.serving;
     if (sv === null) return;
-    const home = this.add.sprite(60, 62, 'ui-home').setDisplaySize(56, 56).setAlpha(0.85).setDepth(1).setInteractive();
+    const home = this.add.sprite(60, 62, 'img-ui-home').setDisplaySize(56, 56).setAlpha(0.85).setDepth(1).setInteractive();
     pressify(this, home);
     this.viewObjects.push(home);
     home.on('pointerup', () => {
@@ -433,7 +433,7 @@ export class CookingScene extends Phaser.Scene {
     this.viewObjects.push(this.add.sprite(GAME_WIDTH / 2, 640, 'ui-plate').setDisplaySize(320, 320).setDepth(1));
     for (let i = 0; i < 3; i++) {
       const slot = this.add
-        .sprite(GAME_WIDTH / 2 + (i - 1) * 150, 250, 'ui-star')
+        .sprite(GAME_WIDTH / 2 + (i - 1) * 150, 250, 'img-ui-star')
         .setDisplaySize(104, 104)
         .setTint(0x555566)
         .setDepth(2);
@@ -441,14 +441,14 @@ export class CookingScene extends Phaser.Scene {
     }
     for (let i = 0; i < stars; i++) {
       const st = this.add
-        .sprite(GAME_WIDTH / 2 + (i - 1) * 150, 250, 'ui-star')
+        .sprite(GAME_WIDTH / 2 + (i - 1) * 150, 250, 'img-ui-star')
         .setDisplaySize(104, 104)
         .setScale(0)
         .setDepth(3);
       this.viewObjects.push(st);
-      this.tweens.add({ targets: st, scale: 104 / 96, duration: 260, delay: 350 + i * 240, ease: 'Back.easeOut' });
+      this.tweens.add({ targets: st, scale: 104 / 170, duration: 260, delay: 350 + i * 240, ease: 'Back.easeOut' });
     }
-    const coinIcon = this.add.sprite(GAME_WIDTH / 2 - 40, 850, 'ui-coin').setDisplaySize(48, 48).setDepth(2);
+    const coinIcon = this.add.sprite(GAME_WIDTH / 2 - 40, 850, 'img-ui-coin').setDisplaySize(33, 48).setDepth(2);
     const coinText = this.add
       .text(GAME_WIDTH / 2 - 8, 850, String(this.wallet.data().coins), TS.number(36))
       .setOrigin(0, 0.5)
@@ -473,8 +473,8 @@ export class CookingScene extends Phaser.Scene {
       });
     }
     // Serve again + back to the list.
-    const retry = this.add.sprite(GAME_WIDTH / 2 - 120, 1070, 'ui-retry').setDisplaySize(120, 120).setDepth(2).setInteractive();
-    const list = this.add.sprite(GAME_WIDTH / 2 + 120, 1070, 'ui-home').setDisplaySize(120, 120).setDepth(2).setInteractive();
+    const retry = this.add.sprite(GAME_WIDTH / 2 - 120, 1070, 'img-ui-retry').setDisplaySize(120, 120).setDepth(2).setInteractive();
+    const list = this.add.sprite(GAME_WIDTH / 2 + 120, 1070, 'img-ui-home').setDisplaySize(120, 120).setDepth(2).setInteractive();
     pressify(this, retry);
     pressify(this, list);
     this.viewObjects.push(retry, list);
@@ -519,7 +519,7 @@ export class CookingScene extends Phaser.Scene {
       } else pip.setTint(0x555566).setAlpha(0.7);
       this.viewObjects.push(pip);
     }
-    const home = this.add.sprite(60, 62, 'ui-home').setDisplaySize(56, 56).setAlpha(0.85).setDepth(1).setInteractive();
+    const home = this.add.sprite(60, 62, 'img-ui-home').setDisplaySize(56, 56).setAlpha(0.85).setDepth(1).setInteractive();
     pressify(this, home);
     this.viewObjects.push(home);
     home.on('pointerup', () => {
@@ -531,7 +531,7 @@ export class CookingScene extends Phaser.Scene {
       // Rendered ONLY when the pantry actually consumed stock for this run; reuses
       // ui-heart with a flat cream fill so no new texture is needed (judgment call).
       this.viewObjects.push(
-        this.add.sprite(GAME_WIDTH / 2 + 96, 60, 'ui-heart').setDisplaySize(44, 44).setTintFill(PALETTE.cream).setDepth(2),
+        this.add.sprite(GAME_WIDTH / 2 + 96, 60, 'img-ui-heart').setDisplaySize(44, 44).setTintFill(PALETTE.cream).setDepth(2),
       );
     }
     if (step.type === 'gather') this.buildGather(step);
@@ -745,7 +745,7 @@ export class CookingScene extends Phaser.Scene {
     // Star pop: 3 slots, earned ones land gold with a pip burst.
     for (let i = 0; i < 3; i++) {
       const slot = this.add
-        .sprite(GAME_WIDTH / 2 + (i - 1) * 150, 250, 'ui-star')
+        .sprite(GAME_WIDTH / 2 + (i - 1) * 150, 250, 'img-ui-star')
         .setDisplaySize(104, 104)
         .setTint(0x555566)
         .setDepth(2);
@@ -753,15 +753,15 @@ export class CookingScene extends Phaser.Scene {
     }
     for (let i = 0; i < stars; i++) {
       const st = this.add
-        .sprite(GAME_WIDTH / 2 + (i - 1) * 150, 250, 'ui-star')
+        .sprite(GAME_WIDTH / 2 + (i - 1) * 150, 250, 'img-ui-star')
         .setDisplaySize(104, 104)
         .setScale(0)
         .setDepth(3);
       this.viewObjects.push(st);
-      this.tweens.add({ targets: st, scale: 104 / 96, duration: 260, delay: 350 + i * 240, ease: 'Back.easeOut' });
+      this.tweens.add({ targets: st, scale: 104 / 170, duration: 260, delay: 350 + i * 240, ease: 'Back.easeOut' });
     }
     // Coin display + pips flying to it (payout already in the wallet).
-    const coinIcon = this.add.sprite(GAME_WIDTH / 2 - 40, 850, 'ui-coin').setDisplaySize(48, 48).setDepth(2);
+    const coinIcon = this.add.sprite(GAME_WIDTH / 2 - 40, 850, 'img-ui-coin').setDisplaySize(33, 48).setDepth(2);
     const coinText = this.add
       .text(GAME_WIDTH / 2 - 8, 850, String(this.wallet.data().coins), TS.number(36))
       .setOrigin(0, 0.5)
@@ -786,8 +786,8 @@ export class CookingScene extends Phaser.Scene {
       });
     }
     // Replay + back-to-list.
-    const retry = this.add.sprite(GAME_WIDTH / 2 - 120, 1070, 'ui-retry').setDisplaySize(120, 120).setDepth(2).setInteractive();
-    const list = this.add.sprite(GAME_WIDTH / 2 + 120, 1070, 'ui-home').setDisplaySize(120, 120).setDepth(2).setInteractive();
+    const retry = this.add.sprite(GAME_WIDTH / 2 - 120, 1070, 'img-ui-retry').setDisplaySize(120, 120).setDepth(2).setInteractive();
+    const list = this.add.sprite(GAME_WIDTH / 2 + 120, 1070, 'img-ui-home').setDisplaySize(120, 120).setDepth(2).setInteractive();
     pressify(this, retry);
     pressify(this, list);
     this.viewObjects.push(retry, list);
