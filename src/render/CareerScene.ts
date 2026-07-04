@@ -9,6 +9,7 @@ import { createWallet, type Wallet } from '../services/wallet';
 import { createWardrobe, type Wardrobe } from '../services/wardrobe';
 import { createBlips, type Blips } from './audio';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
+import { PALETTE } from './palette';
 import { makeAvatarTexture, makeTextures } from './theme';
 
 const BAR_Y = 70;
@@ -21,10 +22,10 @@ type BarKey = 'coins' | 'followers' | 'hearts' | 'level';
 
 /** Wall band tint per chapter (floor band stays shared). */
 const WALL_TINT: Record<ChapterId, number> = {
-  kitchen: 0x3d3d5c,
-  dance: 0x4a3d5c,
-  gym: 0x3d5c4a,
-  vanity: 0x5c3d52,
+  kitchen: 0x3a2b52,
+  dance: 0x4a2b62,
+  gym: 0x2f4a45,
+  vanity: 0x522b47,
 };
 
 const STRIP_ICON: Record<ChapterId, string> = {
@@ -84,6 +85,12 @@ export class CareerScene extends Phaser.Scene {
     this.add
       .rectangle(GAME_WIDTH / 2, (WALL_SPLIT + ROOM_BOTTOM) / 2, GAME_WIDTH, ROOM_BOTTOM - WALL_SPLIT, 0x2a2a3e)
       .setDepth(-1);
+    // Studio motif: big soft ring light glowing behind the room view band.
+    this.add
+      .image(GAME_WIDTH / 2, (ROOM_TOP + ROOM_BOTTOM) / 2, 'ui-ringlight')
+      .setDisplaySize(640, 640)
+      .setAlpha(0.5)
+      .setDepth(-0.5);
     this.buildBar();
     this.drawRoom();
     this.buildChapterStrip();
@@ -128,7 +135,7 @@ export class CareerScene extends Phaser.Scene {
       this.add.image(x, BAR_Y, 'ui-panel').setDisplaySize(168, 84).setAlpha(0.3).setDepth(1);
       this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(44, 44).setDepth(2);
       texts[it.k] = this.add
-        .text(x - 14, BAR_Y, '', { fontSize: '30px', fontStyle: 'bold', color: '#ffffff' })
+        .text(x - 14, BAR_Y, '', { fontSize: '30px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6 })
         .setOrigin(0, 0.5)
         .setDepth(2);
     });
@@ -270,7 +277,9 @@ export class CareerScene extends Phaser.Scene {
         return;
       }
       if (active) {
-        this.stripObjects.push(this.add.circle(x, STRIP_Y, 48).setStrokeStyle(5, 0xf1c40f).setDepth(2));
+        const ring = this.add.circle(x, STRIP_Y, 48).setStrokeStyle(5, PALETTE.gold).setDepth(2);
+        this.tweens.add({ targets: ring, alpha: 0.7, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        this.stripObjects.push(ring);
       }
       // Newly-unlocked chapter: add looping pulse cue
       if (!active && ch.unlockLevel === lvl) {
@@ -458,6 +467,13 @@ export class CareerScene extends Phaser.Scene {
   /** 8 beats at 100bpm; taps within +-250ms of a beat ding gold. Skip = perf 1. Never fails. */
   private startTapBeat(avatarPrefix: string, pose: 0 | 1 | 2): void {
     const objs: Phaser.GameObjects.GameObject[] = [];
+    // Filming under the ring light: slow-spinning studio ring behind the avatar.
+    const ringlight = this.add
+      .image(GAME_WIDTH / 2, GAME_HEIGHT * 0.52, 'ui-ringlight')
+      .setDisplaySize(360, 360)
+      .setAlpha(0.6)
+      .setDepth(30.5);
+    this.tweens.add({ targets: ringlight, angle: 360, duration: 12000, repeat: -1 });
     const avatar = this.add
       .sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.52, `${avatarPrefix}-p${pose}`)
       .setDisplaySize(240, 240)
@@ -469,8 +485,8 @@ export class CareerScene extends Phaser.Scene {
       .setTint(0x888899)
       .setDepth(31)
       .setInteractive();
-    objs.push(avatar, note, skip);
-    this.videoObjects.push(avatar, note, skip);
+    objs.push(avatar, note, skip, ringlight);
+    this.videoObjects.push(avatar, note, skip, ringlight);
 
     const period = 600; // 100 bpm
     const beats = 8;

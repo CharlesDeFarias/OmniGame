@@ -10,11 +10,12 @@ import { summarize } from '../services/stats';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createWardrobe, type Wardrobe } from '../services/wardrobe';
 import { createBlips, type Blips } from './audio';
-import { planSteps, type Step } from './choreo';
+import { EASE, planSteps, type Step } from './choreo';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
 import { boardLayout, cellToXY, xyToCell, type Layout } from './layout';
 import { loadLevels } from './levels';
 import { pieceTextureKey, type PackId } from './packs';
+import { PALETTE } from './palette';
 import { COLOR_HEX, makeAvatarTexture, makeTextures, textureKeyFor } from './theme';
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
@@ -67,12 +68,13 @@ export class PlayScene extends Phaser.Scene {
 
   create(): void {
     makeTextures(this, 96);
-    // Vertical vignette over the 0x1a1a2e canvas color: cheap gradient illusion.
+    // Stage bands over the 0x141428 canvas: plum wash up top, deep shadow below,
+    // canvas color showing through the middle — subtle studio-stage feel.
     this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.2, GAME_WIDTH, GAME_HEIGHT * 0.4, 0x24244a, 0.35)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.125, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgPlum, 0.8)
       .setDepth(-2);
     this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.8, GAME_WIDTH, GAME_HEIGHT * 0.4, 0x101020, 0.35)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT * 0.875, GAME_WIDTH, GAME_HEIGHT * 0.25, PALETTE.bgDeep, 0.9)
       .setDepth(-2);
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.progress = loadProgress(window.localStorage);
@@ -106,12 +108,12 @@ export class PlayScene extends Phaser.Scene {
     this.levels = loadLevels(this.chapter);
     this.marker = this.add
       .rectangle(0, 0, 10, 10)
-      .setStrokeStyle(5, 0xffffff)
+      .setStrokeStyle(5, PALETTE.gold)
       .setFillStyle(0, 0)
       .setVisible(false)
       .setDepth(5);
     this.movesText = this.add
-      .text(GAME_WIDTH / 2, TOP_RESERVE * 0.72, '', { fontSize: '64px', fontStyle: 'bold', color: '#ffffff' })
+      .text(GAME_WIDTH / 2, TOP_RESERVE * 0.72, '', { fontSize: '64px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6 })
       .setOrigin(0.5)
       .setDepth(2);
     // Hidden parent corner (decision #17): invisible top-left hotspot, 5 quick taps open the stats overlay.
@@ -122,7 +124,7 @@ export class PlayScene extends Phaser.Scene {
       .on('pointerdown', () => this.onSecretTap());
     this.coinIcon = this.add.sprite(90, 170, 'ui-coin').setDisplaySize(40, 40).setDepth(2);
     this.coinText = this.add
-      .text(120, 170, String(this.wallet.data().coins), { fontSize: '28px', fontStyle: 'bold', color: '#ffffff' })
+      .text(120, 170, String(this.wallet.data().coins), { fontSize: '28px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6 })
       .setOrigin(0, 0.5)
       .setDepth(2);
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
@@ -178,6 +180,17 @@ export class PlayScene extends Phaser.Scene {
         this.backdrop.push(tile);
       }
     }
+    // Gold board frame (plan 7 design pass): one ui-tile-frame stretched over the board rect.
+    const framePad = this.layout.cell * 0.18;
+    const boardW = this.layout.cell * this.layout.cols;
+    const boardH = this.layout.cell * this.layout.rows;
+    this.backdrop.push(
+      this.add
+        .image(this.layout.originX + boardW / 2, this.layout.originY + boardH / 2, 'ui-tile-frame')
+        .setDisplaySize(boardW + framePad * 2, boardH + framePad * 2)
+        .setAlpha(0.9)
+        .setDepth(-0.5),
+    );
     this.journal.log('level_start', { level: def.id, chapter: this.chapter, retry: this.retryCount, tier: this.adaptive.state().tier });
     this.buildGoalHud();
     this.syncBoard();
@@ -212,7 +225,7 @@ export class PlayScene extends Phaser.Scene {
         : 'ob-ice';
       const icon = this.add.sprite(x0 + i * spacing - 34, TOP_RESERVE * 0.32, iconKey).setDisplaySize(64, 64).setDepth(2);
       const txt = this.add
-        .text(x0 + i * spacing + 14, TOP_RESERVE * 0.32, '', { fontSize: '44px', fontStyle: 'bold', color: '#ffffff' })
+        .text(x0 + i * spacing + 14, TOP_RESERVE * 0.32, '', { fontSize: '44px', fontStyle: 'bold', color: PALETTE.textOnDark, stroke: '#141428', strokeThickness: 6 })
         .setOrigin(0, 0.5)
         .setDepth(2);
       this.goalHud.push({ icon, txt });
@@ -225,7 +238,7 @@ export class PlayScene extends Phaser.Scene {
       const remaining = Math.max(0, gs.goal.count - gs.collected);
       const hud = this.goalHud[i]!;
       hud.txt.setText(remaining === 0 ? '✓' : String(remaining));
-      hud.txt.setColor(remaining === 0 ? '#2ecc71' : '#ffffff');
+      hud.txt.setColor(remaining === 0 ? '#2ecc71' : PALETTE.textOnDark);
     });
   }
 
@@ -468,6 +481,15 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private async attemptSwap(a: Coord, b: Coord): Promise<void> {
+    // Note before the move resolves whether either tapped cell held a special:
+    // a valid special-swap gets a light camera shake in runTurn.
+    const board = this.state.board;
+    const isSpecial = (c: Coord): boolean => {
+      if (c.x < 0 || c.x >= board.width || c.y < 0 || c.y >= board.height) return false;
+      const piece = board.cells[c.y * board.width + c.x];
+      return piece !== null && piece !== undefined && piece.kind === 'special';
+    };
+    const specialSwap = isSpecial(a) || isSpecial(b);
     let out: MoveOutcome;
     try {
       out = applyMove(this.state, a, b);
@@ -498,7 +520,7 @@ export class PlayScene extends Phaser.Scene {
       }
       return;
     }
-    await this.runTurn(out);
+    await this.runTurn(out, specialSwap);
   }
 
   private wiggle(c: Coord): Promise<void> {
@@ -515,8 +537,9 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private async runTurn(out: MoveOutcome): Promise<void> {
+  private async runTurn(out: MoveOutcome, specialSwap = false): Promise<void> {
     this.busy = true;
+    if (specialSwap) this.cameras.main.shake(120, 0.004);
     this.movesMadeThisLevel += 1;
     this.state = out.state;
     this.journal.log('move', { level: this.state.level.id, movesLeft: this.state.movesLeft });
@@ -552,8 +575,8 @@ export class PlayScene extends Phaser.Scene {
         const pa = cellToXY(this.layout, ev.a.x, ev.a.y);
         const pb = cellToXY(this.layout, ev.b.x, ev.b.y);
         const jobs: Promise<void>[] = [];
-        if (sa) jobs.push(this.tweenAsync({ targets: sa, x: pb.px, y: pb.py, duration: step.duration }));
-        if (sb) jobs.push(this.tweenAsync({ targets: sb, x: pa.px, y: pa.py, duration: step.duration }));
+        if (sa) jobs.push(this.tweenAsync({ targets: sa, x: pb.px, y: pb.py, duration: step.duration, ease: EASE.swap }));
+        if (sb) jobs.push(this.tweenAsync({ targets: sb, x: pa.px, y: pa.py, duration: step.duration, ease: EASE.swap }));
         await Promise.all(jobs);
         if (sa && sb) {
           this.sprites.set(key(ev.a), sb);
@@ -563,8 +586,22 @@ export class PlayScene extends Phaser.Scene {
       }
       case 'clear': {
         const targets = ev.cells.map((c) => this.sprites.get(key(c))).filter((s): s is Phaser.GameObjects.Sprite => s !== undefined);
-        if (ev.cells.length >= 6) this.blips.booster();
-        else this.blips.matchAt(wave);
+        if (ev.cells.length >= 6) {
+          this.blips.booster();
+          // Booster flash: a white ring bursts at each cleared cell (fire-and-forget).
+          for (const c of ev.cells) {
+            const { px, py } = cellToXY(this.layout, c.x, c.y);
+            const ring = this.add.sprite(px, py, 'ui-ringlight').setTint(0xffffff).setAlpha(0.7).setScale(0.2).setDepth(2);
+            this.tweens.add({
+              targets: ring,
+              alpha: 0,
+              scale: 1.2,
+              duration: 250,
+              ease: 'Quad.easeOut',
+              onComplete: () => ring.destroy(),
+            });
+          }
+        } else this.blips.matchAt(wave);
         for (const c of ev.cells.slice(0, 12)) {
           const src = this.sprites.get(key(c));
           if (src === undefined) continue;
@@ -610,7 +647,7 @@ export class PlayScene extends Phaser.Scene {
         }
         const jobs = moving.map(({ sp, to }) => {
           const { px, py } = cellToXY(this.layout, to.x, to.y);
-          return this.tweenAsync({ targets: sp, x: px, y: py, duration: step.duration, ease: 'Quad.easeIn' });
+          return this.tweenAsync({ targets: sp, x: px, y: py, duration: step.duration, ease: EASE.fall });
         });
         for (const { sp, to } of moving) this.sprites.set(key(to), sp);
         await Promise.all(jobs);
@@ -714,7 +751,7 @@ export class PlayScene extends Phaser.Scene {
     this.blips.gift();
     const jobs: Promise<void>[] = [];
     for (let i = 0; i < moves; i++) {
-      const pip = this.add.sprite(GAME_WIDTH / 2 + (i - moves / 2) * 60, GAME_HEIGHT / 2, 'ui-pip').setScale(2).setDepth(6);
+      const pip = this.add.sprite(GAME_WIDTH / 2 + (i - moves / 2) * 60, GAME_HEIGHT / 2, 'ui-pip').setTint(PALETTE.gold).setScale(2).setDepth(6);
       jobs.push(
         this.tweenAsync({
           targets: pip,
@@ -728,6 +765,9 @@ export class PlayScene extends Phaser.Scene {
       );
     }
     await Promise.all(jobs);
+    // Counter pulse with a brief gold flash on the number itself.
+    this.movesText.setColor(PALETTE.textGold);
+    this.time.delayedCall(300, () => this.movesText.setColor(PALETTE.textOnDark));
     await this.tweenAsync({ targets: this.movesText, scale: 1.6, duration: 140, yoyo: true });
   }
 
@@ -756,6 +796,12 @@ export class PlayScene extends Phaser.Scene {
     this.flyCoinPips();
     this.blips.win();
     this.overlay();
+    // Gold banner sweeps in behind the stars (depth 10.5: between dim and stars).
+    const bannerW = GAME_WIDTH * 0.7;
+    const bannerY = GAME_HEIGHT * 0.38;
+    const banner = this.add.rectangle(-bannerW / 2, bannerY, bannerW, 130, PALETTE.panel, 0.95).setDepth(10.5);
+    const bannerFrame = this.add.image(-bannerW / 2, bannerY, 'ui-tile-frame').setDisplaySize(bannerW, 130).setDepth(10.5);
+    this.tweens.add({ targets: [banner, bannerFrame], x: GAME_WIDTH / 2, duration: 300, ease: 'Back.easeOut' });
     const starSprites: Phaser.GameObjects.Sprite[] = [];
     for (let i = 0; i < 3; i++) {
       const slot = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'ui-star')
@@ -765,6 +811,21 @@ export class PlayScene extends Phaser.Scene {
     for (let i = 0; i < stars; i++) {
       const st = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'ui-star').setDepth(12).setScale(0);
       starSprites.push(st);
+      // Each star pop bursts 8 gold pips outward (fire-and-forget).
+      for (let p = 0; p < 8; p++) {
+        const ang = (p * Math.PI * 2) / 8;
+        const pip = this.add.sprite(st.x, st.y, 'ui-pip').setTint(PALETTE.gold).setScale(1.2).setDepth(12);
+        this.tweens.add({
+          targets: pip,
+          x: st.x + Math.cos(ang) * 95,
+          y: st.y + Math.sin(ang) * 95,
+          alpha: 0,
+          scale: 0.3,
+          duration: 380,
+          ease: 'Quad.easeOut',
+          onComplete: () => pip.destroy(),
+        });
+      }
       await this.tweenAsync({ targets: st, scale: 2.2, duration: 260, ease: 'Back.easeOut' });
     }
     const idx = this.progress.levelIndexByChapter[this.chapter];

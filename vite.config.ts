@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { APP_IDENTITY } from './src/config/appIdentity';
 
 export default defineConfig({
   base: '/OmniGame/',
@@ -8,13 +9,13 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
-        name: 'OmniGame',
-        short_name: 'OmniGame',
+        name: APP_IDENTITY.name,
+        short_name: APP_IDENTITY.shortName,
         description: 'Ad-free casual games',
         display: 'fullscreen',
         orientation: 'portrait',
-        background_color: '#1a1a2e',
-        theme_color: '#1a1a2e',
+        background_color: APP_IDENTITY.themeColor,
+        theme_color: APP_IDENTITY.themeColor,
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
