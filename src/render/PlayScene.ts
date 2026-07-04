@@ -24,6 +24,20 @@ import { TS } from './textStyles';
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
 
+/**
+ * RM-style HUD geometry (rm-look milestone). Board top is 331 for both 6x6
+ * and 7x7 boards (width-bound at cell 112.8/96.7 under TOP_RESERVE 220), so
+ * everything here stays above y=311 (frame pad included):
+ * - goals panel: x 18..(48+84n), y 104..232 (n = goal count, max 3 -> x<=300)
+ * - moves badge: 180x110 centred at (596,168) -> x 506..686, y 113..223
+ * - coin strip: icon at (512,44), text from x 534 (clears the mute button at
+ *   x 624..696, y 24..96); parent hotspot 90x90 at (45,45) ends above y=104.
+ */
+const GOALS_LEFT = 18;
+const GOALS_TOP = 104;
+const MOVES_X = 596;
+const MOVES_Y = 168;
+
 /** Particle tint from a sprite's texture key: '(img-)gem/candy/music-red' -> COLOR_HEX.red; crates -> brown; specials/unknown -> white. */
 const tintForTexture = (texKey: string): number => {
   // The 'orange' gem renders as the silver/black octagon (no orange in the
@@ -116,8 +130,10 @@ export class PlayScene extends Phaser.Scene {
       .setFillStyle(0, 0)
       .setVisible(false)
       .setDepth(5);
+    // RM anatomy (rm-look milestone): moves live in a dedicated badge
+    // top-RIGHT (panel built per level in buildGoalHud; the number persists).
     this.movesText = this.add
-      .text(GAME_WIDTH / 2, TOP_RESERVE * 0.72, '', TS.number(64))
+      .text(MOVES_X, MOVES_Y - 4, '', TS.number(64))
       .setOrigin(0.5)
       .setDepth(2);
     // Hidden parent corner (decision #17): invisible top-left hotspot, 5 quick taps open the stats overlay.
@@ -126,10 +142,12 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(20)
       .setInteractive()
       .on('pointerdown', () => this.onSecretTap());
+    // Coin counter: small strip in the very top-right corner, above the moves
+    // badge (RM anatomy), left of the mute button which keeps the corner slot.
     // Coin icon is the pzUH dollar glyph (90x130): width scaled to keep aspect.
-    this.coinIcon = this.add.sprite(90, 170, 'img-ui-coin').setDisplaySize(28, 40).setDepth(2);
+    this.coinIcon = this.add.sprite(512, 44, 'img-ui-coin').setDisplaySize(19, 28).setDepth(2);
     this.coinText = this.add
-      .text(120, 170, String(this.wallet.data().coins), TS.number(28))
+      .text(534, 44, String(this.wallet.data().coins), TS.number(24))
       .setOrigin(0, 0.5)
       .setDepth(2);
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
@@ -208,36 +226,40 @@ export class PlayScene extends Phaser.Scene {
     this.goalHud = [];
     for (const pnl of this.hudPanels) pnl.destroy();
     this.hudPanels = [];
+    // RM anatomy: goals panel top-LEFT (one column per goal: icon over its
+    // remaining count), moves badge top-RIGHT. Panel top sits below y=100 so
+    // it clears the 90x90 parent-corner hotspot at (45,45).
     const n = this.state.goals.length;
-    const spacing = 150;
+    const col = 84;
+    const panelW = n * col + 30;
     this.hudPanels.push(
       this.add
-        .image(GAME_WIDTH / 2, TOP_RESERVE * 0.32, 'ui-panel')
-        .setDisplaySize(n * spacing + 30, 100)
-        .setAlpha(0.3)
+        .image(GOALS_LEFT + panelW / 2, GOALS_TOP + 64, 'ui-panel')
+        .setDisplaySize(panelW, 128)
+        .setAlpha(0.35)
+        .setDepth(0),
+      // Round-ish moves badge + warm halo pulling the eye to the counter.
+      this.add
+        .image(MOVES_X, MOVES_Y, 'ui-panel')
+        .setDisplaySize(180, 110)
+        .setAlpha(0.35)
         .setDepth(0),
       this.add
-        .image(GAME_WIDTH / 2, TOP_RESERVE * 0.72, 'ui-panel')
-        .setDisplaySize(210, 96)
-        .setAlpha(0.3)
-        .setDepth(0),
-      // Warm halo pulling the eye to the moves counter (legit-look pass).
-      this.add
-        .image(GAME_WIDTH / 2, TOP_RESERVE * 0.72, 'ui-glow')
-        .setDisplaySize(300, 300)
+        .image(MOVES_X, MOVES_Y, 'ui-glow')
+        .setDisplaySize(260, 260)
         .setAlpha(0.15)
         .setDepth(-0.4),
     );
-    const x0 = GAME_WIDTH / 2 - ((n - 1) * spacing) / 2;
     this.state.goals.forEach((gs, i) => {
       const iconKey =
         gs.goal.type === 'collect' ? pieceTextureKey({ kind: 'normal', color: gs.goal.color }, this.pack)
         : gs.goal.type === 'clearBoxes' ? 'img-ob-box1'
         : 'img-ob-ice';
-      const icon = this.add.sprite(x0 + i * spacing - 34, TOP_RESERVE * 0.32, iconKey).setDisplaySize(64, 64).setDepth(2);
+      const cx = GOALS_LEFT + 15 + col / 2 + i * col;
+      const icon = this.add.sprite(cx, GOALS_TOP + 38, iconKey).setDisplaySize(54, 54).setDepth(2);
       const txt = this.add
-        .text(x0 + i * spacing + 14, TOP_RESERVE * 0.32, '', TS.number(44))
-        .setOrigin(0, 0.5)
+        .text(cx, GOALS_TOP + 94, '', TS.number(34))
+        .setOrigin(0.5)
         .setDepth(2);
       this.goalHud.push({ icon, txt });
     });
