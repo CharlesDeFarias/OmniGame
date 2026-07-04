@@ -8,8 +8,8 @@ import { GAME_HEIGHT, GAME_WIDTH } from './config';
  * game state, safe to call from any scene after makeTextures().
  */
 
-/** Fade curtain color for every transition: the deep midnight canvas (#141528-ish). */
-const FADE = { r: 20, g: 21, b: 40 } as const;
+/** Fade curtain color for every transition: the deep royal-blue canvas (#0e1e3d). */
+const FADE = { r: 14, g: 30, b: 61 } as const;
 const FADE_OUT_MS = 180;
 const FADE_IN_MS = 200;
 

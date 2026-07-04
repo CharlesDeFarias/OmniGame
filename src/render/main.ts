@@ -61,7 +61,7 @@ void loadBrandFont().then(() => {
     scene: [PreloadScene, HubScene, MapScene, CareerScene, PlayScene, CookingScene, RunnerScene],
   });
   // Lift the splash curtain once the game is READY (the hub's create() runs
-  // the same tick and opens with a camera fade from the same #141428, so the
+  // the same tick and opens with a camera fade from the same #0e1e3d, so the
   // handoff reads as one continuous fade).
   game.events.once(Phaser.Core.Events.READY, () => {
     if (splash === null) return;

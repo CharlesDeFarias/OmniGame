@@ -1,12 +1,14 @@
 import type { JournalStorage } from './journal';
 import { createRng } from '../core/match3/index';
-import type { LevelDef } from '../core/match3/index';
+import type { LevelDef, SpecialKind } from '../core/match3/index';
 
 export interface AdaptiveState {
   version: 1;
   tier: number;
   recent: { won: boolean; stars: number }[];
   winsSinceBreak: number;
+  /** Consecutive wins (loss resets to 0). Drives the free start-booster reward. */
+  streak: number;
 }
 
 export interface Adaptive {
@@ -19,7 +21,7 @@ export interface Adaptive {
 
 const KEY = 'omnigame.adaptive.v1';
 
-const DEFAULT: AdaptiveState = { version: 1, tier: 0, recent: [], winsSinceBreak: 0 };
+const DEFAULT: AdaptiveState = { version: 1, tier: 0, recent: [], winsSinceBreak: 0, streak: 0 };
 
 function load(storage: JournalStorage): AdaptiveState {
   try {
@@ -49,11 +51,15 @@ function load(storage: JournalStorage): AdaptiveState {
           )
           .map((e) => ({ won: (e as Record<string, unknown>).won as boolean, stars: (e as Record<string, unknown>).stars as number }))
       : [];
+    // Defensive migration: states stored before the streak field default to 0
+    // (invalid values too) without discarding the rest.
+    const streak = Number.isInteger(data.streak) && (data.streak as number) >= 0 ? (data.streak as number) : 0;
     return {
       version: 1,
       tier: data.tier as number,
       recent,
       winsSinceBreak: data.winsSinceBreak as number,
+      streak,
     };
   } catch {
     return { ...DEFAULT, recent: [] };
@@ -138,6 +144,15 @@ export function applyTierTo(level: LevelDef, tier: number): LevelDef {
   };
 }
 
+/** Free start booster earned by the current win streak (renderer combines it with
+ *  purchased boosters, cap 2 total): 3+ wins -> rocketH, 5+ -> tnt, 7+ -> lightball. */
+export function streakBonus(streak: number): SpecialKind | null {
+  if (streak >= 7) return 'lightball';
+  if (streak >= 5) return 'tnt';
+  if (streak >= 3) return 'rocketH';
+  return null;
+}
+
 export function createAdaptive(storage: JournalStorage): Adaptive {
   let current = load(storage);
 
@@ -147,9 +162,11 @@ export function createAdaptive(storage: JournalStorage): Adaptive {
       tier: current.tier,
       recent: [...current.recent],
       winsSinceBreak: current.winsSinceBreak,
+      streak: current.streak,
     }),
 
     recordOutcome: (won: boolean, stars: number) => {
+      current.streak = won ? current.streak + 1 : 0;
       const entry = { won, stars };
       current.recent.push(entry);
       if (current.recent.length > 5) {

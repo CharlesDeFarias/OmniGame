@@ -1,10 +1,10 @@
 import { PNG } from 'pngjs';
 import { writeFileSync } from 'node:fs';
 
-// App icon (plan 7, decisions #43/#49; profile colors, decision #54): plum backdrop, gold ring,
+// App icon (plan 7, decisions #43/#49; profile colors, decision #54): royal-blue backdrop, gold ring,
 // centered blush heart, small gold "ring light" above-right. Matches
 // src/render/palette.ts (bgPlum / gold / blush).
-const PLUM: [number, number, number] = [42, 31, 61]; // 0x2a1f3d
+const PLUM: [number, number, number] = [14, 30, 61]; // 0x0e1e3d (royal blue; name kept to avoid ripple)
 const GOLD: [number, number, number] = [245, 197, 66]; // 0xf5c542
 const BLUSH: [number, number, number] = [253, 121, 168]; // 0xfd79a8
 

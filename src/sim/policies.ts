@@ -1,4 +1,4 @@
-import { createRng, resolveTurn } from '../core/match3/index';
+import { createRng, goalHintsFrom, resolveTurn } from '../core/match3/index';
 import type { GameState, Move, RNG } from '../core/match3/index';
 
 export type Policy = (state: GameState, moves: Move[]) => Move;
@@ -11,12 +11,13 @@ export function randomPolicy(rng: RNG): Policy {
  *  with a transplanted RNG copy, so the trial predicts exactly what applyMove would do. */
 export function greedyPolicy(rng: RNG): Policy {
   return (state, moves) => {
+    const hints = goalHintsFrom(state.goals);
     let bestScore = -1;
     let best: Move[] = [];
     for (const m of moves) {
       const trialRng = createRng(0);
       trialRng.setState(state.rng.getState());
-      const r = resolveTurn(state.board, m.a, m.b, trialRng, state.level.board.colorCount);
+      const r = resolveTurn(state.board, m.a, m.b, trialRng, state.level.board.colorCount, hints);
       let score = 0;
       for (const g of state.goals) {
         const need = g.goal.count - g.collected;

@@ -1,6 +1,6 @@
 import type { RNG } from '../rng';
 import { at, cloneBoard, index, set } from './board';
-import { boosterTargets, cellsOfColor, comboTargets } from './boosters';
+import { boosterTargets, cellsOfColor, comboTargets, type GoalHints } from './boosters';
 import { applyGravity, refill, type FallMove } from './gravity';
 import { findMatchGroups } from './matches';
 import { canSwap, swapPieces } from './swap';
@@ -33,7 +33,7 @@ const key = (c: Coord): string => `${c.x},${c.y}`;
 /** Set closure (DFS via pop): specials inside the set activate and extend it; each cell once.
  *  Cells in `noExpand` are cleared but never re-fire — used for swapped specials whose targeted
  *  or combo effect was already computed, preventing double-activation. */
-function expandWithSpecials(board: Board, initial: Coord[], rng: RNG, noExpand?: Set<string>): Coord[] {
+function expandWithSpecials(board: Board, initial: Coord[], rng: RNG, noExpand?: Set<string>, goalHints?: GoalHints): Coord[] {
   const seen = new Map<string, Coord>();
   const queue = [...initial];
   while (queue.length > 0) {
@@ -44,7 +44,7 @@ function expandWithSpecials(board: Board, initial: Coord[], rng: RNG, noExpand?:
     if (noExpand?.has(k)) continue;
     const p = at(board, c.x, c.y);
     if (p?.kind === 'special') {
-      for (const t of boosterTargets(board, c, p.special, rng)) queue.push(t);
+      for (const t of boosterTargets(board, c, p.special, rng, goalHints)) queue.push(t);
     }
   }
   return [...seen.values()];
@@ -63,6 +63,7 @@ export function resolveTurn(
   b: Coord,
   rng: RNG,
   colorCount: number,
+  goalHints?: GoalHints,
 ): TurnResult {
   if (colorCount < 3) throw new Error(`colorCount must be >= 3, got ${colorCount}`);
   const check = canSwap(board, a, b);
@@ -80,7 +81,7 @@ export function resolveTurn(
   events.push({ type: 'swap', a, b });
 
   const clearWave = (cells: Coord[], spawns: { coord: Coord; piece: Piece }[], noExpand?: Set<string>): void => {
-    const expanded = expandWithSpecials(work, cells, rng, noExpand);
+    const expanded = expandWithSpecials(work, cells, rng, noExpand, goalHints);
     // Partition: normal/special pieces clear outright; blockers directly targeted
     // (booster rows/areas/combos) take a hit instead. Max 1 damage per box per wave.
     const pieceCells: Coord[] = [];
@@ -145,6 +146,7 @@ export function resolveTurn(
       { coord: b, special: pa.special },
       { coord: a, special: pb.special },
       rng,
+      goalHints,
     );
     clearWave([...targets, a, b], [], new Set([key(a), key(b)]));
   } else if (pa.kind === 'special' || pb.kind === 'special') {
@@ -154,7 +156,7 @@ export function resolveTurn(
     const targets =
       special === 'lightball' && partner.kind === 'normal'
         ? cellsOfColor(work, partner.color)
-        : boosterTargets(work, specialAt, special, rng);
+        : boosterTargets(work, specialAt, special, rng, goalHints);
     clearWave([...targets, specialAt], [], new Set([key(specialAt)]));
   }
 

@@ -17,7 +17,7 @@ const numberBase = (size: number, color: string): TextStyle => ({
   fontSize: `${size}px`,
   fontStyle: '600',
   color,
-  stroke: '#141428',
+  stroke: '#0e1e3d',
   strokeThickness: Math.max(4, Math.round(size * 0.12)),
 });
 
@@ -28,13 +28,13 @@ export const TS = {
   numberGold: (size: number): TextStyle => numberBase(size, PALETTE.textGold),
   /** Number treatment in an arbitrary accent color (e.g. blush foe counts). */
   numberTinted: (size: number, color: string): TextStyle => numberBase(size, color),
-  /** Big celebratory/display text: white, plum stroke, soft baked shadow. */
+  /** Big celebratory/display text: white, royal-blue stroke, soft baked shadow. */
   display: (size: number): TextStyle => ({
     fontFamily: FAMILY,
     fontSize: `${size}px`,
     fontStyle: '600',
     color: '#ffffff',
-    stroke: '#2a1f3d',
+    stroke: '#16305e',
     strokeThickness: Math.round(size * 0.14),
     shadow: {
       offsetX: 0,
