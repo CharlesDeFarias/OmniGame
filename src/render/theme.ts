@@ -1039,4 +1039,35 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillCircle(c + r * 0.18, c - r * 0.12, r * 0.21);
     g.fillTriangle(c - r * 0.37, c - r * 0.03, c + r * 0.37, c - r * 0.03, c, c + r * 0.38);
   });
+
+  // --- Gate-runner (game #3) textures. Walls reuse ob-box2 at lane size. ---
+  // Tiny person-dot: circle head over a shoulder blob; cream = squad, dark plum = foe.
+  const personDot = (g: Phaser.GameObjects.Graphics, color: number): void => {
+    g.fillStyle(color);
+    g.fillCircle(c, s * 0.3, s * 0.16);
+    g.fillEllipse(c, s * 0.66, s * 0.52, s * 0.4);
+    g.lineStyle(s * 0.03, darken(color, 0.55));
+    g.strokeCircle(c, s * 0.3, s * 0.16);
+    g.strokeEllipse(c, s * 0.66, s * 0.52, s * 0.4);
+  };
+  ui('gr-pip', (g) => { personDot(g, PALETTE.cream); });
+  ui('gr-foe-pip', (g) => { personDot(g, 0x4a3166); });
+  // Glowing gate panel: translucent blush fill in a gold frame (op label is scene text).
+  ui('gr-gate', (g) => {
+    g.fillStyle(PALETTE.blush, 0.28);
+    g.fillRoundedRect(s * 0.06, s * 0.06, s * 0.88, s * 0.88, s * 0.16);
+    g.lineStyle(s * 0.05, PALETTE.gold);
+    g.strokeRoundedRect(s * 0.06, s * 0.06, s * 0.88, s * 0.88, s * 0.16);
+    g.fillStyle(0xffffff, 0.14);
+    g.fillRoundedRect(s * 0.1, s * 0.1, s * 0.8, s * 0.22, s * 0.1);
+  });
+  // Finish flag: cream pole + blush pennant.
+  ui('gr-flag', (g) => {
+    g.fillStyle(PALETTE.cream);
+    g.fillRoundedRect(c - s * 0.13, s * 0.06, s * 0.06, s * 0.88, s * 0.03);
+    g.fillStyle(PALETTE.blush);
+    g.fillTriangle(c - s * 0.07, s * 0.08, c - s * 0.07, s * 0.42, c + s * 0.42, s * 0.25);
+    g.lineStyle(s * 0.025, darken(PALETTE.blush, 0.6));
+    g.strokeTriangle(c - s * 0.07, s * 0.08, c - s * 0.07, s * 0.42, c + s * 0.42, s * 0.25);
+  });
 }

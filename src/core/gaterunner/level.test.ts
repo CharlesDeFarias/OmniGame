@@ -88,6 +88,15 @@ describe('parseGateLevel', () => {
     expect(() => parseGateLevel(level)).toThrow(/guaranteed-loss/);
   });
 
+  it('rejects a column with more than one wall (hard walls need a reachable non-wall lane)', () => {
+    const level = validLevel();
+    (level.columns as { lanes: unknown[] }[])[0]!.lanes = [wall, wall, gate('add', 3)];
+    expect(() => parseGateLevel(level)).toThrow(/at most 1 wall/);
+    const ok = validLevel();
+    (ok.columns as { lanes: unknown[] }[])[0]!.lanes = [wall, empty, gate('add', 3)];
+    expect(() => parseGateLevel(ok)).not.toThrow();
+  });
+
   it('rejects malformed lanes: wrong arity or unknown cell kind', () => {
     const two = validLevel();
     (two.columns as { lanes: unknown[] }[])[0]!.lanes = [empty, empty];

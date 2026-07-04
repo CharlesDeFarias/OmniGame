@@ -32,12 +32,20 @@ export interface GateState {
   nextColumnIndex: number;
   done: boolean;
   won: boolean;
+  /** One-time revival (gift analog): true once the squad has been brought back. */
+  revived: boolean;
   score: number;
 }
 
-/** Renderer-facing events, one advance at a time. `empty` cells emit nothing. */
+/** Renderer-facing events, one advance at a time. `empty` cells emit nothing.
+ *  `deflect` fires when a sideways move into a hard wall bounces the squad back
+ *  (`lane` = the blocked wall lane); the previous lane's cell resolves after it.
+ *  `wall` now only fires on a head-on crash (wall in the squad's own lane).
+ *  `revive` fires once per run when a wipe consumes the one-time revival. */
 export type GateEvent =
   | { type: 'gate'; op: GateOp; value: number; countAfter: number }
   | { type: 'foe'; lost: number; countAfter: number }
   | { type: 'wall'; lost: number; countAfter: number }
+  | { type: 'deflect'; lane: Lane }
+  | { type: 'revive'; count: number }
   | { type: 'finish'; count: number; score: number };
