@@ -1,1 +1,2 @@
 - All pre-run questions answered; decisions #47-50 recorded. Starting plan 7 (design pass).
+- Plan 7 design pass MERGED: studio-glam palette, glossy pieces, gold-framed UI, ring-light motifs, juice pass (bouncy falls, camera shake, flash rings), app renamed 'Luana Studio' with new icon. 254 tests, review approved. Deploying.
