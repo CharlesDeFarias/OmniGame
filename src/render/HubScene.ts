@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
+import { createJournal, type Journal } from '../services/journal';
+import { summarize } from '../services/stats';
+import { createTasks, TASK_ICONS, type Tasks } from '../services/tasks';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createBlips, type Blips } from './audio';
+import { TASK_ICON_TEXTURE } from './taskIcons';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
 import { makeTextures } from './theme';
@@ -16,6 +20,10 @@ type BarKey = 'coins' | 'followers' | 'hearts' | 'level';
 export class HubScene extends Phaser.Scene {
   private wallet!: Wallet;
   private blips!: Blips;
+  private journal!: Journal;
+  private tasks!: Tasks;
+  private secretTaps: number[] = [];
+  private parentObjects: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super('hub');
@@ -23,7 +31,12 @@ export class HubScene extends Phaser.Scene {
 
   create(): void {
     makeTextures(this, 96);
+    // Scene instances persist across start/stop: reset per-run refs.
+    this.secretTaps = [];
+    this.parentObjects = [];
     this.wallet = createWallet(window.localStorage);
+    this.journal = createJournal(window.localStorage, () => Date.now());
+    this.tasks = createTasks(window.localStorage);
     this.blips = createBlips();
     this.blips.setMuted(window.localStorage.getItem('omnigame.muted.v1') === '1');
     this.input.on('pointerdown', () => this.blips.unlock());
@@ -41,6 +54,13 @@ export class HubScene extends Phaser.Scene {
     this.tweens.add({ targets: spin, angle: 360, duration: 24000, repeat: -1 });
     this.add.image(GAME_WIDTH / 2, 230, 'ui-logo-ring').setDisplaySize(250, 250);
     this.buildBar();
+    // Hidden parent corner (decision #17 pattern, same as PlayScene): invisible
+    // top-left hotspot, 5 quick taps open the manager/parent panel.
+    this.add
+      .rectangle(45, 45, 90, 90, 0xffffff, 0.001)
+      .setDepth(20)
+      .setInteractive()
+      .on('pointerdown', () => this.onSecretTap());
     // Two big game cards, stacked (portrait).
     this.gameCard(510, 'career', (x, y) => {
       // Match-3: gem cluster.
@@ -113,5 +133,124 @@ export class HubScene extends Phaser.Scene {
         .setOrigin(0, 0.5)
         .setDepth(2);
     });
+  }
+  private onSecretTap(): void {
+    const now = Date.now();
+    this.secretTaps = this.secretTaps.filter((t) => now - t < 2500);
+    this.secretTaps.push(now);
+    if (this.secretTaps.length >= 5) {
+      this.secretTaps = [];
+      this.openParentPanel();
+    }
+  }
+
+  private openParentPanel(): void {
+    if (this.parentObjects.length > 0) return;
+    this.journal.log('parent_panel_viewed', {});
+    this.buildParentPanel();
+  }
+
+  /**
+   * Manager/parent panel (decision #50). Charles-facing, so text is allowed
+   * here (same rule as PlayScene's stats overlay). Rebuilt in place after every
+   * task action; the dim layer swallows taps to the hub underneath and closes
+   * the panel on its own pointerup (same input-leak guard as the stats overlay).
+   */
+  private buildParentPanel(): void {
+    for (const o of this.parentObjects) o.destroy();
+    this.parentObjects = [];
+    const objs = this.parentObjects;
+    const dim = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.75)
+      .setDepth(21)
+      .setInteractive();
+    dim.on('pointerup', () => this.closeParentPanel());
+    objs.push(dim);
+    objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-panel').setDisplaySize(620, 1000).setDepth(22));
+    const textStyle = { fontSize: '32px', color: '#ffffff' };
+    // Compact stats summary: plays / wins / win rate (full detail stays in PlayScene's overlay).
+    const stats = summarize(this.journal.read());
+    const summary: { icon: string | null; value: string }[] = [
+      { icon: 'ui-play', value: String(stats.levelsPlayed) },
+      { icon: 'ui-star', value: String(stats.wins) },
+      { icon: null, value: `${Math.round(stats.winRate * 100)}%` },
+    ];
+    summary.forEach((row, i) => {
+      const x = 165 + i * 160;
+      if (row.icon !== null) objs.push(this.add.sprite(x - 28, 220, row.icon).setDisplaySize(40, 40).setDepth(23));
+      objs.push(this.add.text(x, 220, row.value, textStyle).setOrigin(0, 0.5).setDepth(23));
+    });
+    // Assignment buttons: one per task icon; tap assigns that practice task.
+    TASK_ICONS.forEach((icon, i) => {
+      const x = 130 + i * 115;
+      const y = 330;
+      const btn = this.add.image(x, y, 'ui-panel').setDisplaySize(96, 96).setAlpha(0.5).setDepth(23).setInteractive();
+      objs.push(btn);
+      objs.push(this.add.sprite(x, y, TASK_ICON_TEXTURE[icon]).setDisplaySize(56, 56).setDepth(24));
+      btn.on(
+        'pointerup',
+        (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+          event.stopPropagation();
+          this.tasks.create(icon, Date.now());
+          this.journal.log('task_created', { icon });
+          this.blips.ding();
+          this.buildParentPanel();
+        },
+      );
+    });
+    // Task list, newest-capped at 8 rows: icon + created-order number + done
+    // toggle (empty ring = pending, gold check fill = done) + remove.
+    const all = this.tasks.all();
+    const rows = all.slice(-8);
+    const baseIndex = all.length - rows.length;
+    rows.forEach((task, i) => {
+      const y = 434 + i * 74;
+      objs.push(this.add.sprite(120, y, TASK_ICON_TEXTURE[task.icon]).setDisplaySize(48, 48).setDepth(23));
+      objs.push(this.add.text(170, y, String(baseIndex + i + 1), textStyle).setOrigin(0, 0.5).setDepth(23));
+      const toggle = this.add
+        .circle(510, y, 22, PALETTE.gold, task.done ? 1 : 0)
+        .setStrokeStyle(4, PALETTE.gold)
+        .setDepth(23)
+        .setInteractive();
+      objs.push(toggle);
+      if (task.done) {
+        objs.push(
+          this.add
+            .text(510, y, '\u2713', { fontSize: '30px', fontStyle: 'bold', color: '#141428' })
+            .setOrigin(0.5)
+            .setDepth(24),
+        );
+      }
+      toggle.on(
+        'pointerup',
+        (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+          event.stopPropagation();
+          const nowDone = this.tasks.toggleDone(task.id, Date.now());
+          this.journal.log('task_toggled', { icon: task.icon, done: nowDone });
+          this.blips.ding();
+          this.buildParentPanel();
+        },
+      );
+      const remove = this.add
+        .text(586, y, '\u00d7', { fontSize: '44px', color: '#777788' })
+        .setOrigin(0.5)
+        .setDepth(23)
+        .setInteractive();
+      objs.push(remove);
+      remove.on(
+        'pointerup',
+        (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+          event.stopPropagation();
+          this.tasks.remove(task.id);
+          this.journal.log('task_removed', { icon: task.icon });
+          this.buildParentPanel();
+        },
+      );
+    });
+  }
+
+  private closeParentPanel(): void {
+    for (const o of this.parentObjects) o.destroy();
+    this.parentObjects = [];
   }
 }

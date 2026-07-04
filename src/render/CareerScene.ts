@@ -5,11 +5,13 @@ import { WARDROBE } from '../meta/wardrobe';
 import { createFurnishing, type Furnishing } from '../services/furnishing';
 import { createJournal, type Journal } from '../services/journal';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
+import { createTasks, type Tasks } from '../services/tasks';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createWardrobe, type Wardrobe } from '../services/wardrobe';
 import { createBlips, type Blips } from './audio';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
+import { TASK_ICON_TEXTURE } from './taskIcons';
 import { makeAvatarTexture, makeTextures } from './theme';
 
 const BAR_Y = 70;
@@ -40,6 +42,7 @@ export class CareerScene extends Phaser.Scene {
   private wallet!: Wallet;
   private furnishing!: Furnishing;
   private wardrobe!: Wardrobe;
+  private tasks!: Tasks;
   private progress!: ProgressData;
   private journal!: Journal;
   private blips!: Blips;
@@ -50,6 +53,7 @@ export class CareerScene extends Phaser.Scene {
   private pickerObjects: Phaser.GameObjects.GameObject[] = [];
   private videoObjects: Phaser.GameObjects.GameObject[] = [];
   private wardrobeObjects: Phaser.GameObjects.GameObject[] = [];
+  private assignObjects: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super('career');
@@ -64,11 +68,13 @@ export class CareerScene extends Phaser.Scene {
     this.pickerObjects = [];
     this.videoObjects = [];
     this.wardrobeObjects = [];
+    this.assignObjects = [];
     // Fresh services from storage each create (cheap; shared state lives in localStorage).
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.wallet = createWallet(window.localStorage);
     this.furnishing = createFurnishing(window.localStorage);
     this.wardrobe = createWardrobe(window.localStorage);
+    this.tasks = createTasks(window.localStorage);
     this.progress = loadProgress(window.localStorage);
     // Safety: never leave the player parked on a chapter their level no longer unlocks.
     if (this.wallet.level() < chapterById(this.progress.chapter).unlockLevel) {
@@ -123,11 +129,18 @@ export class CareerScene extends Phaser.Scene {
       if (this.overlayOpen()) return;
       this.scene.start('play');
     });
+    this.buildClipboardButton();
     this.maybeFilmVideo();
+    this.rewardCompletedTasks();
   }
 
   private overlayOpen(): boolean {
-    return this.pickerObjects.length > 0 || this.videoObjects.length > 0 || this.wardrobeObjects.length > 0;
+    return (
+      this.pickerObjects.length > 0 ||
+      this.videoObjects.length > 0 ||
+      this.wardrobeObjects.length > 0 ||
+      this.assignObjects.length > 0
+    );
   }
 
   private activeChapter(): ChapterId {
@@ -625,5 +638,139 @@ export class CareerScene extends Phaser.Scene {
     for (const o of this.videoObjects) o.destroy();
     this.videoObjects = [];
     this.refreshBar();
+  }
+  // --- Manager assignments (decision #50) ---
+
+  /** Pulsing clipboard under the home/hanger column, only while assignments are pending. */
+  private buildClipboardButton(): void {
+    if (this.tasks.pending().length === 0) return;
+    const clip = this.add
+      .sprite(64, ROOM_TOP + 256, 'ui-clipboard')
+      .setDisplaySize(64, 64)
+      .setDepth(2)
+      .setInteractive();
+    this.tweens.add({
+      targets: clip,
+      scaleX: clip.scaleX * 1.12,
+      scaleY: clip.scaleY * 1.12,
+      duration: 650,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    clip.on('pointerup', () => this.openAssignments());
+  }
+
+  /** Luana-facing assignment view: zero text — clipboard title + big bright pending icons; dim tap closes. */
+  private openAssignments(): void {
+    if (this.overlayOpen()) return;
+    this.journal.log('assignments_viewed', {});
+    const objs = this.assignObjects;
+    const dim = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.7)
+      .setDepth(40)
+      .setInteractive();
+    dim.on('pointerup', () => this.closeAssignments());
+    objs.push(dim);
+    objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-panel').setDisplaySize(620, 540).setDepth(41));
+    objs.push(this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 160, 'ui-clipboard').setDisplaySize(130, 130).setDepth(42));
+    const pending = this.tasks.pending().slice(0, 5);
+    pending.forEach((task, i) => {
+      const x = GAME_WIDTH / 2 + (i - (pending.length - 1) / 2) * 115;
+      const sp = this.add
+        .sprite(x, GAME_HEIGHT / 2 + 60, TASK_ICON_TEXTURE[task.icon])
+        .setDisplaySize(92, 92)
+        .setDepth(42);
+      objs.push(sp);
+      this.tweens.add({
+        targets: sp,
+        scaleX: sp.scaleX * 1.1,
+        scaleY: sp.scaleY * 1.1,
+        duration: 550,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+        delay: i * 130,
+      });
+    });
+  }
+
+  private closeAssignments(): void {
+    for (const o of this.assignObjects) o.destroy();
+    this.assignObjects = [];
+  }
+
+  /**
+   * Pays every done-but-unrewarded manager task. markRewarded runs before any
+   * visuals, so the payout can never double-fire even if the scene restarts
+   * mid-celebration. Judgment call: one combined celebration (single confetti
+   * burst + one pip flight per task) instead of sequential ceremonies — repeat
+   * scene entries stay snappy and the pattern matches videoPayout.
+   */
+  private rewardCompletedTasks(): void {
+    const due = this.tasks.unrewarded();
+    if (due.length === 0) return;
+    for (const task of due) {
+      this.tasks.markRewarded(task.id);
+      this.wallet.earnTask();
+      this.journal.log('task_rewarded', { icon: task.icon });
+    }
+    this.blips.ding();
+    // The rewarded icons pop in the room view, then fade.
+    due.forEach((task, ti) => {
+      const sp = this.add
+        .sprite(GAME_WIDTH / 2 + (ti - (due.length - 1) / 2) * 130, (ROOM_TOP + ROOM_BOTTOM) / 2, TASK_ICON_TEXTURE[task.icon])
+        .setDisplaySize(110, 110)
+        .setDepth(34)
+        .setAlpha(0);
+      this.tweens.chain({
+        targets: sp,
+        tweens: [
+          { alpha: 1, scale: sp.scale * 1.2, duration: 260, delay: ti * 140, ease: 'Back.easeOut' },
+          { alpha: 0, y: sp.y - 60, duration: 450, delay: 700, ease: 'Quad.easeIn' },
+        ],
+        onComplete: () => sp.destroy(),
+      });
+    });
+    // Heart pips fly to the hearts bar slot (bar item x = 90 + i * 180, icon at x - 44).
+    const heartX = 90 + 2 * 180 - 44;
+    for (let i = 0; i < 5 * due.length && i < 15; i++) {
+      const pip = this.add
+        .sprite(GAME_WIDTH / 2 + (i % 5 - 2) * 44, (ROOM_TOP + ROOM_BOTTOM) / 2 + 120, 'ui-pip')
+        .setTint(0xe74c3c)
+        .setScale(1.8)
+        .setDepth(34);
+      this.tweens.add({
+        targets: pip,
+        x: heartX,
+        y: BAR_Y,
+        scale: 0.5,
+        duration: 550,
+        delay: 300 + i * 90,
+        ease: 'Cubic.easeIn',
+        onComplete: () => pip.destroy(),
+      });
+    }
+    // Confetti, fire-and-forget like videoPayout's.
+    const tints = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf1c40f, 0x9b59b6, 0xe67e22];
+    const count = Math.min(18 + 6 * due.length, 36);
+    for (let i = 0; i < count; i++) {
+      const pip = this.add
+        .sprite(Math.random() * GAME_WIDTH, -40 - Math.random() * 160, 'ui-pip')
+        .setTint(tints[i % tints.length]!)
+        .setScale(1.4 + Math.random())
+        .setDepth(33);
+      this.tweens.add({
+        targets: pip,
+        y: GAME_HEIGHT + 60,
+        x: pip.x + (Math.random() * 2 - 1) * 140,
+        angle: 360,
+        duration: 1700 + Math.random() * 600,
+        delay: Math.random() * 400,
+        ease: 'Sine.easeIn',
+        onComplete: () => pip.destroy(),
+      });
+    }
+    this.time.delayedCall(1100, () => this.refreshBar());
   }
 }
