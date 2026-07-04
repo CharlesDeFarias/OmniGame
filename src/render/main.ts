@@ -5,6 +5,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { CookingScene } from './CookingScene';
 import { HubScene } from './HubScene';
 import { PlayScene } from './PlayScene';
+import { RunnerScene } from './RunnerScene';
 
 // The hub is the front door for everyone (plan 8): Phaser auto-starts the first
 // scene in the array. PlayScene's zero-text tutorial still triggers on its own
@@ -19,5 +20,5 @@ new Phaser.Game({
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
   },
-  scene: [HubScene, CareerScene, PlayScene, CookingScene],
+  scene: [HubScene, CareerScene, PlayScene, CookingScene, RunnerScene],
 });

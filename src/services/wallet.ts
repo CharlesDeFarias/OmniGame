@@ -18,6 +18,8 @@ export interface Wallet {
   earnCooking(stars: 1 | 2 | 3): void;
   /** Manager-task payout (decision #50): flat 20 hearts + 50 xp per completed real-world task. */
   earnTask(): void;
+  /** Gate-runner payout (queue #20): coins already computed by coinsForScore; xp = min(30, floor(coins/2)). */
+  earnRunner(coins: number): void;
   spend(cost: number): boolean;
   level(): number;
 }
@@ -93,6 +95,11 @@ export function createWallet(storage: JournalStorage): Wallet {
     earnTask() {
       state.hearts += 20;
       state.xp += 50;
+      save();
+    },
+    earnRunner(coins) {
+      state.coins += coins;
+      state.xp += Math.min(30, Math.floor(coins / 2));
       save();
     },
     spend(cost) {

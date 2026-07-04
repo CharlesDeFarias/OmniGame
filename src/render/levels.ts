@@ -1,3 +1,5 @@
+import { parseGateLevel } from '../core/gaterunner/index';
+import type { GateLevelDef } from '../core/gaterunner/index';
 import { parseLevel } from '../core/match3/index';
 import type { LevelDef } from '../core/match3/index';
 import type { ChapterId } from '../meta/chapters';
@@ -16,4 +18,15 @@ export function loadLevels(chapter: ChapterId): LevelDef[] {
   return Object.keys(modules)
     .sort()
     .map((k) => parseLevel(modules[k]!.default));
+}
+
+const RUNNER_GLOB: Record<string, { default: unknown }> = import.meta.glob('../../levels/runner/*.json', {
+  eager: true,
+});
+
+/** Gate-runner levels r01.., sorted by filename, validated at load. */
+export function loadRunnerLevels(): GateLevelDef[] {
+  return Object.keys(RUNNER_GLOB)
+    .sort()
+    .map((k) => parseGateLevel(RUNNER_GLOB[k]!.default));
 }

@@ -34,6 +34,15 @@ describe('wallet', () => {
     expect(w.data()).toEqual({ version: 1, coins: 20, followers: 0, hearts: 0, xp: 0 });
   });
 
+  it('earnRunner adds exactly the given coins; xp is floor(coins/2) capped at 30', () => {
+    const w = createWallet(memStorage());
+    w.earnRunner(24);
+    expect(w.data()).toEqual({ version: 1, coins: 24, followers: 0, hearts: 0, xp: 12 });
+    w.earnRunner(70); // above coinsForScore's 60-coin ceiling: xp cap must bind
+    expect(w.data().coins).toBe(94);
+    expect(w.data().xp).toBe(42);
+  });
+
   it('earnWin adds the per-chapter coin bonus to coins only', () => {
     const w = createWallet(memStorage());
     w.earnWin(2, 10);
