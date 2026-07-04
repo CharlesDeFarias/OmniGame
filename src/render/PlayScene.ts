@@ -24,11 +24,14 @@ import { TS } from './textStyles';
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
 
-/** Particle tint from a sprite's texture key: 'gem-red'/'music-red' -> COLOR_HEX.red; crates -> brown; specials/unknown -> white. */
+/** Particle tint from a sprite's texture key: '(img-)gem/candy/music-red' -> COLOR_HEX.red; crates -> brown; specials/unknown -> white. */
 const tintForTexture = (texKey: string): number => {
-  const m = /^(?:gem|music)-(\w+)$/.exec(texKey);
+  // The 'orange' gem renders as the silver/black octagon (no orange in the
+  // Sylly set), so its clear-particles go silver instead of COLOR_HEX.orange.
+  if (texKey === 'img-gem-orange') return 0xaab2bd;
+  const m = /^(?:img-)?(?:gem|candy|music)-(\w+)$/.exec(texKey);
   if (m !== null) return COLOR_HEX[m[1] as PieceColor] ?? 0xffffff;
-  return texKey.startsWith('ob-box') ? 0x9c6b30 : 0xffffff;
+  return texKey.includes('ob-box') ? 0x9c6b30 : 0xffffff;
 };
 
 export class PlayScene extends Phaser.Scene {
@@ -228,8 +231,8 @@ export class PlayScene extends Phaser.Scene {
     this.state.goals.forEach((gs, i) => {
       const iconKey =
         gs.goal.type === 'collect' ? pieceTextureKey({ kind: 'normal', color: gs.goal.color }, this.pack)
-        : gs.goal.type === 'clearBoxes' ? 'ob-box1'
-        : 'ob-ice';
+        : gs.goal.type === 'clearBoxes' ? 'img-ob-box1'
+        : 'img-ob-ice';
       const icon = this.add.sprite(x0 + i * spacing - 34, TOP_RESERVE * 0.32, iconKey).setDisplaySize(64, 64).setDepth(2);
       const txt = this.add
         .text(x0 + i * spacing + 14, TOP_RESERVE * 0.32, '', TS.number(44))
@@ -260,7 +263,7 @@ export class PlayScene extends Phaser.Scene {
         const { px, py } = cellToXY(this.layout, x, y);
         if (b.ice[y * b.width + x] === true) {
           // Ice plates sit above the board tiles (-1) but below gems/boxes (1).
-          const ice = this.add.sprite(px, py, 'ob-ice').setDisplaySize(this.layout.cell * 0.94, this.layout.cell * 0.94).setDepth(0.5);
+          const ice = this.add.sprite(px, py, 'img-ob-ice').setDisplaySize(this.layout.cell * 0.94, this.layout.cell * 0.94).setDepth(0.5);
           this.iceSprites.set(key({ x, y }), ice);
         }
         const piece = b.cells[y * b.width + x];

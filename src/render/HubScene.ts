@@ -82,9 +82,9 @@ export class HubScene extends Phaser.Scene {
     const recipesDone = Object.keys(createCooking(window.localStorage).data().best).length;
     this.gameCard(510, 'career', { icon: 'ui-star', value: matchStars }, (x, y) => {
       // Match-3: gem cluster.
-      this.add.sprite(x - 36, y + 8, 'gem-red').setDisplaySize(96, 96).setDepth(2);
-      this.add.sprite(x + 50, y - 34, 'gem-blue').setDisplaySize(84, 84).setDepth(2);
-      this.add.sprite(x + 40, y + 50, 'gem-green').setDisplaySize(76, 76).setDepth(2);
+      this.add.sprite(x - 36, y + 8, 'img-gem-red').setDisplaySize(96, 96).setDepth(2);
+      this.add.sprite(x + 50, y - 34, 'img-gem-blue').setDisplaySize(84, 84).setDepth(2);
+      this.add.sprite(x + 40, y + 50, 'img-gem-green').setDisplaySize(76, 76).setDepth(2);
     });
     this.gameCard(830, 'cooking', { icon: 'ui-check', value: recipesDone }, (x, y) => {
       this.add.sprite(x, y, 'ui-pan-card').setDisplaySize(150, 150).setDepth(2);
@@ -95,7 +95,7 @@ export class HubScene extends Phaser.Scene {
     // Tower teaser card: future game, purely visual (no handler) — dimmer and
     // smaller than the real cards so it reads as 'someday', not 'tap me'.
     this.add.image(515, 1090, 'ui-panel').setDisplaySize(210, 144).setAlpha(0.26);
-    this.add.sprite(486, 1090, 'ob-box2').setDisplaySize(70, 70).setTint(0x555566).setAlpha(0.45).setDepth(1);
+    this.add.sprite(486, 1090, 'img-ob-box2').setDisplaySize(70, 70).setTint(0x555566).setAlpha(0.45).setDepth(1);
     this.add.sprite(566, 1090, 'ui-lock').setDisplaySize(48, 48).setAlpha(0.8).setDepth(2);
   }
 

@@ -257,7 +257,7 @@ export class RunnerScene extends Phaser.Scene {
           world.add(cont);
           this.columnCells[i]![laneIdx] = cont;
         } else {
-          const img = this.add.image(x, y, 'ob-box2').setDisplaySize(176, 176);
+          const img = this.add.image(x, y, 'img-ob-box2').setDisplaySize(176, 176);
           world.add(img);
           this.columnCells[i]![laneIdx] = img;
         }
