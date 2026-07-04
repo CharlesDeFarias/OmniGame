@@ -16,4 +16,7 @@ Made during the autonomous run (decision #45). Newest last. Format: what I decid
 | 10 | Economy | Cooking pays ~2-5x coins/minute vs match-3 (intended shared economy; softens grind gates) | Reviewer flagged; I judged acceptable + non-exploitative | Does match-3 feel underpaid? |
 | 11 | Hub | App now boots to a hub with two game cards + 2 locked teasers; career/cooking have home buttons | Omnibus front door | First screen on launch |
 | 12 | Cooking | Action buttons sit on cream badges (tappable affordance), ingredients plain; pan-card icon has a fried egg | Icon-language judgment calls | Cooking play view |
+| 13 | Manager | Manager panel live: 5 taps top-left ON THE HUB opens your panel (stats row + assign tasks by icon: dance/exercise/makeup/cooking/star + toggle done + remove). Luana sees pending tasks via a pulsing clipboard on the career screen; completing (you toggle) pays her 20 hearts + 50 xp with a celebration | Decision #50; icon set from #32 | Assign yourself a task, toggle it, watch her career screen |
+| 14 | Bugfix | The parent stats corner in match-3 was UNOPENABLE on the live build since the July-2 overlay fix (instant-close regression) — found by the manager-panel review's harness, fixed everywhere | Reviewer's Phaser harness reproduced it empirically | 5-tap corners now open and stay open |
+| 15 | Manager | Makeup task icon reuses the heart (same as hearts currency) — mild symbol collision | No dedicated makeup icon yet | Plan-7 art pass will give makeup its own icon |
 
