@@ -15,3 +15,4 @@
 - Profile config split MERGED: one-file personal layer (src/config/profile.ts) + PUBLIC-BUILD.md guide. 404 tests.
 - RUN 2 COMPLETE. Shipped: gate-runner PLAYABLE (feel package #51), grocery runs (#52), serving mode + recipes 11-15, tower-conquest core seed (game #5 staged), profile config split (#54). 335 -> 404 tests. All merged, CI green, deploys rolling. Awaiting Charles: review queue now 29 items (key: #22 play the runner, #23 economy feel, #26 serving, tower renderer Qs in its calibration doc).
 - Plan 9 legit-look pass MERGED: Fredoka typography, gradient/shadow texture v2, ambient backgrounds, fade transitions, button press feel, hub logo + splash. 404 tests. Deploying.
+- Plan 10 RM-read milestone MERGED: CC0 pro art everywhere (pieces/boosters/obstacles/GUI), saga map home screen, RM HUD anatomy, asset preloader with fallbacks, PWA precache fixed. 409 tests. Deploying.
