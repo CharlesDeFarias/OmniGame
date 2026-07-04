@@ -58,6 +58,14 @@ describe('wallet', () => {
     expect(w.data()).toEqual({ version: 1, coins: 0, followers: 44 + 44, hearts: 19 + 26, xp: 125 + 175 });
   });
 
+  it('earnTask pays a flat 20 hearts and 50 xp per manager task', () => {
+    const w = createWallet(memStorage());
+    w.earnTask();
+    expect(w.data()).toEqual({ version: 1, coins: 0, followers: 0, hearts: 20, xp: 50 });
+    w.earnTask();
+    expect(w.data()).toEqual({ version: 1, coins: 0, followers: 0, hearts: 40, xp: 100 });
+  });
+
   it('spend succeeds only with sufficient coins and never goes negative', () => {
     const w = createWallet(memStorage());
     w.earnWin(2); // 40 coins

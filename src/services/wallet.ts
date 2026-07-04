@@ -16,6 +16,8 @@ export interface Wallet {
   earnVideo(perf: 0 | 1 | 2, multiplier?: number): void;
   /** Cooking payout (plan 8): 30 + 10*stars coins, stars*10 xp. Shared economy, decision #35. */
   earnCooking(stars: 1 | 2 | 3): void;
+  /** Manager-task payout (decision #50): flat 20 hearts + 50 xp per completed real-world task. */
+  earnTask(): void;
   spend(cost: number): boolean;
   level(): number;
 }
@@ -86,6 +88,11 @@ export function createWallet(storage: JournalStorage): Wallet {
     earnCooking(stars) {
       state.coins += 30 + 10 * stars;
       state.xp += stars * 10;
+      save();
+    },
+    earnTask() {
+      state.hearts += 20;
+      state.xp += 50;
       save();
     },
     spend(cost) {
