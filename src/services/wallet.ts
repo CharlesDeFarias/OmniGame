@@ -14,6 +14,8 @@ export interface Wallet {
   earnWin(stars: 0 | 1 | 2 | 3, bonus?: number): void;
   /** Video payout scaled by the chapter's payoutMultiplier (kitchen = 1), rounded per currency. */
   earnVideo(perf: 0 | 1 | 2, multiplier?: number): void;
+  /** Cooking payout (plan 8): 30 + 10*stars coins, stars*10 xp. Shared economy, decision #35. */
+  earnCooking(stars: 1 | 2 | 3): void;
   spend(cost: number): boolean;
   level(): number;
 }
@@ -79,6 +81,11 @@ export function createWallet(storage: JournalStorage): Wallet {
       state.followers += Math.round((25 + 5 * perf) * multiplier);
       state.hearts += Math.round(15 * multiplier);
       state.xp += Math.round(100 * multiplier);
+      save();
+    },
+    earnCooking(stars) {
+      state.coins += 30 + 10 * stars;
+      state.xp += stars * 10;
       save();
     },
     spend(cost) {
