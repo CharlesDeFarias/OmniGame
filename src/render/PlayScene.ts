@@ -11,7 +11,7 @@ import { loadProgress, saveProgress, type ProgressData } from '../services/progr
 import { summarize } from '../services/stats';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createWardrobe, type Wardrobe } from '../services/wardrobe';
-import { takePendingBoosters } from './pendingBoosters';
+import { setPendingBoosters, takePendingBoosters } from './pendingBoosters';
 import { createBlips, type Blips } from './audio';
 import { EASE, planSteps, type Step } from './choreo';
 import { buildBackground, fadeIn, goto, pressify } from './chrome';
@@ -78,6 +78,7 @@ export class PlayScene extends Phaser.Scene {
   private goalHud: { icon: Phaser.GameObjects.Sprite; txt: Phaser.GameObjects.Text }[] = [];
   private pack: PackId = 'gems';
   private retryCount = 0;
+  private activeBoosters: readonly import('../core/match3/index').SpecialKind[] = [];
   private downAt: { cell: Coord; px: number; py: number } | null = null;
   private backdrop: Phaser.GameObjects.Image[] = [];
   private hudPanels: Phaser.GameObjects.GameObject[] = [];
@@ -180,6 +181,7 @@ export class PlayScene extends Phaser.Scene {
     // Pre-level boosters staged by the map picker: taken exactly once (the
     // module clears on take), so retries and later levels start clean.
     const boosters = takePendingBoosters();
+    this.activeBoosters = boosters;
     let started: GameState | undefined;
     let lastError: unknown;
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -568,6 +570,7 @@ export class PlayScene extends Phaser.Scene {
     } catch (e) {
       if (e instanceof ShuffleError) {
         this.journal.log('shuffle_error', { level: this.state.level.id, phase: 'move' });
+        if (this.activeBoosters.length > 0) setPendingBoosters(this.activeBoosters);
         this.retryCount += 1;
         // Friendly cue before the silent restart: dim + spinning retry icon.
         this.busy = true;
