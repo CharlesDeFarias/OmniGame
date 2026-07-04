@@ -104,6 +104,7 @@ export class RunnerScene extends Phaser.Scene {
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onUp(p));
     // Tweens/timers must not leak into the next scene.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.clearAll());
+    this.journal.log('runner_open', {});
     this.showSelect();
   }
 

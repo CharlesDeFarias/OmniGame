@@ -12,6 +12,9 @@ import { makeTextures } from './theme';
 
 const BAR_Y = 70;
 
+/** Influencer level that opens the gate-runner card (early treat, before gym at 4). */
+const RUNNER_UNLOCK_LEVEL = 2;
+
 type BarKey = 'coins' | 'followers' | 'hearts' | 'level';
 
 /**
@@ -78,16 +81,53 @@ export class HubScene extends Phaser.Scene {
     this.gameCard(830, 'cooking', (x, y) => {
       this.add.sprite(x, y, 'ui-pan-card').setDisplaySize(170, 170).setDepth(2);
     });
-    // Two dimmed teaser cards: future games, purely visual (no handlers).
-    const teasers: { x: number; icon: string }[] = [
-      { x: 210, icon: 'sp-rocketH' },
-      { x: 510, icon: 'ob-box2' },
+    // Gate-runner card (game #3): real once influencer level >= 2 (early treat);
+    // below that it stays dimmed with a lock + level badge, chapter-strip style.
+    this.runnerCard(210, 1090);
+    // Tower teaser card: future game, purely visual (no handler).
+    this.add.image(510, 1090, 'ui-panel').setDisplaySize(250, 170).setAlpha(0.35);
+    this.add.sprite(476, 1090, 'ob-box2').setDisplaySize(84, 84).setTint(0x555566).setAlpha(0.55).setDepth(1);
+    this.add.sprite(572, 1090, 'ui-lock').setDisplaySize(56, 56).setDepth(2);
+  }
+
+  /** Gate-runner hub card: squad-pip cluster + finish flag; tap starts the runner. */
+  private runnerCard(x: number, y: number): void {
+    const unlocked = this.wallet.level() >= RUNNER_UNLOCK_LEVEL;
+    const card = this.add.image(x, y, 'ui-panel').setDisplaySize(250, 170).setAlpha(unlocked ? 0.95 : 0.35);
+    const flag = this.add.sprite(x + 54, y - 6, 'gr-flag').setDisplaySize(90, 90).setDepth(1);
+    const pipOffsets = [
+      { dx: -64, dy: 10 },
+      { dx: -30, dy: -16 },
+      { dx: -16, dy: 26 },
     ];
-    for (const t of teasers) {
-      this.add.image(t.x, 1090, 'ui-panel').setDisplaySize(250, 170).setAlpha(0.35);
-      this.add.sprite(t.x - 34, 1090, t.icon).setDisplaySize(84, 84).setTint(0x555566).setAlpha(0.55).setDepth(1);
-      this.add.sprite(t.x + 62, 1090, 'ui-lock').setDisplaySize(56, 56).setDepth(2);
+    const pips = pipOffsets.map(({ dx, dy }) =>
+      this.add.sprite(x + dx, y + dy, 'gr-pip').setDisplaySize(50, 50).setDepth(1),
+    );
+    if (!unlocked) {
+      flag.setTint(0x555566).setAlpha(0.55);
+      for (const pip of pips) pip.setTint(0x555566).setAlpha(0.55);
+      this.add.sprite(x + 74, y + 52, 'ui-lock').setDisplaySize(52, 52).setDepth(2);
+      this.add.sprite(x + 74, y - 44, 'ui-levelbadge').setDisplaySize(40, 40).setDepth(2);
+      this.add
+        .text(x + 74, y - 42, String(RUNNER_UNLOCK_LEVEL), { fontSize: '24px', fontStyle: 'bold', color: '#ffffff' })
+        .setOrigin(0.5)
+        .setDepth(3);
+      return;
     }
+    this.tweens.add({
+      targets: card,
+      scaleX: card.scaleX * 1.02,
+      scaleY: card.scaleY * 1.02,
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    card.setInteractive();
+    card.on('pointerup', () => {
+      this.blips.ding();
+      this.scene.start('runner');
+    });
   }
 
   /** Big gold-framed card: panel + gentle pulse; tap starts the target scene. */
