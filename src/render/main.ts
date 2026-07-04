@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { APP_IDENTITY } from '../config/appIdentity';
 import { loadProgress } from '../services/progress';
 import { createWallet } from '../services/wallet';
 import { CareerScene } from './CareerScene';
@@ -18,7 +19,7 @@ const returning =
 new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'app',
-  backgroundColor: '#1a1a2e',
+  backgroundColor: APP_IDENTITY.themeColor,
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
