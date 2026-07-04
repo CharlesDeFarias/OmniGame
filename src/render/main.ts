@@ -4,6 +4,7 @@ import { CareerScene } from './CareerScene';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { CookingScene } from './CookingScene';
 import { HubScene } from './HubScene';
+import { MapScene } from './MapScene';
 import { PlayScene } from './PlayScene';
 import { PreloadScene } from './PreloadScene';
 import { RunnerScene } from './RunnerScene';
@@ -57,7 +58,7 @@ void loadBrandFont().then(() => {
       width: GAME_WIDTH,
       height: GAME_HEIGHT,
     },
-    scene: [PreloadScene, HubScene, CareerScene, PlayScene, CookingScene, RunnerScene],
+    scene: [PreloadScene, HubScene, MapScene, CareerScene, PlayScene, CookingScene, RunnerScene],
   });
   // Lift the splash curtain once the game is READY (the hub's create() runs
   // the same tick and opens with a camera fade from the same #141428, so the

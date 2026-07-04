@@ -141,6 +141,12 @@ const FALLBACKS: ReadonlyArray<readonly [string, string]> = [
   ['img-ui-lock', 'ui-lock'], ['img-ui-star', 'ui-star'], ['img-ui-coin', 'ui-coin'],
   ['img-ui-heart', 'ui-heart'], ['img-ui-panel-cream', 'ui-panel'],
   ['img-ui-panel-banner', 'ui-panel'], ['img-ui-banner', 'ui-panel'],
+  // Map-scene keys (saga map, RM-look): panels stand in for buttons/bg,
+  // procedural play/star cover the arrow and tiny stars.
+  ['img-bg-map', 'ui-panel'], ['img-ui-btn-sq-grey', 'ui-panel'],
+  ['img-ui-btn-sq-blue', 'ui-panel'], ['img-ui-btn-sq-green', 'ui-panel'],
+  ['img-ui-btn-pill-green', 'ui-panel'], ['img-ui-next', 'ui-play'],
+  ['img-ui-star-sm', 'ui-star'],
 ];
 
 export class PreloadScene extends Phaser.Scene {

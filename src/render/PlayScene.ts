@@ -865,7 +865,7 @@ export class PlayScene extends Phaser.Scene {
     btn.once('pointerup', () => {
       this.retryCount = 0;
       if (offerBreak) this.danceBreak();
-      else goto(this, 'career');
+      else goto(this, 'map');
     });
   }
 
@@ -978,7 +978,7 @@ export class PlayScene extends Phaser.Scene {
       skip.destroy();
       this.adaptive.resetBreakCounter();
       this.journal.log('dance_break', { completed, music: usingMusic });
-      goto(this, 'career');
+      goto(this, 'map');
     };
     let pose = 0;
     let ticks = 0;
@@ -1029,7 +1029,7 @@ export class PlayScene extends Phaser.Scene {
       this.journal.log('chapter_replay', { chapter: this.chapter });
       this.retryCount = 0;
       this.confetti = [];
-      goto(this, 'career');
+      goto(this, 'map');
     });
   }
 

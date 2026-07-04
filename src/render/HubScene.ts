@@ -80,7 +80,7 @@ export class HubScene extends Phaser.Scene {
     // hint right (numbers only — stays inside the near-zero-text rule).
     const matchStars = Object.values(loadProgress(window.localStorage).stars).reduce((a, b) => a + b, 0);
     const recipesDone = Object.keys(createCooking(window.localStorage).data().best).length;
-    this.gameCard(510, 'career', { icon: 'img-ui-star', value: matchStars }, (x, y) => {
+    this.gameCard(510, 'map', { icon: 'img-ui-star', value: matchStars }, (x, y) => {
       // Match-3: gem cluster.
       this.add.sprite(x - 36, y + 8, 'img-gem-red').setDisplaySize(96, 96).setDepth(2);
       this.add.sprite(x + 50, y - 34, 'img-gem-blue').setDisplaySize(84, 84).setDepth(2);
