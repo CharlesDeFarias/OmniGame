@@ -1,0 +1,179 @@
+{
+  "id": "r02",
+  "seed": 202,
+  "startCount": 10,
+  "finishBonusPerSquad": 10,
+  "columns": [
+    {
+      "d": 1,
+      "lanes": [
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 4
+        },
+        {
+          "kind": "empty"
+        },
+        {
+          "kind": "foe",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "d": 2,
+      "lanes": [
+        {
+          "kind": "gate",
+          "op": "mul",
+          "value": 2
+        },
+        {
+          "kind": "foe",
+          "count": 4
+        },
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 3
+        }
+      ]
+    },
+    {
+      "d": 3,
+      "lanes": [
+        {
+          "kind": "wall"
+        },
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 4
+        },
+        {
+          "kind": "empty"
+        }
+      ]
+    },
+    {
+      "d": 4,
+      "lanes": [
+        {
+          "kind": "foe",
+          "count": 6
+        },
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 5
+        },
+        {
+          "kind": "wall"
+        }
+      ]
+    },
+    {
+      "d": 5,
+      "lanes": [
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 6
+        },
+        {
+          "kind": "wall"
+        },
+        {
+          "kind": "foe",
+          "count": 6
+        }
+      ]
+    },
+    {
+      "d": 6,
+      "lanes": [
+        {
+          "kind": "empty"
+        },
+        {
+          "kind": "gate",
+          "op": "mul",
+          "value": 2
+        },
+        {
+          "kind": "foe",
+          "count": 8
+        }
+      ]
+    },
+    {
+      "d": 7,
+      "lanes": [
+        {
+          "kind": "foe",
+          "count": 10
+        },
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 6
+        },
+        {
+          "kind": "wall"
+        }
+      ]
+    },
+    {
+      "d": 8,
+      "lanes": [
+        {
+          "kind": "wall"
+        },
+        {
+          "kind": "foe",
+          "count": 8
+        },
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "d": 9,
+      "lanes": [
+        {
+          "kind": "gate",
+          "op": "mul",
+          "value": 2
+        },
+        {
+          "kind": "empty"
+        },
+        {
+          "kind": "foe",
+          "count": 12
+        }
+      ]
+    },
+    {
+      "d": 10,
+      "lanes": [
+        {
+          "kind": "gate",
+          "op": "add",
+          "value": 10
+        },
+        {
+          "kind": "foe",
+          "count": 10
+        },
+        {
+          "kind": "empty"
+        }
+      ]
+    }
+  ]
+}
