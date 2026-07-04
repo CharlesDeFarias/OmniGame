@@ -1,3 +1,4 @@
+import { RECIPES } from '../core/cooking/recipes';
 import type { JournalStorage } from './journal';
 import type { Wallet } from './wallet';
 
@@ -13,6 +14,8 @@ export interface CookingProgress {
   data(): CookingData;
   isUnlocked(index: number): boolean;
   bestFor(recipeId: string): number;
+  /** Serving mode (decision #53): unlocked once 5 distinct recipes have a best entry. */
+  servingUnlocked(): boolean;
   /** Records a finished recipe: bumps best (max), unlocks the next recipe when the frontier one is beaten, pays the wallet. */
   recordCompletion(
     recipeId: string,
@@ -23,7 +26,9 @@ export interface CookingProgress {
 }
 
 const KEY = 'omnigame.cooking.v1';
-const RECIPE_COUNT = 10;
+const RECIPE_COUNT = RECIPES.length;
+/** Serving mode opens once this many distinct recipes have been completed. */
+const SERVING_UNLOCK_AT = 5;
 
 function defaults(): CookingData {
   return { version: 1, best: {}, unlocked: 1 };
@@ -63,6 +68,7 @@ export function createCooking(storage: JournalStorage): CookingProgress {
     data: () => ({ version: 1, best: { ...state.best }, unlocked: state.unlocked }),
     isUnlocked: (index) => index >= 0 && index < state.unlocked,
     bestFor: (recipeId) => state.best[recipeId] ?? 0,
+    servingUnlocked: () => Object.keys(state.best).length >= SERVING_UNLOCK_AT,
     recordCompletion(recipeId, recipeIndex, stars, wallet) {
       const prev = state.best[recipeId] ?? 0;
       const newBest = stars > prev;

@@ -12,9 +12,9 @@ function inputCount(recipe: Recipe): number {
 }
 
 describe('recipe dataset', () => {
-  it('holds exactly 10 recipes with unique ids in the fixed order', () => {
-    expect(RECIPES).toHaveLength(10);
-    expect(new Set(RECIPES.map((r) => r.id)).size).toBe(10);
+  it('holds exactly 15 recipes with unique ids in the fixed order', () => {
+    expect(RECIPES).toHaveLength(15);
+    expect(new Set(RECIPES.map((r) => r.id)).size).toBe(15);
     expect(RECIPES.map((r) => r.id)).toEqual([
       'toast',
       'fruit-salad',
@@ -26,6 +26,11 @@ describe('recipe dataset', () => {
       'quesadilla',
       'veggie-soup',
       'mini-pizza',
+      'fruit-parfait',
+      'garden-salad',
+      'mashed-potatoes',
+      'ham-omelette',
+      'veggie-wrap',
     ]);
   });
 

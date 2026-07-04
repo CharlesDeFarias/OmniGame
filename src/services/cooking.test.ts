@@ -54,15 +54,29 @@ describe('cooking progression', () => {
     expect(c.data().unlocked).toBe(2);
   });
 
-  it('unlocked caps at 10 even after finishing the last recipe', () => {
+  it('unlocked caps at the recipe count (15) even after finishing the last recipe', () => {
     const storage = memStorage();
     const c = createCooking(storage);
     const w = createWallet(storage);
-    for (let i = 0; i < 10; i += 1) c.recordCompletion(`r${i}`, i, 3, w);
-    expect(c.data().unlocked).toBe(10);
-    const r = c.recordCompletion('r9', 9, 3, w);
+    for (let i = 0; i < 15; i += 1) c.recordCompletion(`r${i}`, i, 3, w);
+    expect(c.data().unlocked).toBe(15);
+    const r = c.recordCompletion('r14', 14, 3, w);
     expect(r.unlockedNext).toBe(false);
-    expect(c.data().unlocked).toBe(10);
+    expect(c.data().unlocked).toBe(15);
+  });
+
+  it('servingUnlocked flips true at 5 distinct completed recipes (replays do not count twice)', () => {
+    const storage = memStorage();
+    const c = createCooking(storage);
+    const w = createWallet(storage);
+    expect(c.servingUnlocked()).toBe(false);
+    for (let i = 0; i < 4; i += 1) c.recordCompletion(`r${i}`, i, 3, w);
+    c.recordCompletion('r0', 0, 3, w); // replay, still 4 distinct
+    expect(c.servingUnlocked()).toBe(false);
+    c.recordCompletion('r4', 4, 2, w);
+    expect(c.servingUnlocked()).toBe(true);
+    // Persisted: a fresh instance agrees.
+    expect(createCooking(storage).servingUnlocked()).toBe(true);
   });
 
   it('persists across instances via storage', () => {

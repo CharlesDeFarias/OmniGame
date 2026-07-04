@@ -121,4 +121,49 @@ export const RECIPES: readonly Recipe[] = [
       { type: 'sequence', actions: ['cook'] },
     ],
   },
+  // --- Recipes 11-15 (decision #53 batch): everyday basics, existing vocabulary only.
+  // Icons chosen to stay unique on the list where possible (veggie-wrap shares the
+  // tortilla icon with quesadilla — closest honest picture, judgment call).
+  {
+    id: 'fruit-parfait',
+    icon: 'yogurt',
+    steps: [
+      { type: 'gather', ingredients: ['yogurt', 'strawberry', 'banana', 'sugar'] },
+      { type: 'sequence', actions: ['chop', 'pour'] },
+      { type: 'assemble', layers: ['yogurt', 'strawberry', 'banana'] },
+    ],
+  },
+  {
+    id: 'garden-salad',
+    icon: 'lettuce',
+    steps: [
+      { type: 'gather', ingredients: ['lettuce', 'tomato', 'carrot', 'onion', 'oil', 'salt'] },
+      { type: 'sequence', actions: ['chop', 'pour', 'stir'] },
+    ],
+  },
+  {
+    id: 'mashed-potatoes',
+    icon: 'potato',
+    steps: [
+      { type: 'gather', ingredients: ['potato', 'milk', 'butter', 'salt'] },
+      { type: 'sequence', actions: ['chop', 'cook', 'pour', 'stir'] },
+    ],
+  },
+  {
+    id: 'ham-omelette',
+    icon: 'ham',
+    steps: [
+      { type: 'gather', ingredients: ['egg', 'ham', 'cheese', 'milk', 'butter'] },
+      { type: 'sequence', actions: ['chop', 'stir', 'pour', 'cook', 'flip'] },
+    ],
+  },
+  {
+    id: 'veggie-wrap',
+    icon: 'tortilla',
+    steps: [
+      { type: 'gather', ingredients: ['tortilla', 'yogurt', 'lettuce', 'tomato', 'carrot'] },
+      { type: 'sequence', actions: ['chop', 'spread'] },
+      { type: 'assemble', layers: ['tortilla', 'yogurt', 'lettuce', 'tomato', 'carrot'] },
+    ],
+  },
 ];
