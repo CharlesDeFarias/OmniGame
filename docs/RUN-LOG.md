@@ -4,3 +4,4 @@
 - Manager panel MERGED (assign real-world practice tasks by icon from the hub's hidden parent panel; rewards on completion). Review harness caught + fixed a LIVE regression: the stats corner had been instant-closing since July 2. 289 tests. Deploying.
 - Adaptive v2 MERGED: rubber-band now injects obstacles at high tiers (sim-verified), never touches obstacle-goal levels, easing side unchanged. 299 tests. This closes decision #24 in full.
 - Gate-runner core seed MERGED (game #3 staged headless: engine, validation, sim policies, 3 calibrated levels). 329 tests. Renderer awaits your design answers (review queue #20).
+- Playlist infra MERGED: add music files in the hub parent panel (local IndexedDB), dance breaks play them with procedural fallback. 335 tests.
