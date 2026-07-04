@@ -176,7 +176,7 @@ export class CookingScene extends Phaser.Scene {
     this.viewObjects.push(home);
     home.on('pointerup', () => {
       // Hub registers in the boot rework; fall back to career until then.
-      this.scene.start(this.scene.manager.keys['hub'] !== undefined ? 'hub' : 'career');
+      this.scene.start('hub');
     });
     // 2x5 grid of recipe cards.
     RECIPES.forEach((recipe, i) => {
