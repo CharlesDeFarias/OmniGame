@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { startLevel, applyMove } from './game';
+import { startLevel, applyMove, goalHintsFrom } from './game';
 import type { LevelDef } from './level';
 import { findValidMoves } from './moves';
 
@@ -110,5 +110,16 @@ describe('game', () => {
     expect(r1.reason).toBe('not-adjacent');
     const r2 = applyMove({ ...s, status: 'won' }, { x: 0, y: 0 }, { x: 1, y: 0 });
     expect(r2.reason).toBe('not-playing');
+  });
+});
+
+describe('goalHintsFrom', () => {
+  it('collects remaining goal colors and obstacle wants, dropping completed goals', () => {
+    expect(goalHintsFrom([
+      { goal: { type: 'collect', color: 'red', count: 10 }, collected: 3 },
+      { goal: { type: 'collect', color: 'blue', count: 5 }, collected: 5 },
+      { goal: { type: 'clearBoxes', count: 2 }, collected: 0 },
+      { goal: { type: 'clearIce', count: 4 }, collected: 4 },
+    ])).toEqual({ colors: ['red'], wantBoxes: true, wantIce: false });
   });
 });

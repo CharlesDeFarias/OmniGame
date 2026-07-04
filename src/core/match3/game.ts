@@ -1,10 +1,11 @@
 import { createRng, type RNG } from '../rng';
 import { createBoard } from './board';
+import type { GoalHints } from './boosters';
 import { applyCleared, goalsComplete, initGoals, type GoalState } from './goals';
 import type { LevelDef } from './level';
 import { hasValidMove, shuffleBoard } from './moves';
 import { resolveTurn, type ResolveEvent } from './resolve';
-import type { Board, Coord } from './types';
+import type { Board, Coord, PieceColor } from './types';
 
 export type GameStatus = 'playing' | 'won' | 'lost';
 
@@ -44,9 +45,24 @@ export function startLevel(level: LevelDef): GameState {
   };
 }
 
+/** Remaining-need summary for smart propeller targeting: colors still owed by collect
+ *  goals, and whether box/ice goals still have work left. Completed goals drop out. */
+export function goalHintsFrom(goals: GoalState[]): GoalHints {
+  const colors: PieceColor[] = [];
+  let wantBoxes = false;
+  let wantIce = false;
+  for (const g of goals) {
+    if (g.collected >= g.goal.count) continue;
+    if (g.goal.type === 'collect') colors.push(g.goal.color);
+    else if (g.goal.type === 'clearBoxes') wantBoxes = true;
+    else wantIce = true;
+  }
+  return { colors, wantBoxes, wantIce };
+}
+
 export function applyMove(state: GameState, a: Coord, b: Coord): MoveOutcome {
   if (state.status !== 'playing') return { state, events: [], invalid: true, reason: 'not-playing' };
-  const result = resolveTurn(state.board, a, b, state.rng, state.level.board.colorCount);
+  const result = resolveTurn(state.board, a, b, state.rng, state.level.board.colorCount, goalHintsFrom(state.goals));
   if (!result.valid) return { state, events: [], invalid: true, reason: result.reason };
 
   const goals = applyCleared(state.goals, result.clearedByColor, result.clearedBoxes, result.clearedIce);

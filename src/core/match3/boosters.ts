@@ -1,5 +1,5 @@
 import type { RNG } from '../rng';
-import { at, inBounds } from './board';
+import { at, inBounds, index } from './board';
 import { ALL_COLORS, type Board, type Coord, type PieceColor, type SpecialKind } from './types';
 
 export function mostCommonColor(board: Board): PieceColor {
@@ -45,7 +45,15 @@ function area(board: Board, center: Coord, radius: number): Coord[] {
   return out;
 }
 
-export function boosterTargets(board: Board, coord: Coord, special: SpecialKind, rng: RNG): Coord[] {
+/** Remaining-goal summary used for RM-style smart propeller targeting.
+ *  Absent hints (or hints that match nothing on the board) reproduce legacy behavior exactly. */
+export interface GoalHints {
+  colors: PieceColor[];
+  wantBoxes: boolean;
+  wantIce: boolean;
+}
+
+export function boosterTargets(board: Board, coord: Coord, special: SpecialKind, rng: RNG, goalHints?: GoalHints): Coord[] {
   switch (special) {
     case 'rocketH': return row(board, coord.y);
     case 'rocketV': return column(board, coord.x);
@@ -56,11 +64,41 @@ export function boosterTargets(board: Board, coord: Coord, special: SpecialKind,
         { x: coord.x - 1, y: coord.y }, { x: coord.x + 1, y: coord.y },
         { x: coord.x, y: coord.y - 1 }, { x: coord.x, y: coord.y + 1 },
       ].filter((c) => inBounds(board, c.x, c.y));
-      const candidates: Coord[] = [];
+      const normals: Coord[] = [];
       for (let y = 0; y < board.height; y++) {
         for (let x = 0; x < board.width; x++) {
-          if (at(board, x, y)?.kind === 'normal') candidates.push({ x, y });
+          if (at(board, x, y)?.kind === 'normal') normals.push({ x, y });
         }
+      }
+      // Deterministic priority when goal hints are given: ice-under-normal > blockers >
+      // goal colors > all normals. Exactly ONE rng.pick either way, so the RNG draw
+      // count per activation is unchanged; without hints the candidate list is the
+      // legacy all-normals list, byte-identical behavior.
+      let candidates = normals;
+      if (goalHints) {
+        let chosen: Coord[] | null = null;
+        if (goalHints.wantIce) {
+          const iced = normals.filter((c) => board.ice[index(board, c.x, c.y)]);
+          if (iced.length > 0) chosen = iced;
+        }
+        if (chosen === null && goalHints.wantBoxes) {
+          const boxes: Coord[] = [];
+          for (let y = 0; y < board.height; y++) {
+            for (let x = 0; x < board.width; x++) {
+              if (at(board, x, y)?.kind === 'blocker') boxes.push({ x, y });
+            }
+          }
+          if (boxes.length > 0) chosen = boxes;
+        }
+        if (chosen === null && goalHints.colors.length > 0) {
+          const wanted = new Set(goalHints.colors);
+          const colored = normals.filter((c) => {
+            const p = at(board, c.x, c.y);
+            return p?.kind === 'normal' && wanted.has(p.color);
+          });
+          if (colored.length > 0) chosen = colored;
+        }
+        if (chosen !== null) candidates = chosen;
       }
       const extra = candidates.length > 0 ? [rng.pick(candidates)] : [];
       return [...neighbors, ...extra];
@@ -80,7 +118,7 @@ const dedupe = (cells: Coord[]): Coord[] => {
 
 export interface PlacedSpecial { coord: Coord; special: SpecialKind; }
 
-export function comboTargets(board: Board, a: PlacedSpecial, b: PlacedSpecial, rng: RNG): Coord[] {
+export function comboTargets(board: Board, a: PlacedSpecial, b: PlacedSpecial, rng: RNG, goalHints?: GoalHints): Coord[] {
   const pair = [a.special, b.special].sort().join('+');
   const isRocket = (s: SpecialKind) => s === 'rocketH' || s === 'rocketV';
 
@@ -93,7 +131,7 @@ export function comboTargets(board: Board, a: PlacedSpecial, b: PlacedSpecial, r
     const other = a.special === 'lightball' ? b : a;
     return dedupe([
       ...cellsOfColor(board, mostCommonColor(board)),
-      ...boosterTargets(board, other.coord, other.special, rng),
+      ...boosterTargets(board, other.coord, other.special, rng, goalHints),
     ]);
   }
   if (isRocket(a.special) && isRocket(b.special)) {
@@ -108,7 +146,7 @@ export function comboTargets(board: Board, a: PlacedSpecial, b: PlacedSpecial, r
     ]);
   }
   return dedupe([
-    ...boosterTargets(board, a.coord, a.special, rng),
-    ...boosterTargets(board, b.coord, b.special, rng),
+    ...boosterTargets(board, a.coord, a.special, rng, goalHints),
+    ...boosterTargets(board, b.coord, b.special, rng, goalHints),
   ]);
 }
