@@ -15,4 +15,4 @@ Charles's direction (2026-07-04): temporarily model the game's style, color sche
 | In-level HUD | goals panel + moves badge top | goals top-left, moves badge top-right | RM puts moves circle INSIDE goal panel left — mirroring this pass |
 | Pre-level boosters | pick boosters before start | added this pass (coins, optional) | RM monetizes; ours costs coins only |
 | Win streak reward | streak chest/boosters | streak >=3 grants free start booster (this pass) | simplified |
-| Palette | royal blue bg, cream panels, gold/green CTAs | switching from plum to RM-blue scheme (this pass) | profile-swappable |
+| Palette | royal blue bg, cream panels, gold/green CTAs | DONE: bgDeep 0x0e1e3d, bgPlum->blue 0x16305e (names kept, bgBlue alias), bgPlumLight->0x1f4178, panel 0x102a52, gold 0xf5c542 (kept), blush 0xfd79a8 (kept), cream 0xfff4e0, ctaGreen 0x54b842, ctaRed 0xd8402e; fade curtain/splash/themeColor/icons -> #0e1e3d; text strokes #0e1e3d / #16305e; cooking warm top 0x3e3055, runner cool top 0x123c5f, play bottom 0x081527, career kitchen wall 0x2e4a78 | profile-swappable |

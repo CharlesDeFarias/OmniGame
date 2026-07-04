@@ -31,7 +31,7 @@ type BarKey = 'coins' | 'followers' | 'hearts' | 'level';
 
 /** Wall band tint per chapter (floor band stays shared). */
 const WALL_TINT: Record<ChapterId, number> = {
-  kitchen: 0x3a2b52,
+  kitchen: 0x2e4a78,
   dance: 0x4a2b62,
   gym: 0x2f4a45,
   vanity: 0x522b47,

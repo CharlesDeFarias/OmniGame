@@ -94,7 +94,7 @@ export class RunnerScene extends Phaser.Scene {
     this.blips.setMuted(window.localStorage.getItem('omnigame.muted.v1') === '1');
     this.input.on('pointerdown', () => this.blips.unlock());
     // Cool night-run variant of the shared gradient (plan 9 legit-look).
-    buildBackground(this, 0x1f2b4a, PALETTE.bgPlum, PALETTE.bgDeep);
+    buildBackground(this, 0x123c5f, PALETTE.bgPlum, PALETTE.bgDeep); // cool teal-leaning top over the blue base
     // Lane-change input (only live while phase === 'run').
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onUp(p));

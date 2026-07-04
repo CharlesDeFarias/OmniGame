@@ -7,7 +7,7 @@ import { makeTextures } from './theme';
 /**
  * Asset preloader (RM-look milestone): loads every mapped PNG from the CC0
  * art packs (public/assets/packs, see MANIFEST.md there), shows a minimal
- * gold-on-plum progress bar, then bakes the procedural textures and hands
+ * gold-on-blue progress bar, then bakes the procedural textures and hands
  * off to the hub. Runs exactly once — nothing ever restarts 'preload'.
  *
  * Paths are relative ('assets/...') so the browser resolves them against the
@@ -154,7 +154,7 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Minimal chrome: gold fill on a plum track, gold hairline frame. The
+    // Minimal chrome: gold fill on a royal-blue track, gold hairline frame. The
     // index.html splash has already lifted (game READY), so this is the only
     // thing on screen for the sub-second the packs take on a warm cache.
     const w = 440;

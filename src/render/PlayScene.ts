@@ -91,7 +91,7 @@ export class PlayScene extends Phaser.Scene {
   create(): void {
     fadeIn(this);
     // Smooth studio-night gradient + ambient glow + bokeh (plan 9 legit-look).
-    buildBackground(this, PALETTE.bgPlum, PALETTE.bgDeep, 0x0d0d1c);
+    buildBackground(this, PALETTE.bgPlum, PALETTE.bgDeep, 0x081527);
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.progress = loadProgress(window.localStorage);
     this.wallet = createWallet(window.localStorage);

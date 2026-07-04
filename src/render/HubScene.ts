@@ -308,7 +308,7 @@ export class HubScene extends Phaser.Scene {
       if (task.done) {
         objs.push(
           this.add
-            .text(510, y, '\u2713', TS.glyph(30, '#141428'))
+            .text(510, y, '\u2713', TS.glyph(30, '#0e1e3d'))
             .setOrigin(0.5)
             .setDepth(24),
         );

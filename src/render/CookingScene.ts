@@ -97,7 +97,7 @@ export class CookingScene extends Phaser.Scene {
     this.serving = null;
     this.justUnlocked = null;
     // Warm kitchen variant of the shared gradient (plan 9 legit-look).
-    buildBackground(this, 0x3d2b2b, PALETTE.bgPlum, PALETTE.bgDeep);
+    buildBackground(this, 0x3e3055, PALETTE.bgPlum, PALETTE.bgDeep); // warm mauve top over the blue base
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.wallet = createWallet(window.localStorage);
     this.cooking = createCooking(window.localStorage);
