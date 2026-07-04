@@ -13,10 +13,19 @@ export const COLOR_HEX: Record<PieceColor, number> = {
   orange: 0xe67e22,
 };
 
+/**
+ * RM-look milestone: keys point at the loaded CC0 pack art ('img-*', see
+ * PreloadScene). The procedural generators below keep their old keys as the
+ * live fallback layer (PreloadScene aliases 'img-*' onto them if a file ever
+ * fails to load). Propeller is the one special still drawn procedurally: the
+ * candy pack has no three-blade equivalent (judgment call, logged).
+ */
 export function textureKeyFor(piece: Piece): string {
-  if (piece.kind === 'normal') return `gem-${piece.color}`;
-  if (piece.kind === 'special') return `sp-${piece.special}`;
-  return piece.hp >= 2 ? 'ob-box2' : 'ob-box1';
+  if (piece.kind === 'normal') return `img-gem-${piece.color}`;
+  if (piece.kind === 'special') {
+    return piece.special === 'propeller' ? 'sp-propeller' : `img-sp-${piece.special}`;
+  }
+  return piece.hp >= 2 ? 'img-ob-box2' : 'img-ob-box1';
 }
 
 /** Multiply each RGB channel by f (0..1). Used for the glossy darker rim strokes. */

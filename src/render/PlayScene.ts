@@ -19,16 +19,33 @@ import { boardLayout, cellToXY, xyToCell, type Layout } from './layout';
 import { loadLevels } from './levels';
 import { pieceTextureKey, type PackId } from './packs';
 import { PALETTE } from './palette';
-import { COLOR_HEX, makeAvatarTexture, makeTextures, textureKeyFor } from './theme';
+import { COLOR_HEX, makeAvatarTexture, textureKeyFor } from './theme';
 import { TS } from './textStyles';
 
 const key = (c: Coord): string => `${c.x},${c.y}`;
 
-/** Particle tint from a sprite's texture key: 'gem-red'/'music-red' -> COLOR_HEX.red; crates -> brown; specials/unknown -> white. */
+/**
+ * RM-style HUD geometry (rm-look milestone). Board top is 331 for both 6x6
+ * and 7x7 boards (width-bound at cell 112.8/96.7 under TOP_RESERVE 220), so
+ * everything here stays above y=311 (frame pad included):
+ * - goals panel: x 18..(48+84n), y 104..232 (n = goal count, max 3 -> x<=300)
+ * - moves badge: 180x110 centred at (596,168) -> x 506..686, y 113..223
+ * - coin strip: icon at (512,44), text from x 534 (clears the mute button at
+ *   x 624..696, y 24..96); parent hotspot 90x90 at (45,45) ends above y=104.
+ */
+const GOALS_LEFT = 18;
+const GOALS_TOP = 104;
+const MOVES_X = 596;
+const MOVES_Y = 168;
+
+/** Particle tint from a sprite's texture key: '(img-)gem/candy/music-red' -> COLOR_HEX.red; crates -> brown; specials/unknown -> white. */
 const tintForTexture = (texKey: string): number => {
-  const m = /^(?:gem|music)-(\w+)$/.exec(texKey);
+  // The 'orange' gem renders as the silver/black octagon (no orange in the
+  // Sylly set), so its clear-particles go silver instead of COLOR_HEX.orange.
+  if (texKey === 'img-gem-orange') return 0xaab2bd;
+  const m = /^(?:img-)?(?:gem|candy|music)-(\w+)$/.exec(texKey);
   if (m !== null) return COLOR_HEX[m[1] as PieceColor] ?? 0xffffff;
-  return texKey.startsWith('ob-box') ? 0x9c6b30 : 0xffffff;
+  return texKey.includes('ob-box') ? 0x9c6b30 : 0xffffff;
 };
 
 export class PlayScene extends Phaser.Scene {
@@ -72,7 +89,6 @@ export class PlayScene extends Phaser.Scene {
   }
 
   create(): void {
-    makeTextures(this, 96);
     fadeIn(this);
     // Smooth studio-night gradient + ambient glow + bokeh (plan 9 legit-look).
     buildBackground(this, PALETTE.bgPlum, PALETTE.bgDeep, 0x0d0d1c);
@@ -114,8 +130,10 @@ export class PlayScene extends Phaser.Scene {
       .setFillStyle(0, 0)
       .setVisible(false)
       .setDepth(5);
+    // RM anatomy (rm-look milestone): moves live in a dedicated badge
+    // top-RIGHT (panel built per level in buildGoalHud; the number persists).
     this.movesText = this.add
-      .text(GAME_WIDTH / 2, TOP_RESERVE * 0.72, '', TS.number(64))
+      .text(MOVES_X, MOVES_Y - 4, '', TS.number(64))
       .setOrigin(0.5)
       .setDepth(2);
     // Hidden parent corner (decision #17): invisible top-left hotspot, 5 quick taps open the stats overlay.
@@ -124,9 +142,12 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(20)
       .setInteractive()
       .on('pointerdown', () => this.onSecretTap());
-    this.coinIcon = this.add.sprite(90, 170, 'ui-coin').setDisplaySize(40, 40).setDepth(2);
+    // Coin counter: small strip in the very top-right corner, above the moves
+    // badge (RM anatomy), left of the mute button which keeps the corner slot.
+    // Coin icon is the pzUH dollar glyph (90x130): width scaled to keep aspect.
+    this.coinIcon = this.add.sprite(512, 44, 'img-ui-coin').setDisplaySize(19, 28).setDepth(2);
     this.coinText = this.add
-      .text(120, 170, String(this.wallet.data().coins), TS.number(28))
+      .text(534, 44, String(this.wallet.data().coins), TS.number(24))
       .setOrigin(0, 0.5)
       .setDepth(2);
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
@@ -205,36 +226,40 @@ export class PlayScene extends Phaser.Scene {
     this.goalHud = [];
     for (const pnl of this.hudPanels) pnl.destroy();
     this.hudPanels = [];
+    // RM anatomy: goals panel top-LEFT (one column per goal: icon over its
+    // remaining count), moves badge top-RIGHT. Panel top sits below y=100 so
+    // it clears the 90x90 parent-corner hotspot at (45,45).
     const n = this.state.goals.length;
-    const spacing = 150;
+    const col = 84;
+    const panelW = n * col + 30;
     this.hudPanels.push(
       this.add
-        .image(GAME_WIDTH / 2, TOP_RESERVE * 0.32, 'ui-panel')
-        .setDisplaySize(n * spacing + 30, 100)
-        .setAlpha(0.3)
+        .image(GOALS_LEFT + panelW / 2, GOALS_TOP + 64, 'ui-panel')
+        .setDisplaySize(panelW, 128)
+        .setAlpha(0.35)
+        .setDepth(0),
+      // Round-ish moves badge + warm halo pulling the eye to the counter.
+      this.add
+        .image(MOVES_X, MOVES_Y, 'ui-panel')
+        .setDisplaySize(180, 110)
+        .setAlpha(0.35)
         .setDepth(0),
       this.add
-        .image(GAME_WIDTH / 2, TOP_RESERVE * 0.72, 'ui-panel')
-        .setDisplaySize(210, 96)
-        .setAlpha(0.3)
-        .setDepth(0),
-      // Warm halo pulling the eye to the moves counter (legit-look pass).
-      this.add
-        .image(GAME_WIDTH / 2, TOP_RESERVE * 0.72, 'ui-glow')
-        .setDisplaySize(300, 300)
+        .image(MOVES_X, MOVES_Y, 'ui-glow')
+        .setDisplaySize(260, 260)
         .setAlpha(0.15)
         .setDepth(-0.4),
     );
-    const x0 = GAME_WIDTH / 2 - ((n - 1) * spacing) / 2;
     this.state.goals.forEach((gs, i) => {
       const iconKey =
         gs.goal.type === 'collect' ? pieceTextureKey({ kind: 'normal', color: gs.goal.color }, this.pack)
-        : gs.goal.type === 'clearBoxes' ? 'ob-box1'
-        : 'ob-ice';
-      const icon = this.add.sprite(x0 + i * spacing - 34, TOP_RESERVE * 0.32, iconKey).setDisplaySize(64, 64).setDepth(2);
+        : gs.goal.type === 'clearBoxes' ? 'img-ob-box1'
+        : 'img-ob-ice';
+      const cx = GOALS_LEFT + 15 + col / 2 + i * col;
+      const icon = this.add.sprite(cx, GOALS_TOP + 38, iconKey).setDisplaySize(54, 54).setDepth(2);
       const txt = this.add
-        .text(x0 + i * spacing + 14, TOP_RESERVE * 0.32, '', TS.number(44))
-        .setOrigin(0, 0.5)
+        .text(cx, GOALS_TOP + 94, '', TS.number(34))
+        .setOrigin(0.5)
         .setDepth(2);
       this.goalHud.push({ icon, txt });
     });
@@ -261,7 +286,7 @@ export class PlayScene extends Phaser.Scene {
         const { px, py } = cellToXY(this.layout, x, y);
         if (b.ice[y * b.width + x] === true) {
           // Ice plates sit above the board tiles (-1) but below gems/boxes (1).
-          const ice = this.add.sprite(px, py, 'ob-ice').setDisplaySize(this.layout.cell * 0.94, this.layout.cell * 0.94).setDepth(0.5);
+          const ice = this.add.sprite(px, py, 'img-ob-ice').setDisplaySize(this.layout.cell * 0.94, this.layout.cell * 0.94).setDepth(0.5);
           this.iceSprites.set(key({ x, y }), ice);
         }
         const piece = b.cells[y * b.width + x];
@@ -297,14 +322,16 @@ export class PlayScene extends Phaser.Scene {
       if (p.downTime > openedAt) this.closeStats();
     });
     objs.push(dim);
-    objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-panel').setDisplaySize(620, 1000).setDepth(22));
+    // Parent-facing overlay: cream FGG panel (commit-3 GUI pass); the dark
+    // text outline keeps TS.number legible on the light ground.
+    objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-panel-cream').setDisplaySize(620, 1000).setDepth(22));
     const textStyle = TS.number(32);
     const header: { icon: string | null; value: string }[] = [
-      { icon: 'ui-play', value: String(stats.levelsPlayed) },
-      { icon: 'ui-star', value: String(stats.wins) },
+      { icon: 'img-ui-play', value: String(stats.levelsPlayed) },
+      { icon: 'img-ui-star', value: String(stats.wins) },
       { icon: null, value: `${Math.round(stats.winRate * 100)}%` },
       { icon: 'ui-pip', value: String(stats.gifts) },
-      { icon: 'ui-retry', value: String(stats.retries) },
+      { icon: 'img-ui-retry', value: String(stats.retries) },
       { icon: 'sp-propeller', value: String(stats.shuffles) },
     ];
     let y = 210;
@@ -317,14 +344,14 @@ export class PlayScene extends Phaser.Scene {
     const walletNow = createWallet(window.localStorage);
     const w = walletNow.data();
     const currencies: { icon: string; value: string }[] = [
-      { icon: 'ui-coin', value: String(w.coins) },
+      { icon: 'img-ui-coin', value: String(w.coins) },
       { icon: 'ui-follower', value: String(w.followers) },
-      { icon: 'ui-heart', value: String(w.hearts) },
+      { icon: 'img-ui-heart', value: String(w.hearts) },
       { icon: 'ui-levelbadge', value: String(walletNow.level()) },
     ];
     currencies.forEach((c, i) => {
       const cx = 130 + i * 150;
-      objs.push(this.add.sprite(cx, y, c.icon).setDisplaySize(40, 40).setDepth(23));
+      objs.push(this.add.sprite(cx, y, c.icon).setDisplaySize(c.icon === 'img-ui-coin' ? 28 : 40, 40).setDepth(23));
       objs.push(this.add.text(cx + 30, y, c.value, textStyle).setOrigin(0, 0.5).setDepth(23));
     });
     y += 58;
@@ -357,7 +384,7 @@ export class PlayScene extends Phaser.Scene {
         const gy = y + Math.floor(i / 5) * 66;
         objs.push(this.add.text(cx, gy, label(id), TS.number(24)).setOrigin(0.5).setDepth(23));
         for (let st = 0; st < Math.min(3, lv.bestStars); st++) {
-          objs.push(this.add.sprite(cx - 22 + st * 22, gy + 26, 'ui-star').setDisplaySize(18, 18).setDepth(23));
+          objs.push(this.add.sprite(cx - 22 + st * 22, gy + 26, 'img-ui-star').setDisplaySize(18, 18).setDepth(23));
         }
       });
     }
@@ -512,7 +539,7 @@ export class PlayScene extends Phaser.Scene {
         // Friendly cue before the silent restart: dim + spinning retry icon.
         this.busy = true;
         const dim = this.overlay();
-        const spinner = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'ui-retry').setDepth(11).setScale(2.4);
+        const spinner = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-retry').setDepth(11).setScale(1.22);
         await this.tweenAsync({ targets: spinner, angle: 360, duration: 900, ease: 'Cubic.easeInOut' });
         dim.destroy();
         spinner.destroy();
@@ -808,20 +835,20 @@ export class PlayScene extends Phaser.Scene {
     this.flyCoinPips();
     this.blips.win();
     this.overlay();
-    // Gold banner sweeps in behind the stars (depth 10.5: between dim and stars).
+    // Red ribbon banner (pzUH, 512x134 -- near-native at this slot) sweeps in
+    // behind the stars (depth 10.5: between dim and stars).
     const bannerW = GAME_WIDTH * 0.7;
     const bannerY = GAME_HEIGHT * 0.38;
-    const banner = this.add.rectangle(-bannerW / 2, bannerY, bannerW, 130, PALETTE.panel, 0.95).setDepth(10.5);
-    const bannerFrame = this.add.image(-bannerW / 2, bannerY, 'ui-tile-frame').setDisplaySize(bannerW, 130).setDepth(10.5);
-    this.tweens.add({ targets: [banner, bannerFrame], x: GAME_WIDTH / 2, duration: 300, ease: 'Back.easeOut' });
+    const banner = this.add.image(-bannerW / 2, bannerY, 'img-ui-banner').setDisplaySize(bannerW, 132).setDepth(10.5);
+    this.tweens.add({ targets: banner, x: GAME_WIDTH / 2, duration: 300, ease: 'Back.easeOut' });
     const starSprites: Phaser.GameObjects.Sprite[] = [];
     for (let i = 0; i < 3; i++) {
-      const slot = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'ui-star')
-        .setDepth(11).setScale(2.2).setTint(0x555566);
+      const slot = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'img-ui-star')
+        .setDepth(11).setScale(1.24).setTint(0x555566);
       starSprites.push(slot);
     }
     for (let i = 0; i < stars; i++) {
-      const st = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'ui-star').setDepth(12).setScale(0);
+      const st = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'img-ui-star').setDepth(12).setScale(0);
       starSprites.push(st);
       // Blush light bloom under the pop — celebration reads as light, not text.
       const bloom = this.add.image(st.x, st.y, 'ui-glow').setTint(PALETTE.blush).setAlpha(0).setScale(0.2).setDepth(11.5);
@@ -844,7 +871,7 @@ export class PlayScene extends Phaser.Scene {
           onComplete: () => pip.destroy(),
         });
       }
-      await this.tweenAsync({ targets: st, scale: 2.2, duration: 260, ease: 'Back.easeOut' });
+      await this.tweenAsync({ targets: st, scale: 1.24, duration: 260, ease: 'Back.easeOut' });
     }
     const idx = this.progress.levelIndexByChapter[this.chapter];
     this.progress.completed[this.state.level.id] = true;
@@ -855,12 +882,12 @@ export class PlayScene extends Phaser.Scene {
       await this.showChapterComplete();
       return;
     }
-    const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.62, 'ui-play').setDepth(11).setScale(2.4).setInteractive();
+    const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.62, 'img-ui-play').setDepth(11).setScale(1.22).setInteractive();
     pressify(this, btn);
     btn.once('pointerup', () => {
       this.retryCount = 0;
       if (offerBreak) this.danceBreak();
-      else goto(this, 'career');
+      else goto(this, 'map');
     });
   }
 
@@ -914,9 +941,9 @@ export class PlayScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
     const skip = this.add
-      .sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.84, 'ui-play')
+      .sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.84, 'img-ui-play')
       .setDepth(41)
-      .setScale(2.2)
+      .setScale(1.12)
       .setTint(0x888899)
       .setInteractive();
     pressify(this, skip);
@@ -973,7 +1000,7 @@ export class PlayScene extends Phaser.Scene {
       skip.destroy();
       this.adaptive.resetBreakCounter();
       this.journal.log('dance_break', { completed, music: usingMusic });
-      goto(this, 'career');
+      goto(this, 'map');
     };
     let pose = 0;
     let ticks = 0;
@@ -1016,7 +1043,7 @@ export class PlayScene extends Phaser.Scene {
       });
     }
     await this.tweenAsync({ targets: trophy, scale: 3, duration: 420, ease: 'Back.easeOut' });
-    const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.74, 'ui-retry').setDepth(12).setScale(2.4).setInteractive();
+    const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.74, 'img-ui-retry').setDepth(12).setScale(1.22).setInteractive();
     pressify(this, btn);
     btn.once('pointerup', () => {
       this.progress.levelIndexByChapter[this.chapter] = 0;
@@ -1024,7 +1051,7 @@ export class PlayScene extends Phaser.Scene {
       this.journal.log('chapter_replay', { chapter: this.chapter });
       this.retryCount = 0;
       this.confetti = [];
-      goto(this, 'career');
+      goto(this, 'map');
     });
   }
 
@@ -1035,8 +1062,8 @@ export class PlayScene extends Phaser.Scene {
     if (outcome.changed) this.journal.log('difficulty_tier', { tier: outcome.tier });
     this.blips.lose();
     const dim = this.overlay();
-    const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.5, 'ui-retry').setDepth(11).setScale(0).setInteractive();
-    await this.tweenAsync({ targets: btn, scale: 2.4, duration: 300, ease: 'Back.easeOut' });
+    const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.5, 'img-ui-retry').setDepth(11).setScale(0).setInteractive();
+    await this.tweenAsync({ targets: btn, scale: 1.22, duration: 300, ease: 'Back.easeOut' });
     pressify(this, btn);
     btn.once('pointerup', () => {
       this.retryCount += 1;

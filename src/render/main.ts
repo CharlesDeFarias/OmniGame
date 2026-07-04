@@ -4,7 +4,9 @@ import { CareerScene } from './CareerScene';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { CookingScene } from './CookingScene';
 import { HubScene } from './HubScene';
+import { MapScene } from './MapScene';
 import { PlayScene } from './PlayScene';
+import { PreloadScene } from './PreloadScene';
 import { RunnerScene } from './RunnerScene';
 
 // Rebrand hook (review-queue #8): index.html ships a neutral 'OmniGame' title
@@ -41,8 +43,9 @@ async function loadBrandFont(): Promise<void> {
   }
 }
 
-// The hub is the front door for everyone (plan 8): Phaser auto-starts the first
-// scene in the array. PlayScene's zero-text tutorial still triggers on its own
+// PreloadScene boots first (RM-look milestone): it loads the CC0 art packs
+// behind a progress bar, bakes the procedural textures once, then fades into
+// the hub -- which stays the front door for everyone (plan 8). PlayScene's zero-text tutorial still triggers on its own
 // fresh-save condition the first time the match-3 game is entered.
 void loadBrandFont().then(() => {
   const game = new Phaser.Game({
@@ -55,7 +58,7 @@ void loadBrandFont().then(() => {
       width: GAME_WIDTH,
       height: GAME_HEIGHT,
     },
-    scene: [HubScene, CareerScene, PlayScene, CookingScene, RunnerScene],
+    scene: [PreloadScene, HubScene, MapScene, CareerScene, PlayScene, CookingScene, RunnerScene],
   });
   // Lift the splash curtain once the game is READY (the hub's create() runs
   // the same tick and opens with a camera fade from the same #141428, so the

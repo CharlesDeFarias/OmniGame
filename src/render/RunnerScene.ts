@@ -18,7 +18,6 @@ import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { loadRunnerLevels } from './levels';
 import { PALETTE } from './palette';
-import { makeTextures } from './theme';
 import { TS } from './textStyles';
 
 /** Squad anchor: world scrolls left, the runners stay put. */
@@ -78,7 +77,6 @@ export class RunnerScene extends Phaser.Scene {
   }
 
   create(): void {
-    makeTextures(this, 96);
     fadeIn(this);
     // Scene instances persist across start/stop: reset per-run refs.
     this.viewObjects = [];
@@ -144,13 +142,13 @@ export class RunnerScene extends Phaser.Scene {
     this.viewObjects.push(
       this.add.image(GAME_WIDTH / 2, 96, 'ui-panel').setDisplaySize(664, 128).setAlpha(0.45).setDepth(0),
       this.add.sprite(GAME_WIDTH / 2, 96, 'gr-flag').setDisplaySize(96, 96).setDepth(1),
-      this.add.sprite(530, 96, 'ui-coin').setDisplaySize(44, 44).setDepth(1),
+      this.add.sprite(530, 96, 'img-ui-coin').setDisplaySize(30, 44).setDepth(1),
       this.add
         .text(560, 96, String(this.wallet.data().coins), TS.number(32))
         .setOrigin(0, 0.5)
         .setDepth(1),
     );
-    const home = this.add.sprite(78, 96, 'ui-home').setDisplaySize(68, 68).setDepth(1).setInteractive();
+    const home = this.add.sprite(78, 96, 'img-ui-home').setDisplaySize(68, 68).setDepth(1).setInteractive();
     pressify(this, home);
     this.viewObjects.push(home);
     home.on('pointerup', () => goto(this, 'hub'));
@@ -176,7 +174,7 @@ export class RunnerScene extends Phaser.Scene {
       // Best-star row from omnigame.runner.v1.
       const best = this.runner.bestFor(level.id);
       for (let st = 0; st < 3; st++) {
-        const starSp = this.add.sprite(x + 30 + st * 66, y, 'ui-star').setDisplaySize(56, 56).setDepth(1);
+        const starSp = this.add.sprite(x + 30 + st * 66, y, 'img-ui-star').setDisplaySize(56, 56).setDepth(1);
         if (st >= best) starSp.setTint(0x555566).setAlpha(0.6);
         this.viewObjects.push(starSp);
       }
@@ -214,7 +212,7 @@ export class RunnerScene extends Phaser.Scene {
     this.buildWorld(level);
     this.buildSquad(level.startCount);
     // Small home escape back to the level list (pausing/quitting is always fine).
-    const home = this.add.sprite(60, 62, 'ui-home').setDisplaySize(56, 56).setAlpha(0.85).setDepth(6).setInteractive();
+    const home = this.add.sprite(60, 62, 'img-ui-home').setDisplaySize(56, 56).setAlpha(0.85).setDepth(6).setInteractive();
     pressify(this, home);
     this.viewObjects.push(home);
     home.on('pointerup', () => {
@@ -259,7 +257,7 @@ export class RunnerScene extends Phaser.Scene {
           world.add(cont);
           this.columnCells[i]![laneIdx] = cont;
         } else {
-          const img = this.add.image(x, y, 'ob-box2').setDisplaySize(176, 176);
+          const img = this.add.image(x, y, 'img-ob-box2').setDisplaySize(176, 176);
           world.add(img);
           this.columnCells[i]![laneIdx] = img;
         }
@@ -561,7 +559,7 @@ export class RunnerScene extends Phaser.Scene {
     // Star slots + earned pops (same feel as cooking's plating).
     for (let i = 0; i < 3; i++) {
       const slot = this.add
-        .sprite(GAME_WIDTH / 2 + (i - 1) * 130, GAME_HEIGHT / 2 - 140, 'ui-star')
+        .sprite(GAME_WIDTH / 2 + (i - 1) * 130, GAME_HEIGHT / 2 - 140, 'img-ui-star')
         .setDisplaySize(96, 96)
         .setTint(0x555566)
         .setDepth(12);
@@ -569,16 +567,16 @@ export class RunnerScene extends Phaser.Scene {
     }
     for (let i = 0; i < stars; i++) {
       const st = this.add
-        .sprite(GAME_WIDTH / 2 + (i - 1) * 130, GAME_HEIGHT / 2 - 140, 'ui-star')
+        .sprite(GAME_WIDTH / 2 + (i - 1) * 130, GAME_HEIGHT / 2 - 140, 'img-ui-star')
         .setDisplaySize(96, 96)
         .setScale(0)
         .setDepth(13);
       this.viewObjects.push(st);
-      this.tweens.add({ targets: st, scale: 1, duration: 240, delay: 200 + i * 220, ease: 'Back.easeOut' });
+      this.tweens.add({ targets: st, scale: 96 / 170, duration: 240, delay: 200 + i * 220, ease: 'Back.easeOut' });
     }
     // Coin payout (already in the wallet).
     this.viewObjects.push(
-      this.add.sprite(GAME_WIDTH / 2 - 56, GAME_HEIGHT / 2, 'ui-coin').setDisplaySize(56, 56).setDepth(12),
+      this.add.sprite(GAME_WIDTH / 2 - 56, GAME_HEIGHT / 2, 'img-ui-coin').setDisplaySize(39, 56).setDepth(12),
       this.add
         .text(GAME_WIDTH / 2 - 16, GAME_HEIGHT / 2, `+${coins}`, TS.number(44))
         .setOrigin(0, 0.5)
@@ -607,11 +605,11 @@ export class RunnerScene extends Phaser.Scene {
   private overlayButtons(): void {
     const y = GAME_HEIGHT / 2 + 150;
     const retry = this.add
-      .sprite(GAME_WIDTH / 2 - 110, y, 'ui-retry')
+      .sprite(GAME_WIDTH / 2 - 110, y, 'img-ui-retry')
       .setDisplaySize(130, 130)
       .setDepth(12)
       .setInteractive();
-    const home = this.add.sprite(GAME_WIDTH / 2 + 110, y, 'ui-home').setDisplaySize(130, 130).setDepth(12).setInteractive();
+    const home = this.add.sprite(GAME_WIDTH / 2 + 110, y, 'img-ui-home').setDisplaySize(130, 130).setDepth(12).setInteractive();
     pressify(this, retry);
     pressify(this, home);
     this.viewObjects.push(retry, home);

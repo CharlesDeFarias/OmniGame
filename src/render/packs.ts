@@ -7,9 +7,10 @@
 import type { Piece } from '../core/match3/index';
 import { textureKeyFor } from './theme';
 
-export type PackId = 'gems' | 'music';
+export type PackId = 'gems' | 'candy' | 'music';
 
 export function pieceTextureKey(piece: Piece, pack: PackId): string {
   if (piece.kind === 'normal' && pack === 'music') return `music-${piece.color}`;
+  if (piece.kind === 'normal' && pack === 'candy') return `img-candy-${piece.color}`;
   return textureKeyFor(piece);
 }

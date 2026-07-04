@@ -9,7 +9,7 @@ describe('chapter registry', () => {
   it('has the fixed unlock levels, dirs, packs, and payout multipliers', () => {
     expect(CHAPTERS).toEqual([
       { id: 'kitchen', unlockLevel: 1, levelDir: 'kitchen', packId: 'gems', payoutMultiplier: 1 },
-      { id: 'dance', unlockLevel: 3, levelDir: 'dance', packId: 'music', payoutMultiplier: 1.25 },
+      { id: 'dance', unlockLevel: 3, levelDir: 'dance', packId: 'candy', payoutMultiplier: 1.25 },
       { id: 'gym', unlockLevel: 4, levelDir: 'gym', packId: 'gems', payoutMultiplier: 1.5 },
       { id: 'vanity', unlockLevel: 5, levelDir: 'vanity', packId: 'gems', payoutMultiplier: 1.75 },
     ]);

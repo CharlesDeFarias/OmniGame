@@ -8,15 +8,16 @@ export interface Chapter {
   unlockLevel: number;
   /** Directory under levels/ holding this chapter's 10 level JSONs. */
   levelDir: string;
-  /** Piece pack rendered for this chapter's boards (gym/vanity reuse gems until plan 7). */
-  packId: 'gems' | 'music';
+  /** Piece pack rendered for this chapter's boards. RM-look milestone: 'gems' and
+   * 'candy' are loaded pack art; 'music' remains procedural (currently unused). */
+  packId: 'gems' | 'candy' | 'music';
   /** Film-a-video payout multiplier: x1.25 per chapter index, rounded at the call site. */
   payoutMultiplier: number;
 }
 
 export const CHAPTERS: Chapter[] = [
   { id: 'kitchen', unlockLevel: 1, levelDir: 'kitchen', packId: 'gems', payoutMultiplier: 1 },
-  { id: 'dance', unlockLevel: 3, levelDir: 'dance', packId: 'music', payoutMultiplier: 1.25 },
+  { id: 'dance', unlockLevel: 3, levelDir: 'dance', packId: 'candy', payoutMultiplier: 1.25 },
   { id: 'gym', unlockLevel: 4, levelDir: 'gym', packId: 'gems', payoutMultiplier: 1.5 },
   { id: 'vanity', unlockLevel: 5, levelDir: 'vanity', packId: 'gems', payoutMultiplier: 1.75 },
 ];

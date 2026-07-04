@@ -35,4 +35,10 @@ Run finished: plans 7 + 8, manager panel, adaptive v2, gate-runner core, playlis
 - Logic cores are pure TypeScript, zero Phaser imports. Presentation is a thin, swappable Phaser layer.
 - All randomness through a seeded RNG (deterministic core). Levels are JSON data, calibrated by a headless simulator.
 - MVP cut: kitchen chapter + one furnishable room. Assets: CC0 (tracked in LICENSES.md). Perf target: mid-range Android 2022+.
-- Not
+- Nothing in core may ever depend on monetization. Never strand the player: errors recover, progress saved after every level.
+
+## Git workflow (restored 2026-07-04 — was lost in a ledger rewrite)
+
+- Source of truth: https://github.com/CharlesDeFarias/OmniGame. Sandbox clone at /sessions/<session>/omnigame does all git ops; the mounted folder is a synced browsable copy (holds no .git). Push auth: token in the mounted folder's .secrets/github-token (gitignored).
+- COMMIT POLICY (Charles, 2026-07-04): commit after every task (standard) AND push the feature branch to origin after EVERY task completion — in-flight work must never exist only in the ephemeral sandbox. Merges to main push immediately; deploys are automatic (deploy-pages step is flaky — rerun-failed-jobs via API usually fixes it).
+
