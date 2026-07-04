@@ -98,8 +98,9 @@ export const RECIPES: readonly Recipe[] = [
     icon: 'tortilla',
     steps: [
       { type: 'gather', ingredients: ['tortilla', 'cheese', 'tomato', 'onion'] },
-      { type: 'sequence', actions: ['chop', 'cook', 'flip'] },
+      { type: 'sequence', actions: ['chop'] },
       { type: 'assemble', layers: ['tortilla', 'cheese', 'tomato', 'tortilla'] },
+      { type: 'sequence', actions: ['cook', 'flip'] },
     ],
   },
   {
