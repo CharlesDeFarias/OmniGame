@@ -1,0 +1,87 @@
+{
+  "id": "t02",
+  "seed": 22,
+  "towers": [
+    {
+      "id": "home",
+      "owner": "player",
+      "troops": 24,
+      "growthPerTick": 2,
+      "maxTroops": 60,
+      "x": 50,
+      "y": 90
+    },
+    {
+      "id": "west",
+      "owner": "neutral",
+      "troops": 6,
+      "growthPerTick": 1,
+      "maxTroops": 60,
+      "x": 15,
+      "y": 50
+    },
+    {
+      "id": "east",
+      "owner": "enemy",
+      "troops": 6,
+      "growthPerTick": 0,
+      "maxTroops": 40,
+      "x": 85,
+      "y": 50
+    },
+    {
+      "id": "core",
+      "owner": "enemy",
+      "troops": 8,
+      "growthPerTick": 1,
+      "maxTroops": 40,
+      "x": 50,
+      "y": 50
+    },
+    {
+      "id": "keep",
+      "owner": "enemy",
+      "troops": 10,
+      "growthPerTick": 1,
+      "maxTroops": 40,
+      "x": 50,
+      "y": 10
+    }
+  ],
+  "edges": [
+    [
+      "home",
+      "west"
+    ],
+    [
+      "home",
+      "east"
+    ],
+    [
+      "home",
+      "core"
+    ],
+    [
+      "west",
+      "keep"
+    ],
+    [
+      "east",
+      "keep"
+    ],
+    [
+      "core",
+      "west"
+    ],
+    [
+      "core",
+      "east"
+    ],
+    [
+      "core",
+      "keep"
+    ]
+  ],
+  "enemyPolicy": "defensive",
+  "maxTicks": 120
+}

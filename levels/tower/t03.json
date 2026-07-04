@@ -1,0 +1,16 @@
+{
+  "id": "t03",
+  "seed": 33,
+  "towers": [
+    { "id": "home", "owner": "player", "troops": 15, "growthPerTick": 2, "maxTroops": 80, "x": 10, "y": 50 },
+    { "id": "nw", "owner": "neutral", "troops": 5, "growthPerTick": 1, "maxTroops": 60, "x": 30, "y": 25 },
+    { "id": "sw", "owner": "neutral", "troops": 5, "growthPerTick": 1, "maxTroops": 60, "x": 30, "y": 75 },
+    { "id": "mid", "owner": "neutral", "troops": 10, "growthPerTick": 1, "maxTroops": 60, "x": 50, "y": 50 },
+    { "id": "ne", "owner": "neutral", "troops": 8, "growthPerTick": 1, "maxTroops": 60, "x": 70, "y": 25 },
+    { "id": "se", "owner": "neutral", "troops": 8, "growthPerTick": 1, "maxTroops": 60, "x": 70, "y": 75 },
+    { "id": "lair", "owner": "enemy", "troops": 15, "growthPerTick": 2, "maxTroops": 80, "x": 90, "y": 50 }
+  ],
+  "edges": [["home", "nw"], ["home", "sw"], ["nw", "mid"], ["sw", "mid"], ["mid", "ne"], ["mid", "se"], ["ne", "lair"], ["se", "lair"]],
+  "enemyPolicy": "aggressive",
+  "maxTicks": 240
+}
