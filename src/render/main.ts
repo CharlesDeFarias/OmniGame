@@ -7,6 +7,12 @@ import { HubScene } from './HubScene';
 import { PlayScene } from './PlayScene';
 import { RunnerScene } from './RunnerScene';
 
+// Rebrand hook (review-queue #8): index.html ships a neutral 'OmniGame' title
+// and a dark fallback theme-color so nothing brand-specific flashes before JS
+// runs; the real values come from the profile via APP_IDENTITY here.
+document.title = APP_IDENTITY.name;
+document.querySelector('meta[name="theme-color"]')?.setAttribute('content', APP_IDENTITY.themeColor);
+
 // The hub is the front door for everyone (plan 8): Phaser auto-starts the first
 // scene in the array. PlayScene's zero-text tutorial still triggers on its own
 // fresh-save condition the first time the match-3 game is entered.

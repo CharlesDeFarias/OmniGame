@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PROFILE } from '../config/profile';
 import { applyMove, findValidMoves, startLevel, starsFor, ShuffleError } from '../core/match3/index';
 import type { Coord, GameState, LevelDef, MoveOutcome, PieceColor } from '../core/match3/index';
 import { CHAPTERS, chapterById, type ChapterId } from '../meta/chapters';
@@ -146,7 +147,7 @@ export class PlayScene extends Phaser.Scene {
     this.killHand();
     this.movesMadeThisLevel = 0;
     this.tutorialLogged = false;
-    const def = this.adaptive.applyTier(this.currentDef());
+    const def = PROFILE.features.adaptiveDifficulty ? this.adaptive.applyTier(this.currentDef()) : this.currentDef();
     this.pack = chapterById(this.chapter).packId;
     let started: GameState | undefined;
     let lastError: unknown;
@@ -277,7 +278,7 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  /** Parent-only stats overlay (text allowed here: Charles reads it, not Luana). */
+  /** Parent-only stats overlay (text allowed here: parent-facing, not the player). */
   private openStats(): void {
     if (this.statsOverlay.length > 0) return;
     this.journal.log('stats_viewed', {});
@@ -378,6 +379,7 @@ export class PlayScene extends Phaser.Scene {
 
   /** Zero-text tutorial: hand loops from a valid move's start cell to its end cell (first level, first session, no moves yet). */
   private showHand(): void {
+    if (!PROFILE.features.tutorialHand) return;
     if (this.chapter !== 'kitchen') return;
     const idx = Math.min(this.progress.levelIndexByChapter.kitchen, this.levels.length - 1);
     if (idx !== 0 || Object.keys(this.progress.completed).length !== 0 || this.movesMadeThisLevel !== 0) return;
@@ -798,7 +800,7 @@ export class PlayScene extends Phaser.Scene {
     const outcome = this.adaptive.recordOutcome(true, stars);
     if (outcome.changed) this.journal.log('difficulty_tier', { tier: outcome.tier });
     const wins = this.adaptive.recordWin();
-    const offerBreak = wins >= 5;
+    const offerBreak = PROFILE.features.danceBreaks && wins >= PROFILE.features.danceBreakEveryWins;
     this.flyCoinPips();
     this.blips.win();
     this.overlay();
@@ -924,7 +926,7 @@ export class PlayScene extends Phaser.Scene {
     // the procedural beat blips (the avatar keeps bouncing on the 600ms timer).
     // Muted -> no music at all. Empty playlist, no IndexedDB or an autoplay
     // refusal -> the procedural beat below runs exactly as before.
-    if (!this.blips.muted()) {
+    if (PROFILE.features.playlistMusic && !this.blips.muted()) {
       this.music
         .randomTrack(Date.now() >>> 0)
         .then((track) => {

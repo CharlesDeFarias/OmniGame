@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PROFILE } from '../config/profile';
 import { createJournal, type Journal } from '../services/journal';
 import { createIdbBackend, createMusicStore, MAX_TRACK_BYTES, type MusicStore } from '../services/music';
 import { summarize } from '../services/stats';
@@ -232,26 +233,28 @@ export class HubScene extends Phaser.Scene {
       objs.push(this.add.text(x, 220, row.value, textStyle).setOrigin(0, 0.5).setDepth(23));
     });
     // Assignment buttons: one per task icon; tap assigns that practice task.
-    TASK_ICONS.forEach((icon, i) => {
-      const x = 130 + i * 115;
-      const y = 330;
-      const btn = this.add.image(x, y, 'ui-panel').setDisplaySize(96, 96).setAlpha(0.5).setDepth(23).setInteractive();
-      objs.push(btn);
-      objs.push(this.add.sprite(x, y, TASK_ICON_TEXTURE[icon]).setDisplaySize(56, 56).setDepth(24));
-      btn.on(
-        'pointerup',
-        (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
-          event.stopPropagation();
-          this.tasks.create(icon, Date.now());
-          this.journal.log('task_created', { icon });
-          this.blips.ding();
-          this.buildParentPanel();
-        },
-      );
-    });
+    if (PROFILE.features.managerTasks) {
+      TASK_ICONS.forEach((icon, i) => {
+        const x = 130 + i * 115;
+        const y = 330;
+        const btn = this.add.image(x, y, 'ui-panel').setDisplaySize(96, 96).setAlpha(0.5).setDepth(23).setInteractive();
+        objs.push(btn);
+        objs.push(this.add.sprite(x, y, TASK_ICON_TEXTURE[icon]).setDisplaySize(56, 56).setDepth(24));
+        btn.on(
+          'pointerup',
+          (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+            event.stopPropagation();
+            this.tasks.create(icon, Date.now());
+            this.journal.log('task_created', { icon });
+            this.blips.ding();
+            this.buildParentPanel();
+          },
+        );
+      });
+    }
     // Task list, newest-capped at 8 rows: icon + created-order number + done
     // toggle (empty ring = pending, gold check fill = done) + remove.
-    const all = this.tasks.all();
+    const all = PROFILE.features.managerTasks ? this.tasks.all() : [];
     const rows = all.slice(-8);
     const baseIndex = all.length - rows.length;
     rows.forEach((task, i) => {
@@ -302,50 +305,52 @@ export class HubScene extends Phaser.Scene {
     // left, add button on the right, then up to 5 per-track rows. Parent-facing,
     // so text is allowed. Sits below the task list; rows that would spill past
     // the panel bottom are clipped (the count always shows the true total).
-    const musicY = 434 + rows.length * 74 + 30;
-    objs.push(this.add.sprite(120, musicY, 'ui-note').setDisplaySize(48, 48).setDepth(23));
-    objs.push(this.add.text(160, musicY, String(this.musicTracks.length), textStyle).setOrigin(0, 0.5).setDepth(23));
-    const addBtn = this.add.image(540, musicY, 'ui-panel').setDisplaySize(96, 96).setAlpha(0.5).setDepth(23).setInteractive();
-    this.musicAddBtn = addBtn;
-    objs.push(addBtn);
-    objs.push(this.add.sprite(526, musicY, 'ui-note').setDisplaySize(44, 44).setDepth(24));
-    objs.push(
-      this.add
-        .text(566, musicY - 2, '+', { fontSize: '44px', fontStyle: 'bold', color: '#f5e6c8' })
-        .setOrigin(0.5)
-        .setDepth(24),
-    );
-    addBtn.on(
-      'pointerup',
-      (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
-        event.stopPropagation();
-        this.pickMusicFiles();
-      },
-    );
-    this.musicTracks.slice(0, 5).forEach((track, i) => {
-      const y = musicY + 76 + i * 56;
-      if (y > 1108) return;
-      const name = track.name.length > 18 ? `${track.name.slice(0, 18)}\u2026` : track.name;
+    if (PROFILE.features.playlistMusic) {
+      const musicY = 434 + rows.length * 74 + 30;
+      objs.push(this.add.sprite(120, musicY, 'ui-note').setDisplaySize(48, 48).setDepth(23));
+      objs.push(this.add.text(160, musicY, String(this.musicTracks.length), textStyle).setOrigin(0, 0.5).setDepth(23));
+      const addBtn = this.add.image(540, musicY, 'ui-panel').setDisplaySize(96, 96).setAlpha(0.5).setDepth(23).setInteractive();
+      this.musicAddBtn = addBtn;
+      objs.push(addBtn);
+      objs.push(this.add.sprite(526, musicY, 'ui-note').setDisplaySize(44, 44).setDepth(24));
       objs.push(
-        this.add.text(110, y, name, { fontSize: '26px', color: '#ffffff' }).setOrigin(0, 0.5).setDepth(23),
+        this.add
+          .text(566, musicY - 2, '+', { fontSize: '44px', fontStyle: 'bold', color: '#f5e6c8' })
+          .setOrigin(0.5)
+          .setDepth(24),
       );
-      const removeTrack = this.add
-        .text(586, y, '\u00d7', { fontSize: '44px', color: '#777788' })
-        .setOrigin(0.5)
-        .setDepth(23)
-        .setInteractive();
-      objs.push(removeTrack);
-      removeTrack.on(
+      addBtn.on(
         'pointerup',
         (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
           event.stopPropagation();
-          void this.music.remove(track.id).then(
-            () => this.refreshMusic(),
-            () => {},
-          );
+          this.pickMusicFiles();
         },
       );
-    });
+      this.musicTracks.slice(0, 5).forEach((track, i) => {
+        const y = musicY + 76 + i * 56;
+        if (y > 1108) return;
+        const name = track.name.length > 18 ? `${track.name.slice(0, 18)}\u2026` : track.name;
+        objs.push(
+          this.add.text(110, y, name, { fontSize: '26px', color: '#ffffff' }).setOrigin(0, 0.5).setDepth(23),
+        );
+        const removeTrack = this.add
+          .text(586, y, '\u00d7', { fontSize: '44px', color: '#777788' })
+          .setOrigin(0.5)
+          .setDepth(23)
+          .setInteractive();
+        objs.push(removeTrack);
+        removeTrack.on(
+          'pointerup',
+          (_p: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+            event.stopPropagation();
+            void this.music.remove(track.id).then(
+              () => this.refreshMusic(),
+              () => {},
+            );
+          },
+        );
+      });
+    }
   }
 
   /** Re-reads the stored playlist; rebuilds the panel in place if it is open. */

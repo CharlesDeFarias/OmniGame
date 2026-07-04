@@ -1,6 +1,8 @@
 /**
- * Personal-layer app identity (decision #49): Luana's install is branded
- * "Luana Studio". The public/generic layer swaps this one file to rebrand
- * (name, install shortname, chrome color) without touching anything else.
+ * App identity shim (decision #49 -> #54): the values now live in the unified
+ * profile module (src/config/profile.ts). This re-export keeps existing
+ * imports (vite.config.ts PWA manifest, render/main.ts) working unchanged.
  */
-export const APP_IDENTITY = { name: 'Luana Studio', shortName: 'Luana', themeColor: '#141428' } as const;
+import { PROFILE } from './profile';
+
+export const APP_IDENTITY = PROFILE.identity;

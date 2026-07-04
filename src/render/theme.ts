@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+import { PROFILE } from '../config/profile';
 import type { Piece, PieceColor } from '../core/match3/index';
 import { ROOMS } from '../meta/rooms';
 import { PALETTE } from './palette';
@@ -372,8 +373,8 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
 
   // --- Meta-layer textures (plan 6; plan 7 restyles) ---
 
-  // Avatars: outfits [purple, green, orange] x poses 0-2.
-  const OUTFITS = [0x9b59b6, 0x2ecc71, 0xe67e22] as const;
+  // Avatars: outfit colors from the profile (personal layer) x poses 0-2.
+  const OUTFITS = PROFILE.avatar.outfitColors;
   OUTFITS.forEach((color, o) => {
     for (const pose of [0, 1, 2] as const) makeAvatarTexture(scene, `avatar-o${o}-p${pose}`, color, pose);
   });

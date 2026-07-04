@@ -1,7 +1,7 @@
 import { PNG } from 'pngjs';
 import { writeFileSync } from 'node:fs';
 
-// Luana Studio icon (plan 7, decisions #43/#49): plum backdrop, gold ring,
+// App icon (plan 7, decisions #43/#49; profile colors, decision #54): plum backdrop, gold ring,
 // centered blush heart, small gold "ring light" above-right. Matches
 // src/render/palette.ts (bgPlum / gold / blush).
 const PLUM: [number, number, number] = [42, 31, 61]; // 0x2a1f3d
