@@ -1076,6 +1076,34 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillTriangle(c - r * 0.37, c - r * 0.03, c + r * 0.37, c - r * 0.03, c, c + r * 0.38);
   });
 
+  // --- Serving mode (decision #53) textures ---
+  // Three simple customer heads: hair disc behind, skin circle, dot eyes, smile.
+  // Distinct hair + skin combos so the row reads as three different people.
+  const custHead = (g: Phaser.GameObjects.Graphics, hair: number, skin: number): void => {
+    g.fillStyle(hair);
+    g.fillCircle(c, c - s * 0.06, s * 0.36);
+    g.fillStyle(skin);
+    g.fillCircle(c, c + s * 0.04, s * 0.32);
+    g.fillStyle(0x2c2c54);
+    g.fillCircle(c - s * 0.12, c, s * 0.045);
+    g.fillCircle(c + s * 0.12, c, s * 0.045);
+    g.lineStyle(s * 0.045, 0x2c2c54);
+    g.beginPath();
+    g.arc(c, c + s * 0.1, s * 0.13, Math.PI * 0.15, Math.PI * 0.85, false);
+    g.strokePath();
+  };
+  ui('cust-0', (g) => custHead(g, 0x4a3222, 0xf0c8a0));
+  ui('cust-1', (g) => custHead(g, 0x1b2631, 0x8d5524));
+  ui('cust-2', (g) => custHead(g, 0xb9770e, 0xffdbac));
+  // Speech bubble: cream rounded rect + tail pointing down-left toward the speaker.
+  ui('ui-bubble', (g) => {
+    g.fillStyle(PALETTE.cream);
+    g.fillRoundedRect(s * 0.04, s * 0.08, s * 0.92, s * 0.68, s * 0.16);
+    g.fillTriangle(s * 0.22, s * 0.72, s * 0.42, s * 0.72, s * 0.18, s * 0.96);
+    g.lineStyle(s * 0.025, PALETTE.gold, 0.8);
+    g.strokeRoundedRect(s * 0.04, s * 0.08, s * 0.92, s * 0.68, s * 0.16);
+  });
+
   // --- Gate-runner (game #3) textures. Walls reuse ob-box2 at lane size. ---
   // Tiny person-dot: circle head over a shoulder blob; cream = squad, dark plum = foe.
   const personDot = (g: Phaser.GameObjects.Graphics, color: number): void => {
