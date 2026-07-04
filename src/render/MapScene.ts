@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
+import type { LevelDef, SpecialKind } from '../core/match3/index';
 import { CHAPTERS, chapterById, type ChapterId } from '../meta/chapters';
+import { createAdaptive, streakBonus } from '../services/adaptive';
+import { BOOSTER_PRICES, buy, type ShopBoosterKind } from '../services/boosterShop';
 import { createJournal, type Journal } from '../services/journal';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
 import { createWallet, type Wallet } from '../services/wallet';
@@ -9,7 +12,9 @@ import { fadeIn, goto, pressify } from './chrome';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { loadLevels } from './levels';
 import { mapWindow } from './mapWindow';
+import { pieceTextureKey } from './packs';
 import { PALETTE } from './palette';
+import { setPendingBoosters } from './pendingBoosters';
 import { makeAvatarTexture } from './theme';
 import { TS } from './textStyles';
 
@@ -45,6 +50,7 @@ export class MapScene extends Phaser.Scene {
   private journal!: Journal;
   private blips!: Blips;
   private progress!: ProgressData;
+  private pickerOpen = false;
 
   constructor() {
     super('map');
@@ -52,6 +58,9 @@ export class MapScene extends Phaser.Scene {
 
   create(): void {
     fadeIn(this);
+    // Scene objects from a previous visit are gone, but the instance persists:
+    // reset the sheet latch or a play-through would lock the picker forever.
+    this.pickerOpen = false;
     this.journal = createJournal(window.localStorage, () => Date.now());
     this.wallet = createWallet(window.localStorage);
     this.progress = loadProgress(window.localStorage);
@@ -180,7 +189,7 @@ export class MapScene extends Phaser.Scene {
     pressify(this, node);
     node.on('pointerup', () => {
       this.blips.ding();
-      goto(this, 'play');
+      this.openPicker();
     });
   }
 
@@ -291,6 +300,124 @@ export class MapScene extends Phaser.Scene {
     });
     pressify(this, pill, pillTxt);
     pill.on('pointerup', () => {
+      this.blips.ding();
+      this.openPicker();
+    });
+  }
+
+  /**
+   * Pre-level booster picker (RM anatomy, near-zero text): level number +
+   * goal-icon preview + three booster toggle slots (coin prices from
+   * BOOSTER_PRICES) + big green play pill. Nothing is charged until the play
+   * pill is tapped (cancel = tap the dim); the free streak booster
+   * (adaptive.streakBonus) arrives pre-selected with a gold spark marker and
+   * is never charged. Total boosters cap at 2 (core StartOptions cap),
+   * streak bonus first.
+   */
+  private openPicker(): void {
+    if (this.pickerOpen) return;
+    this.pickerOpen = true;
+    const chapter = this.progress.chapter;
+    const levels = loadLevels(chapter);
+    const idx = Math.min(this.progress.levelIndexByChapter[chapter], levels.length - 1);
+    const def: LevelDef = levels[idx]!;
+    const pack = chapterById(chapter).packId;
+    const label = String(parseInt(def.id.replace(/^[a-z]+-/, ''), 10));
+    const free = streakBonus(createAdaptive(window.localStorage).state().streak);
+    const objs: Phaser.GameObjects.GameObject[] = [];
+    const openedAt = this.time.now;
+    const close = (): void => {
+      for (const o of objs) o.destroy();
+      this.pickerOpen = false;
+    };
+    // Dim = cancel (input.topOnly keeps taps on the sheet from reaching it).
+    const dim = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.6)
+      .setDepth(30)
+      .setInteractive();
+    dim.on('pointerup', (p: Phaser.Input.Pointer) => {
+      if (p.downTime > openedAt) close();
+    });
+    objs.push(dim);
+    objs.push(this.add.image(360, 600, 'img-ui-panel-cream').setDisplaySize(560, 700).setDepth(31).setInteractive());
+    objs.push(this.add.text(360, 330, label, TS.numberTinted(64, '#0e1e3d')).setOrigin(0.5).setDepth(32));
+    // Goal preview row: same icon mapping as PlayScene's HUD.
+    const goals = def.goals;
+    goals.forEach((goal, i) => {
+      const iconKey =
+        goal.type === 'collect' ? pieceTextureKey({ kind: 'normal', color: goal.color }, pack)
+        : goal.type === 'clearBoxes' ? 'img-ob-box1'
+        : 'img-ob-ice';
+      const cx = 360 + (i - (goals.length - 1) / 2) * 110;
+      objs.push(this.add.sprite(cx, 432, iconKey).setDisplaySize(60, 60).setDepth(32));
+      objs.push(this.add.text(cx, 490, String(goal.count), TS.numberTinted(28, '#0e1e3d')).setOrigin(0.5).setDepth(32));
+    });
+    // Booster toggle slots.
+    const kinds: { kind: ShopBoosterKind; x: number; icon: string }[] = [
+      { kind: 'rocketH', x: 240, icon: 'img-sp-rocketH' },
+      { kind: 'tnt', x: 360, icon: 'img-sp-tnt' },
+      { kind: 'lightball', x: 480, icon: 'img-sp-lightball' },
+    ];
+    const selected = new Set<ShopBoosterKind>();
+    const rings = new Map<ShopBoosterKind, Phaser.GameObjects.Arc>();
+    const SLOT_Y = 620;
+    for (const k of kinds) {
+      const circle = this.add.circle(k.x, SLOT_Y, 56, 0xffffff).setStrokeStyle(4, 0xb9c0cf).setDepth(32).setInteractive();
+      const icon = this.add.sprite(k.x, SLOT_Y, k.icon).setDisplaySize(74, 74).setDepth(33);
+      const ring = this.add.circle(k.x, SLOT_Y, 63).setStrokeStyle(7, PALETTE.gold).setDepth(33).setVisible(k.kind === free);
+      rings.set(k.kind, ring);
+      objs.push(circle, icon, ring);
+      if (k.kind === free) {
+        // Free streak booster: spark marker instead of a price, never charged.
+        objs.push(this.add.sprite(k.x, SLOT_Y + 92, 'img-fx-sparkle-1').setDisplaySize(42, 42).setTint(PALETTE.gold).setDepth(32));
+      } else {
+        objs.push(this.add.sprite(k.x - 26, SLOT_Y + 92, 'img-ui-coin').setDisplaySize(16, 24).setDepth(32));
+        objs.push(
+          this.add.text(k.x - 10, SLOT_Y + 92, String(BOOSTER_PRICES[k.kind]), TS.numberTinted(26, '#0e1e3d')).setOrigin(0, 0.5).setDepth(32),
+        );
+      }
+      const wiggle = (): void => {
+        this.tweens.add({ targets: icon, x: k.x + 8, duration: 45, yoyo: true, repeat: 3 });
+      };
+      pressify(this, circle, icon);
+      circle.on('pointerup', () => {
+        if (k.kind === free) return; // locked in, already free
+        if (selected.has(k.kind)) {
+          selected.delete(k.kind);
+          ring.setVisible(false);
+          return;
+        }
+        // Cap 2 total incl. the free one; then affordability of the whole set.
+        if (selected.size + (free !== null ? 1 : 0) >= 2) {
+          wiggle();
+          return;
+        }
+        let cost = BOOSTER_PRICES[k.kind];
+        for (const sel of selected) cost += BOOSTER_PRICES[sel];
+        if (cost > this.wallet.data().coins) {
+          wiggle();
+          return;
+        }
+        selected.add(k.kind);
+        ring.setVisible(true);
+        this.blips.ding();
+      });
+    }
+    // Big green play pill: buys the selected boosters NOW, stages them for
+    // PlayScene, and goes. Level number only (near-zero text).
+    const pill = this.add.image(360, 850, 'img-ui-btn-pill-green').setDisplaySize(300, 96).setDepth(32).setInteractive();
+    const pillTxt = this.add.text(360, 846, label, TS.number(44)).setOrigin(0.5).setDepth(33);
+    objs.push(pill, pillTxt);
+    pressify(this, pill, pillTxt);
+    pill.on('pointerup', () => {
+      const start: SpecialKind[] = free !== null ? [free] : [];
+      for (const kind of selected) {
+        if (buy(kind, this.wallet)) {
+          this.journal.log('booster_buy', { kind });
+          start.push(kind);
+        }
+      }
+      setPendingBoosters(start.slice(0, 2));
       this.blips.ding();
       goto(this, 'play');
     });

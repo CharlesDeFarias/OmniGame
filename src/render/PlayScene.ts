@@ -11,6 +11,7 @@ import { loadProgress, saveProgress, type ProgressData } from '../services/progr
 import { summarize } from '../services/stats';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createWardrobe, type Wardrobe } from '../services/wardrobe';
+import { takePendingBoosters } from './pendingBoosters';
 import { createBlips, type Blips } from './audio';
 import { EASE, planSteps, type Step } from './choreo';
 import { buildBackground, fadeIn, goto, pressify } from './chrome';
@@ -176,11 +177,14 @@ export class PlayScene extends Phaser.Scene {
     this.tutorialLogged = false;
     const def = PROFILE.features.adaptiveDifficulty ? this.adaptive.applyTier(this.currentDef()) : this.currentDef();
     this.pack = chapterById(this.chapter).packId;
+    // Pre-level boosters staged by the map picker: taken exactly once (the
+    // module clears on take), so retries and later levels start clean.
+    const boosters = takePendingBoosters();
     let started: GameState | undefined;
     let lastError: unknown;
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
-        started = startLevel({ ...def, seed: def.seed + attempt * 9999 });
+        started = startLevel({ ...def, seed: def.seed + attempt * 9999 }, { startBoosters: boosters });
         break;
       } catch (e) {
         if (e instanceof ShuffleError) {
@@ -222,7 +226,7 @@ export class PlayScene extends Phaser.Scene {
         .setAlpha(0.9)
         .setDepth(-0.5),
     );
-    this.journal.log('level_start', { level: def.id, chapter: this.chapter, retry: this.retryCount, tier: this.adaptive.state().tier });
+    this.journal.log('level_start', { level: def.id, chapter: this.chapter, retry: this.retryCount, tier: this.adaptive.state().tier, boosters });
     this.buildGoalHud();
     this.syncBoard();
     this.updateHud();
