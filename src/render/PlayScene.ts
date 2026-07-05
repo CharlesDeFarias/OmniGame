@@ -12,7 +12,7 @@ import { summarize } from '../services/stats';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createWardrobe, type Wardrobe } from '../services/wardrobe';
 import { setPendingBoosters, takePendingBoosters } from './pendingBoosters';
-import { createBlips, type Blips } from './audio';
+import { createBlips, sfx, type Blips } from './audio';
 import { EASE, planSteps, type Step } from './choreo';
 import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
@@ -870,7 +870,7 @@ export class PlayScene extends Phaser.Scene {
     const wins = this.adaptive.recordWin();
     const offerBreak = PROFILE.features.danceBreaks && wins >= PROFILE.features.danceBreakEveryWins;
     this.flyCoinPips();
-    this.blips.win();
+    sfx(this, 'win-fanfare');
     this.overlay();
     // Red ribbon banner (pzUH, 512x134 -- near-native at this slot) sweeps in
     // behind the stars (depth 10.5: between dim and stars).
@@ -887,6 +887,7 @@ export class PlayScene extends Phaser.Scene {
     for (let i = 0; i < stars; i++) {
       const st = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'img-ui-star').setDepth(12).setScale(0);
       starSprites.push(st);
+      sfx(this, 'star-pop', { rate: 1 + i * 0.08 });
       // Blush light bloom under the pop — celebration reads as light, not text.
       const bloom = this.add.image(st.x, st.y, 'ui-glow').setTint(PALETTE.blush).setAlpha(0).setScale(0.2).setDepth(11.5);
       this.tweens.add({
@@ -930,6 +931,7 @@ export class PlayScene extends Phaser.Scene {
 
   /** 4-6 gold coin pips fly from board center to the coin counter (fire-and-forget). */
   private flyCoinPips(): void {
+    sfx(this, 'coin-clink');
     const n = 4 + Math.floor(Math.random() * 3);
     for (let i = 0; i < n; i++) {
       const pip = this.add
@@ -1097,7 +1099,7 @@ export class PlayScene extends Phaser.Scene {
     this.journal.log('level_end', { level: this.state.level.id, won: false, retries: this.retryCount });
     const outcome = this.adaptive.recordOutcome(false, 0);
     if (outcome.changed) this.journal.log('difficulty_tier', { tier: outcome.tier });
-    this.blips.lose();
+    sfx(this, 'lose-soft');
     const dim = this.overlay();
     const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.5, 'img-ui-retry').setDepth(11).setScale(0).setInteractive();
     await this.tweenAsync({ targets: btn, scale: 1.22, duration: 300, ease: 'Back.easeOut' });

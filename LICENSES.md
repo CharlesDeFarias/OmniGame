@@ -12,9 +12,19 @@ Game art was originally procedurally generated in this repository (see `scripts/
 - **Heart 1** — cdgramos (submitted by soulwolf) — https://opengameart.org/content/heart-1 — CC0 1.0 — glossy red heart icon (`packs/heart-cdgramos/`).
 - **Particle Pack** — Kenney (kenney.nl) — https://kenney.nl/assets/particle-pack — CC0 1.0 — sparkle/glow/burst particle sprites (`packs/kenney-particle-fx/`).
 
+### Sound effects (all CC0 1.0, downloaded 2026-07-04)
+
+Bundled under `public/assets/audio/` (see `public/assets/audio/MANIFEST.md` for the per-file role mapping). All by Kenney (kenney.nl); crediting Kenney is appreciated but not required by the license.
+
+- **Interface Sounds** — Kenney — https://kenney.nl/assets/interface-sounds — CC0 1.0 — clicks, ticks, drops, confirmations, glass pops.
+- **Digital Audio** — Kenney — https://kenney.nl/assets/digital-audio — CC0 1.0 — pops, zaps, power-ups, tone sweeps.
+- **Casino Audio** — Kenney — https://kenney.nl/assets/casino-audio — CC0 1.0 — chip clinks, card shuffles.
+- **Impact Sounds** — Kenney — https://kenney.nl/assets/impact-sounds — CC0 1.0 — heavy impact booms.
+
 ### Fonts
 
 - **Fredoka** — SIL Open Font License 1.1 — Copyright 2021 The Fredoka Project Authors (https://github.com/hafontia-zz/Fredoka) — obtained via Google Fonts (https://fonts.google.com/specimen/Fredoka). A latin-subset, variable-weight (300–700) woff2 build is redistributed in this repository at `public/fonts/fredoka-latin.woff2`. Full license text: https://openfontlicense.org
+- **Lilita One** — SIL Open Font License 1.1 — Copyright 2011 The Lilita One Project Authors (Juan Montoreano, juan@remolinos.com.ar) — obtained via Google Fonts (https://fonts.google.com/specimen/Lilita+One). A latin-subset woff2 build (weight 400) is redistributed in this repository at `public/fonts/lilita-latin.woff2`. Full license text: https://openfontlicense.org
 
 ## Dependencies
 

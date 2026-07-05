@@ -1,3 +1,5 @@
+import type Phaser from 'phaser';
+
 export interface Blips {
   unlock(): void;
   match(): void;
@@ -46,4 +48,68 @@ export function createBlips(): Blips {
     setMuted(m) { isMuted = m; },
     muted: () => isMuted,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Real sound effects (RM-feel milestone): CC0 .ogg files loaded by
+// PreloadScene from public/assets/audio (see MANIFEST.md there). sfx() is the
+// single gate: it plays the loaded sound iff the file actually arrived AND the
+// player is not muted, otherwise it falls back to the closest procedural blip
+// so a missing/failed download never silences the game (never-strand rule).
+// ---------------------------------------------------------------------------
+
+/** localStorage mute flag — same path every scene's mute toggle writes. */
+const MUTE_KEY = 'omnigame.muted.v1';
+
+/** Loaded-audio keys: one role per file at public/assets/audio/<key>.ogg. */
+export const SFX_KEYS = [
+  'match-pop-1', 'match-pop-2', 'match-pop-3',
+  'cascade-tick', 'rocket-whoosh', 'explosion-boom', 'lightning-zap',
+  'propeller-whir', 'piece-drop', 'collect-ding', 'click',
+  'win-fanfare', 'lose-soft', 'coin-clink', 'star-pop', 'celebration-burst',
+] as const;
+
+export type SfxKey = (typeof SFX_KEYS)[number];
+
+/** Closest procedural blip for each role, used when the .ogg never loaded. */
+const FALLBACK_BLIP: Record<SfxKey, (b: Blips) => void> = {
+  'match-pop-1': (b) => b.match(),
+  'match-pop-2': (b) => b.match(),
+  'match-pop-3': (b) => b.match(),
+  'cascade-tick': (b) => b.beat(),
+  'rocket-whoosh': (b) => b.booster(),
+  'explosion-boom': (b) => b.booster(),
+  'lightning-zap': (b) => b.booster(),
+  'propeller-whir': (b) => b.booster(),
+  'piece-drop': (b) => b.beat(),
+  'collect-ding': (b) => b.ding(),
+  'click': (b) => b.beat(),
+  'win-fanfare': (b) => b.win(),
+  'lose-soft': (b) => b.lose(),
+  'coin-clink': (b) => b.ding(),
+  'star-pop': (b) => b.ding(),
+  'celebration-burst': (b) => b.gift(),
+};
+
+/** Lazy shared blip synth for fallbacks (mute is checked before it is hit). */
+let fallbackBlips: Blips | null = null;
+
+/**
+ * Play a loaded sound effect if it exists and the player is not muted; fall
+ * back to the mapped procedural blip when the file is missing. Errors are
+ * swallowed — audio is polish, never a dependency.
+ */
+export function sfx(scene: Phaser.Scene, key: SfxKey, config?: Phaser.Types.Sound.SoundConfig): void {
+  try {
+    if (window.localStorage.getItem(MUTE_KEY) === '1') return;
+    if (scene.cache.audio.exists(key)) {
+      scene.sound.play(key, config);
+      return;
+    }
+    fallbackBlips ??= createBlips();
+    fallbackBlips.unlock();
+    FALLBACK_BLIP[key](fallbackBlips);
+  } catch {
+    // Audio must never break gameplay.
+  }
 }

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { sfx } from './audio';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 
 /**
@@ -121,6 +122,7 @@ export function goto(scene: Phaser.Scene, key: string): void {
 export function pressify(scene: Phaser.Scene, obj: Pressable, ...also: Pressable[]): void {
   const base = [obj, ...also].map((t) => ({ t, sx: t.scaleX, sy: t.scaleY }));
   obj.on('pointerdown', () => {
+    sfx(scene, 'click', { volume: 0.6 });
     for (const { t, sx, sy } of base) {
       scene.tweens.add({ targets: t, scaleX: sx * 0.93, scaleY: sy * 0.93, duration: 80 });
     }

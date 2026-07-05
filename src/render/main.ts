@@ -22,24 +22,34 @@ const splash = document.getElementById('splash');
 const splashTitle = splash?.querySelector('.splash-title') ?? null;
 if (splashTitle !== null) splashTitle.textContent = APP_IDENTITY.name;
 
-// Fredoka is loaded up front so Phaser's canvas text measures and renders with
-// the real font from the first frame (canvas text does not re-render on CSS
-// font-display swap). The 2.5s timeout race means a slow or missing font file
-// never blocks boot -- Phaser just uses the fallback stack from textStyles.ts.
-async function loadBrandFont(): Promise<void> {
+// Brand fonts are loaded up front so Phaser's canvas text measures and renders
+// with the real faces from the first frame (canvas text does not re-render on
+// CSS font-display swap). Fredoka is the body face; Lilita One is the chunky
+// display face for big numbers and headlines (RM-feel pass). The 2.5s timeout
+// race means a slow or missing font file never blocks boot -- Phaser just uses
+// the fallback stack from textStyles.ts (allSettled: one failed font never
+// blocks the other).
+async function loadBrandFonts(): Promise<void> {
   try {
-    const face = new FontFace(
-      'Fredoka',
-      `url(${import.meta.env.BASE_URL}fonts/fredoka-latin.woff2)`,
-      { weight: '300 700' },
-    );
-    document.fonts.add(face);
+    const faces = [
+      new FontFace(
+        'Fredoka',
+        `url(${import.meta.env.BASE_URL}fonts/fredoka-latin.woff2)`,
+        { weight: '300 700' },
+      ),
+      new FontFace(
+        'Lilita One',
+        `url(${import.meta.env.BASE_URL}fonts/lilita-latin.woff2)`,
+        { weight: '400' },
+      ),
+    ];
+    for (const face of faces) document.fonts.add(face);
     await Promise.race([
-      face.load(),
+      Promise.allSettled(faces.map((face) => face.load())),
       new Promise((resolve) => setTimeout(resolve, 2500)),
     ]);
   } catch {
-    // Font is polish, not a dependency: boot with the fallback stack.
+    // Fonts are polish, not a dependency: boot with the fallback stack.
   }
 }
 
@@ -47,7 +57,7 @@ async function loadBrandFont(): Promise<void> {
 // behind a progress bar, bakes the procedural textures once, then fades into
 // the hub -- which stays the front door for everyone (plan 8). PlayScene's zero-text tutorial still triggers on its own
 // fresh-save condition the first time the match-3 game is entered.
-void loadBrandFont().then(() => {
+void loadBrandFonts().then(() => {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'app',

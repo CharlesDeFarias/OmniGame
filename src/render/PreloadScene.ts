@@ -3,6 +3,7 @@ import { goto } from './chrome';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
 import { makeTextures } from './theme';
+import { SFX_KEYS } from './audio';
 
 /**
  * Asset preloader (RM-look milestone): loads every mapped PNG from the CC0
@@ -179,6 +180,10 @@ export class PreloadScene extends Phaser.Scene {
       console.warn(`[preload] failed to load ${file.key} (${file.url}); procedural fallback will cover it`);
     });
     for (const [key, url] of ART_FILES) this.load.image(key, url);
+    // Sound effects (RM-feel milestone): CC0 oggs, see assets/audio/MANIFEST.md.
+    // Same never-strand rule as the art: a failed file just logs (handler
+    // above) and sfx() in audio.ts falls back to the procedural blips.
+    for (const key of SFX_KEYS) this.load.audio(key, `assets/audio/${key}.ogg`);
   }
 
   create(): void {
