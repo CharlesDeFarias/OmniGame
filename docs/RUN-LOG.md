@@ -17,3 +17,6 @@
 - Plan 9 legit-look pass MERGED: Fredoka typography, gradient/shadow texture v2, ambient backgrounds, fade transitions, button press feel, hub logo + splash. 404 tests. Deploying.
 - Plan 10 RM-read milestone MERGED: CC0 pro art everywhere (pieces/boosters/obstacles/GUI), saga map home screen, RM HUD anatomy, asset preloader with fallbacks, PWA precache fixed. 409 tests. Deploying.
 - Plan 10.5 RM parity MERGED: royal-blue palette, RM HUD anatomy v2, booster bar, pre-level booster picker + win-streak freebies, goal-seeking propellers. RM-PARITY.md tracks every modeled element. 429 tests. Deploying.
+
+## Run 3 — overnight RM feel deep pass (2026-07-04)
+- Decision #58 recorded. Queue: SFX acquisition -> booster choreography -> signature mechanics -> font/buttons/pause -> in-level boosters -> map dressing. Boundary: behavior/mechanics/CC0 only.
