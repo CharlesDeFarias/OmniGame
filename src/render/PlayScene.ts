@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { PROFILE } from '../config/profile';
-import { applyMove, findValidMoves, startLevel, starsFor, ShuffleError } from '../core/match3/index';
-import type { Coord, GameState, LevelDef, MoveOutcome, PieceColor } from '../core/match3/index';
+import { applyAssist, applyMove, findValidMoves, planFinale, startLevel, starsFor, FINALE_COINS_PER_ROCKET, ShuffleError } from '../core/match3/index';
+import type { AssistKind, Coord, FinaleRocket, GameState, LevelDef, MoveOutcome, PieceColor, SpecialActivation } from '../core/match3/index';
 import { CHAPTERS, chapterById, type ChapterId } from '../meta/chapters';
 import { CHAPTER_COIN_BONUS_PER_INDEX } from '../meta/rooms';
 import { createAdaptive, type Adaptive } from '../services/adaptive';
+import { ASSIST_PRICES } from '../services/boosterShop';
 import { createJournal, type Journal } from '../services/journal';
 import { createIdbBackend, createMusicStore, type MusicStore } from '../services/music';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
@@ -12,7 +13,8 @@ import { summarize } from '../services/stats';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createWardrobe, type Wardrobe } from '../services/wardrobe';
 import { setPendingBoosters, takePendingBoosters } from './pendingBoosters';
-import { createBlips, type Blips } from './audio';
+import { createBlips, sfx, type Blips, type SfxKey } from './audio';
+import { hapticsEnabled, setHapticsEnabled, vibrate } from './haptics';
 import { EASE, planSteps, type Step } from './choreo';
 import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
@@ -91,6 +93,28 @@ export class PlayScene extends Phaser.Scene {
   private statsOverlay: Phaser.GameObjects.GameObject[] = [];
   private confetti: Phaser.GameObjects.Sprite[] = [];
   private wakeHooked = false;
+  /** Round-robin index over the match-pop-N sfx variants. */
+  private popCycle = 0;
+  /** Goal-counter values as currently DISPLAYED (bumped by landing fliers, not state). */
+  private goalDisplay: number[] = [];
+  /** Fliers still arcing toward each goal icon. */
+  private goalInFlight: number[] = [];
+  /** Pending flier tweens; awaited at end of turn so win/lose never cuts one off. */
+  private flightJobs: Promise<void>[] = [];
+  /** Armed in-level assist awaiting a board tap (hammer/rowClear; shuffle fires instantly). */
+  private assistArmed: Exclude<AssistKind, 'shuffle'> | null = null;
+  private muteBtn!: Phaser.GameObjects.Sprite;
+  /** Pause-sheet objects; non-empty = sheet open (blocks board input like the stats overlay). */
+  private pauseSheet: Phaser.GameObjects.GameObject[] = [];
+  /** Slot visuals per assist kind: base circle (tap target), icon, chip pieces, armed ring. */
+  private assistSlots = new Map<AssistKind, {
+    base: Phaser.GameObjects.Arc;
+    icon: Phaser.GameObjects.Sprite;
+    chip: Phaser.GameObjects.GameObject[];
+    ring: Phaser.GameObjects.Arc;
+    ringTween: Phaser.Tweens.Tween | null;
+    wiggleTween: Phaser.Tweens.Tween | null;
+  }>();
 
   constructor() {
     super('play');
@@ -118,18 +142,22 @@ export class PlayScene extends Phaser.Scene {
     }
     const startMuted = window.localStorage.getItem('omnigame.muted.v1') === '1';
     this.blips.setMuted(startMuted);
-    const muteBtn = this.add
+    this.muteBtn = this.add
       .sprite(GAME_WIDTH - 60, 60, startMuted ? 'ui-sound-off' : 'ui-sound-on')
       .setDisplaySize(72, 72)
       .setDepth(8)
       .setInteractive();
-    pressify(this, muteBtn);
-    muteBtn.on('pointerup', () => {
-      const m = !this.blips.muted();
-      this.blips.setMuted(m);
-      muteBtn.setTexture(m ? 'ui-sound-off' : 'ui-sound-on');
-      window.localStorage.setItem('omnigame.muted.v1', m ? '1' : '0');
-    });
+    pressify(this, this.muteBtn);
+    this.muteBtn.on('pointerup', () => this.toggleMute());
+    // Gear (block 4): pause sheet, top-right under the mute button, clear of
+    // the goals panel (panel right edge <= 620; board top ~311).
+    const gearBtn = this.add
+      .sprite(GAME_WIDTH - 60, 152, 'img-ui-settings')
+      .setDisplaySize(72, 72)
+      .setDepth(8)
+      .setInteractive();
+    pressify(this, gearBtn);
+    gearBtn.on('pointerup', () => this.openPause());
     this.chapter = this.progress.chapter;
     this.levels = loadLevels(this.chapter);
     this.marker = this.add
@@ -173,6 +201,7 @@ export class PlayScene extends Phaser.Scene {
 
   private startCurrentLevel(): void {
     this.select(null);
+    this.disarmAssist();
     this.killHand();
     this.movesMadeThisLevel = 0;
     this.tutorialLogged = false;
@@ -269,6 +298,10 @@ export class PlayScene extends Phaser.Scene {
         .setDepth(2);
       this.goalHud.push({ icon, txt });
     });
+    // Fly-to-counter display state starts synced with the (fresh) core state.
+    this.goalDisplay = this.state.goals.map((gs) => gs.collected);
+    this.goalInFlight = this.state.goals.map(() => 0);
+    this.flightJobs = [];
     // Streak flame: gold spark + win-streak count on the badge shoulder once
     // the streak reaches 3 (the free-booster threshold, adaptive.streakBonus).
     const streak = this.adaptive.state().streak;
@@ -281,33 +314,125 @@ export class PlayScene extends Phaser.Scene {
   }
 
   /**
-   * RM anatomy: 3 round booster slots (rocket/tnt/lightball) under the board.
-   * Visual parity only this pass -- our boosters are bought PRE-level (picker)
-   * and consumed by placement at level start, so the in-level bar is INERT:
-   * dimmed type icons behind a lock ring (interactive in-level boosters are
-   * future work, tracked in docs/RM-PARITY.md).
+   * RM anatomy, now LIVE (block 3): 3 tappable assist slots under the board.
+   * Hammer (smash one chosen cell, 80c) and row-arrow (clear a chosen row,
+   * 100c) arm on tap and apply on the next board tap; shuffle (free) fires
+   * immediately. Price chips show numbers only (near-zero text).
    */
   private buildBoosterBar(): void {
-    const slots = [
-      { x: 240, key: 'img-sp-rocketH' },
-      { x: 360, key: 'img-sp-tnt' },
-      { x: 480, key: 'img-sp-lightball' },
+    const slots: { kind: AssistKind; x: number; icon: string; iconSize: number }[] = [
+      { kind: 'hammer', x: 240, icon: 'ui-hammer', iconSize: 62 },
+      { kind: 'rowClear', x: 360, icon: 'img-ui-next', iconSize: 56 },
+      { kind: 'shuffle', x: 480, icon: 'img-ui-retry', iconSize: 56 },
     ];
     for (const sl of slots) {
-      this.add.circle(sl.x, BOOSTER_BAR_Y, 52, PALETTE.panel, 0.6).setStrokeStyle(4, 0x8a93a6, 0.9).setDepth(2);
-      this.add.sprite(sl.x, BOOSTER_BAR_Y, sl.key).setDisplaySize(62, 62).setAlpha(0.45).setTint(0xaab2c4).setDepth(2);
-      this.add.sprite(sl.x + 34, BOOSTER_BAR_Y + 34, 'img-ui-lock').setDisplaySize(34, 34).setDepth(3);
+      const base = this.add.circle(sl.x, BOOSTER_BAR_Y, 52, PALETTE.panel, 0.85).setStrokeStyle(4, 0x8a93a6, 0.9).setDepth(2);
+      const icon = this.add.sprite(sl.x, BOOSTER_BAR_Y, sl.icon).setDisplaySize(sl.iconSize, sl.iconSize).setDepth(2.1);
+      // Armed indicator: gold ring, hidden until the slot arms.
+      const ring = this.add.circle(sl.x, BOOSTER_BAR_Y, 58, 0x000000, 0).setStrokeStyle(6, PALETTE.gold, 1).setDepth(2.2).setVisible(false);
+      const price = ASSIST_PRICES[sl.kind];
+      const chip: Phaser.GameObjects.GameObject[] = [];
+      if (price > 0) {
+        chip.push(
+          this.add.circle(sl.x + 34, BOOSTER_BAR_Y + 34, 20, PALETTE.gold).setStrokeStyle(3, 0xb8860b).setDepth(2.3),
+          this.add.text(sl.x + 34, BOOSTER_BAR_Y + 34, String(price), TS.number(18)).setOrigin(0.5).setDepth(2.4),
+        );
+      }
+      base.setInteractive();
+      base.on('pointerup', () => this.onAssistSlotTap(sl.kind));
+      this.assistSlots.set(sl.kind, { base, icon, chip, ring, ringTween: null, wiggleTween: null });
     }
+  }
+
+  private onAssistSlotTap(kind: AssistKind): void {
+    if (this.busy || this.state === undefined || this.state.status !== 'playing') return;
+    // A swipe that starts on the board and releases over a slot must not carry
+    // its stale down-cell into onUp (same object-before-scene ordering as the
+    // gear): arming is a deliberate two-step, never one gesture.
+    this.downAt = null;
+    sfx(this, 'click', { volume: 0.6 });
+    if (kind === 'shuffle') {
+      this.disarmAssist();
+      void this.runAssist('shuffle').catch((e: unknown) => {
+        this.journal.log('error', { where: 'runAssist', message: String(e) });
+        this.busy = false;
+      });
+      return;
+    }
+    if (this.assistArmed === kind) {
+      this.disarmAssist();
+      return;
+    }
+    if (this.wallet.data().coins < ASSIST_PRICES[kind]) {
+      this.wiggleSlot(kind);
+      return;
+    }
+    this.disarmAssist();
+    this.select(null);
+    this.assistArmed = kind;
+    const slot = this.assistSlots.get(kind);
+    if (slot) {
+      slot.ring.setVisible(true).setScale(1);
+      slot.ringTween = this.tweens.add({ targets: slot.ring, scale: 1.08, duration: 340, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
+  }
+
+  private disarmAssist(): void {
+    if (this.assistArmed === null) return;
+    const slot = this.assistSlots.get(this.assistArmed);
+    if (slot) {
+      slot.ringTween?.stop();
+      slot.ringTween = null;
+      slot.ring.setVisible(false).setScale(1);
+    }
+    this.assistArmed = null;
+  }
+
+  /** Can't-afford feedback: the whole slot (chip included) wiggles side to side.
+   *  The previous wiggle is killed and positions restored first, so spamming the
+   *  slot can't compound mid-tween offsets into a permanent displacement. */
+  private wiggleSlot(kind: AssistKind): void {
+    const slot = this.assistSlots.get(kind);
+    if (slot === undefined) return;
+    const parts = [slot.base, slot.icon, ...slot.chip] as (Phaser.GameObjects.GameObject & { x: number; setX(x: number): unknown })[];
+    if (slot.wiggleTween !== null) {
+      slot.wiggleTween.stop();
+      const homeX = slot.ring.x;
+      for (const part of parts) part.setX(part === slot.base || part === slot.icon ? homeX : homeX + 34);
+    }
+    const starts = parts.map((part) => part.x);
+    slot.wiggleTween = this.tweens.add({
+      targets: parts,
+      x: '+=9',
+      duration: 45,
+      yoyo: true,
+      repeat: 3,
+      onComplete: () => {
+        slot.wiggleTween = null;
+        parts.forEach((part, i) => part.setX(starts[i]!));
+      },
+    });
   }
 
   private updateHud(): void {
     this.movesText.setText(String(this.state.movesLeft));
     this.state.goals.forEach((gs, i) => {
-      const remaining = Math.max(0, gs.goal.count - gs.collected);
-      const hud = this.goalHud[i]!;
-      hud.txt.setText(remaining === 0 ? '✓' : String(remaining));
-      hud.txt.setColor(remaining === 0 ? '#54b842' : PALETTE.textOnDark);
+      // While fliers are in the air the counter shows the display value; each
+      // landing bumps it. Once the air clears, snap the display to the truth.
+      const pending = (this.goalInFlight[i] ?? 0) > 0;
+      if (!pending) this.goalDisplay[i] = gs.collected;
+      this.paintGoalCount(i, pending ? this.goalDisplay[i]! : gs.collected);
     });
+  }
+
+  /** Paint one goal counter from a given collected value. */
+  private paintGoalCount(i: number, collected: number): void {
+    const gs = this.state.goals[i];
+    const hud = this.goalHud[i];
+    if (gs === undefined || hud === undefined) return;
+    const remaining = Math.max(0, gs.goal.count - collected);
+    hud.txt.setText(remaining === 0 ? '✓' : String(remaining));
+    hud.txt.setColor(remaining === 0 ? '#54b842' : PALETTE.textOnDark);
   }
 
   private syncBoard(): void {
@@ -330,6 +455,87 @@ export class PlayScene extends Phaser.Scene {
         this.sprites.set(key({ x, y }), sp);
       }
     }
+  }
+
+  private toggleMute(): void {
+    const m = !this.blips.muted();
+    this.blips.setMuted(m);
+    this.muteBtn.setTexture(m ? 'ui-sound-off' : 'ui-sound-on');
+    window.localStorage.setItem('omnigame.muted.v1', m ? '1' : '0');
+  }
+
+  // -------------------------------------------------------------------------
+  // Pause sheet (block 4): RM anatomy — resume big and green, replay, map,
+  // sound + haptics toggles. Icons and one number nowhere: near-zero text.
+  // -------------------------------------------------------------------------
+
+  private openPause(): void {
+    if (this.pauseSheet.length > 0 || this.busy || this.statsOverlay.length > 0) return;
+    if (this.state === undefined || this.state.status !== 'playing') return;
+    sfx(this, 'click', { volume: 0.6 });
+    this.journal.log('pause_open', { level: this.state.level.id });
+    this.disarmAssist();
+    this.select(null);
+    this.downAt = null;
+    const objs = this.pauseSheet;
+    const dim = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.7)
+      .setDepth(30)
+      .setInteractive();
+    const openedAt = this.time.now;
+    dim.on('pointerup', (p: Phaser.Input.Pointer) => {
+      if (p.downTime > openedAt) this.closePause();
+    });
+    objs.push(dim);
+    objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-panel-cream').setDisplaySize(520, 680).setDepth(31));
+    const button = (x: number, y: number, tex: string, size: number, onTap: () => void): Phaser.GameObjects.Sprite => {
+      const b = this.add.sprite(x, y, tex).setDisplaySize(size, size).setDepth(32).setInteractive();
+      pressify(this, b);
+      b.on('pointerup', onTap);
+      objs.push(b);
+      return b;
+    };
+    // Resume: the big green one (RM anatomy) — a play glyph on a green pill.
+    const pill = this.add.image(GAME_WIDTH / 2, 500, 'img-ui-btn-pill-green').setDisplaySize(300, 110).setDepth(31.5);
+    objs.push(pill);
+    button(GAME_WIDTH / 2, 500, 'ui-play', 76, () => this.closePause());
+    // Replay + map (quit) side by side.
+    button(GAME_WIDTH / 2 - 90, 660, 'img-ui-retry', 96, () => {
+      this.closePause();
+      this.journal.log('replay', { level: this.state.level.id, from: 'pause' });
+      if (this.activeBoosters.length > 0) setPendingBoosters(this.activeBoosters);
+      this.retryCount += 1;
+      this.startCurrentLevel();
+    });
+    button(GAME_WIDTH / 2 + 90, 660, 'img-ui-home', 96, () => {
+      this.closePause();
+      this.journal.log('quit_to_map', { level: this.state.level.id, from: 'pause' });
+      goto(this, 'map');
+    });
+    // Toggles: sound + (profile-gated) haptics. Off state = dimmed and greyed.
+    const soundBtn = button(GAME_WIDTH / 2 - 90, 810, this.blips.muted() ? 'ui-sound-off' : 'ui-sound-on', 84, () => {
+      this.toggleMute();
+      soundBtn.setTexture(this.blips.muted() ? 'ui-sound-off' : 'ui-sound-on');
+    });
+    if (PROFILE.features.haptics) {
+      const paintHaptics = (b: Phaser.GameObjects.Sprite): void => {
+        const on = hapticsEnabled();
+        b.setAlpha(on ? 1 : 0.45);
+        if (on) b.clearTint();
+        else b.setTint(0xaab2c4);
+      };
+      const hapticsBtn = button(GAME_WIDTH / 2 + 90, 810, 'ui-haptics', 84, () => {
+        setHapticsEnabled(!hapticsEnabled());
+        paintHaptics(hapticsBtn);
+        vibrate(40);
+      });
+      paintHaptics(hapticsBtn);
+    }
+  }
+
+  private closePause(): void {
+    for (const o of this.pauseSheet) o.destroy();
+    this.pauseSheet = [];
   }
 
   private onSecretTap(): void {
@@ -482,7 +688,7 @@ export class PlayScene extends Phaser.Scene {
 
   private onDown(p: Phaser.Input.Pointer): void {
     this.blips.unlock();
-    if (this.statsOverlay.length > 0) return;
+    if (this.statsOverlay.length > 0 || this.pauseSheet.length > 0) return;
     if (this.hand !== null) {
       this.killHand();
       // Re-arm: show again after 8s of inactivity while the condition still holds.
@@ -498,9 +704,23 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private onUp(p: Phaser.Input.Pointer): void {
+    // Sheet/overlay guard mirrors onDown: a drag released over the gear opens
+    // the pause sheet via the object handler BEFORE this scene-level handler,
+    // and the stale downAt must not turn into a swap behind the dim.
+    if (this.pauseSheet.length > 0 || this.statsOverlay.length > 0) { this.downAt = null; return; }
     if (this.busy || this.downAt === null || this.state === undefined || this.state.status !== 'playing') return;
     const start = this.downAt;
     this.downAt = null;
+    // An armed assist consumes the next board tap (tap or drag, RM-style).
+    if (this.assistArmed !== null) {
+      const kind = this.assistArmed;
+      this.disarmAssist();
+      void this.runAssist(kind, start.cell).catch((e: unknown) => {
+        this.journal.log('error', { where: 'runAssist', message: String(e) });
+        this.busy = false;
+      });
+      return;
+    }
     const dx = p.x - start.px;
     const dy = p.y - start.py;
     const dragDist = Math.hypot(dx, dy);
@@ -569,18 +789,7 @@ export class PlayScene extends Phaser.Scene {
       out = applyMove(this.state, a, b);
     } catch (e) {
       if (e instanceof ShuffleError) {
-        this.journal.log('shuffle_error', { level: this.state.level.id, phase: 'move' });
-        if (this.activeBoosters.length > 0) setPendingBoosters(this.activeBoosters);
-        this.retryCount += 1;
-        // Friendly cue before the silent restart: dim + spinning retry icon.
-        this.busy = true;
-        const dim = this.overlay();
-        const spinner = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-retry').setDepth(11).setScale(1.22);
-        await this.tweenAsync({ targets: spinner, angle: 360, duration: 900, ease: 'Cubic.easeInOut' });
-        dim.destroy();
-        spinner.destroy();
-        this.startCurrentLevel();
-        this.busy = false;
+        await this.shuffleRestart('move');
         return;
       }
       throw e;
@@ -596,6 +805,22 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     await this.runTurn(out, specialSwap);
+  }
+
+  /** Friendly cue before a silent level restart after an unshufflable board:
+   *  dim + spinning retry icon, boosters re-staged, retry counted. */
+  private async shuffleRestart(phase: 'move' | 'assist'): Promise<void> {
+    this.journal.log('shuffle_error', { level: this.state.level.id, phase });
+    if (this.activeBoosters.length > 0) setPendingBoosters(this.activeBoosters);
+    this.retryCount += 1;
+    this.busy = true;
+    const dim = this.overlay();
+    const spinner = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-retry').setDepth(11).setScale(1.22);
+    await this.tweenAsync({ targets: spinner, angle: 360, duration: 900, ease: 'Cubic.easeInOut' });
+    dim.destroy();
+    spinner.destroy();
+    this.startCurrentLevel();
+    this.busy = false;
   }
 
   private wiggle(c: Coord): Promise<void> {
@@ -636,6 +861,14 @@ export class PlayScene extends Phaser.Scene {
       await this.celebrateGift(out.gift);
       this.updateHud();
     }
+    // Let every goal flier land before the win/lose beat (and before input unblocks).
+    if (this.flightJobs.length > 0) {
+      await Promise.all(this.flightJobs);
+      this.flightJobs = [];
+      // Snap displays to truth: a spriteless cleared cell launches no flier, so
+      // the lagging counter would otherwise stay stale through the win overlay.
+      this.updateHud();
+    }
     if (this.state.status === 'won') await this.onWin();
     else if (this.state.status === 'lost') await this.onLose();
     this.busy = false;
@@ -660,51 +893,49 @@ export class PlayScene extends Phaser.Scene {
         break;
       }
       case 'clear': {
-        const targets = ev.cells.map((c) => this.sprites.get(key(c))).filter((s): s is Phaser.GameObjects.Sprite => s !== undefined);
-        if (ev.cells.length >= 6) {
-          this.blips.booster();
-          // Booster flash: a white ring bursts at each cleared cell (fire-and-forget).
-          for (const c of ev.cells) {
-            const { px, py } = cellToXY(this.layout, c.x, c.y);
-            const ring = this.add.sprite(px, py, 'ui-ringlight').setTint(0xffffff).setAlpha(0.7).setScale(0.2).setDepth(2);
-            this.tweens.add({
-              targets: ring,
-              alpha: 0,
-              scale: 1.2,
-              duration: 250,
-              ease: 'Quad.easeOut',
-              onComplete: () => ring.destroy(),
-            });
+        if (wave >= 1) sfx(this, 'cascade-tick', { rate: 1 + wave * 0.15 });
+        const consumed = new Set<string>();
+        const acts = ev.activations ?? [];
+        if (acts.length > 0) await this.animateActivations(acts, ev.cells, consumed);
+        const rest = ev.cells.filter((c) => !consumed.has(key(c)));
+        const targets = rest.map((c) => this.sprites.get(key(c))).filter((s): s is Phaser.GameObjects.Sprite => s !== undefined);
+        if (rest.length > 0) {
+          const POPS: readonly SfxKey[] = ['match-pop-1', 'match-pop-2', 'match-pop-3'];
+          sfx(this, POPS[this.popCycle++ % POPS.length]!);
+          if (acts.length === 0 && ev.cells.length >= 6) {
+            // Big plain cascade: a white ring bursts at each cleared cell (fire-and-forget).
+            for (const c of rest) {
+              const { px, py } = cellToXY(this.layout, c.x, c.y);
+              const ring = this.add.sprite(px, py, 'ui-ringlight').setTint(0xffffff).setAlpha(0.7).setScale(0.2).setDepth(2);
+              this.tweens.add({
+                targets: ring,
+                alpha: 0,
+                scale: 1.2,
+                duration: 250,
+                ease: 'Quad.easeOut',
+                onComplete: () => ring.destroy(),
+              });
+            }
           }
-        } else this.blips.matchAt(wave);
-        for (const c of ev.cells.slice(0, 12)) {
-          const src = this.sprites.get(key(c));
-          if (src === undefined) continue;
-          const tint = tintForTexture(src.texture.key);
-          const { px, py } = cellToXY(this.layout, c.x, c.y);
-          for (let i = 0; i < 4; i++) {
-            const pip = this.add.sprite(px, py, 'ui-pip').setTint(tint).setScale(0.9).setDepth(1);
-            // Fire-and-forget: not awaited; each pip destroys itself on complete.
-            this.tweens.add({
-              targets: pip,
-              x: px + (Math.random() * 2 - 1) * this.layout.cell * 0.8,
-              y: py + (Math.random() * 2 - 1) * this.layout.cell * 0.8,
-              alpha: 0,
-              scale: 0.2,
-              duration: 320,
-              ease: 'Quad.easeOut',
-              onComplete: () => pip.destroy(),
-            });
+          for (const c of rest) {
+            const src = this.sprites.get(key(c));
+            if (src === undefined) continue;
+            this.maybeFlyGoalPiece(c, src.texture.key);
           }
-        }
-        if (targets.length > 0) {
-          await this.tweenAsync({ targets, scale: 0, alpha: 0, duration: step.duration, ease: 'Back.easeIn' });
+          for (const c of rest.slice(0, 12)) {
+            const src = this.sprites.get(key(c));
+            if (src === undefined) continue;
+            this.burstPips(c, tintForTexture(src.texture.key), 4);
+          }
+          if (targets.length > 0) {
+            await this.tweenAsync({ targets, scale: 0, alpha: 0, duration: step.duration, ease: 'Back.easeIn' });
+          }
         }
         for (const c of ev.cells) {
           const sp = this.sprites.get(key(c));
           if (sp) { sp.destroy(); this.sprites.delete(key(c)); }
         }
-        if (navigator.vibrate) navigator.vibrate(20);
+        if (ev.cells.length > 0) vibrate(20);
         break;
       }
       case 'spawn': {
@@ -726,6 +957,8 @@ export class PlayScene extends Phaser.Scene {
         });
         for (const { sp, to } of moving) this.sprites.set(key(to), sp);
         await Promise.all(jobs);
+        // One settle thunk per fall event, however many pieces dropped.
+        if (moving.length > 0) sfx(this, 'piece-drop', { volume: 0.5 });
         break;
       }
       case 'refill': {
@@ -822,6 +1055,473 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Booster choreography (RM-feel pass). Pure visuals: the core has already
+  // resolved the wave; these methods just stage HOW the cleared cells leave.
+  // Every popped sprite is removed from this.sprites immediately so the
+  // generic cleanup at the end of the clear step can't double-destroy it.
+  // -------------------------------------------------------------------------
+
+  /** Small colored particle burst at a cell (fire-and-forget). */
+  private burstPips(c: Coord, tint: number, count: number, spread = 0.8): void {
+    const { px, py } = cellToXY(this.layout, c.x, c.y);
+    for (let i = 0; i < count; i++) {
+      const pip = this.add.sprite(px, py, 'ui-pip').setTint(tint).setScale(0.9).setDepth(1);
+      this.tweens.add({
+        targets: pip,
+        x: px + (Math.random() * 2 - 1) * this.layout.cell * spread,
+        y: py + (Math.random() * 2 - 1) * this.layout.cell * spread,
+        alpha: 0,
+        scale: 0.2,
+        duration: 320,
+        ease: 'Quad.easeOut',
+        onComplete: () => pip.destroy(),
+      });
+    }
+  }
+
+  /** Pop one cell's sprite after `delay` ms, with pips and an optional outward drift. */
+  private popCell(c: Coord, delay: number, consumed: Set<string>, drift?: { dx: number; dy: number }): Promise<void> {
+    const k = key(c);
+    consumed.add(k);
+    const sp = this.sprites.get(k);
+    if (sp === undefined) return Promise.resolve();
+    this.sprites.delete(k);
+    const tint = tintForTexture(sp.texture.key);
+    return new Promise((resolve) => {
+      this.time.delayedCall(delay, () => {
+        this.maybeFlyGoalPiece(c, sp.texture.key);
+        this.burstPips(c, tint, 3, 0.6);
+        this.tweens.add({
+          targets: sp,
+          scale: 0,
+          alpha: 0,
+          x: sp.x + (drift?.dx ?? 0),
+          y: sp.y + (drift?.dy ?? 0),
+          duration: 180,
+          ease: 'Back.easeIn',
+          onComplete: () => { sp.destroy(); resolve(); },
+        });
+      });
+    });
+  }
+
+  /** White expanding shockwave ring (fire-and-forget). */
+  private shockwave(px: number, py: number, scaleTo = 2, delay = 0): void {
+    const ring = this.add.image(px, py, 'img-fx-glow').setTint(0xffffff).setAlpha(0.6).setScale(0.2).setDepth(3);
+    this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scale: scaleTo,
+      duration: 320,
+      delay,
+      ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+  }
+
+  /** Stage each fired special in order; `big` scales the drama up for combos. */
+  private async animateActivations(acts: SpecialActivation[], cells: Coord[], consumed: Set<string>): Promise<void> {
+    const inClear = new Set(cells.map(key));
+    // Swapped combos share one targets array (resolve.ts hands both specials
+    // the combined list) — that identity is the combo marker.
+    const combo = acts.length >= 2 && acts[0]!.targets === acts[1]!.targets;
+    if (combo && acts[0]!.special === 'lightball' && acts[1]!.special === 'lightball') {
+      await this.animateBoardFlash(acts, inClear, consumed);
+      return;
+    }
+    for (const [i, act] of acts.entries()) {
+      const own = act.targets.filter((t) => inClear.has(key(t)) && !consumed.has(key(t)));
+      // Only the swapped combo pair gets the big treatment, not chained specials.
+      const big = combo && i < 2;
+      switch (act.special) {
+        case 'rocketH':
+        case 'rocketV':
+          await this.animateRocket(act.coord, act.special === 'rocketV', own, consumed, big);
+          break;
+        case 'tnt':
+          await this.animateTnt(act.coord, own, consumed, big);
+          break;
+        case 'lightball':
+          await this.animateLightball(act.coord, own, consumed);
+          break;
+        case 'propeller':
+          await this.animatePropeller(act.coord, own, consumed);
+          break;
+      }
+    }
+  }
+
+  /** Ball+ball: full-board white flash, then every CLEARED cell pops radially
+   *  outward (surviving damaged boxes stay — they get the damage-event shake). */
+  private async animateBoardFlash(acts: SpecialActivation[], inClear: Set<string>, consumed: Set<string>): Promise<void> {
+    sfx(this, 'lightning-zap');
+    sfx(this, 'explosion-boom', { delay: 0.12 });
+    this.cameras.main.shake(220, 0.01);
+    const flash = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0xffffff, 0).setDepth(9);
+    await this.tweenAsync({ targets: flash, fillAlpha: 0.85, duration: 110, yoyo: true, ease: 'Quad.easeOut' });
+    flash.destroy();
+    const origin = cellToXY(this.layout, acts[0]!.coord.x, acts[0]!.coord.y);
+    this.shockwave(origin.px, origin.py, 3.2);
+    this.shockwave(origin.px, origin.py, 3.2, 100);
+    const jobs: Promise<void>[] = [];
+    for (const t of acts[0]!.targets) {
+      if (!inClear.has(key(t))) continue;
+      const { px, py } = cellToXY(this.layout, t.x, t.y);
+      const d = Math.hypot(px - origin.px, py - origin.py);
+      const s = d > 0 ? this.layout.cell * 0.35 / d : 0;
+      jobs.push(this.popCell(t, d * 0.35, consumed, { dx: (px - origin.px) * s, dy: (py - origin.py) * s }));
+    }
+    await Promise.all(jobs);
+  }
+
+  /** Streak sweeping the full row/col + staggered pops rippling out from the rocket. */
+  private async animateRocket(coord: Coord, vertical: boolean, own: Coord[], consumed: Set<string>, big: boolean): Promise<void> {
+    sfx(this, 'rocket-whoosh');
+    this.cameras.main.shake(100, big ? 0.008 : 0.005);
+    const origin = cellToXY(this.layout, coord.x, coord.y);
+    const cellPx = this.layout.cell;
+    // Actual pixel extents of the swept line (cell centers of both endpoints).
+    const n = vertical ? this.state.board.height : this.state.board.width;
+    const start = vertical ? cellToXY(this.layout, coord.x, 0) : cellToXY(this.layout, 0, coord.y);
+    const end = vertical ? cellToXY(this.layout, coord.x, n - 1) : cellToXY(this.layout, n - 1, coord.y);
+    const lineLen = cellPx * n;
+    const midX = (start.px + end.px) / 2;
+    const midY = (start.py + end.py) / 2;
+    // White bar the full length of the line, collapsing as the streaks pass.
+    const bar = this.add.rectangle(midX, midY, vertical ? cellPx * 0.34 : lineLen, vertical ? lineLen : cellPx * 0.34, 0xffffff, 0.55).setDepth(2);
+    this.tweens.add({ targets: bar, alpha: 0, [vertical ? 'scaleX' : 'scaleY']: 0.1, duration: 260, ease: 'Quad.easeOut', onComplete: () => bar.destroy() });
+    // Two glint streaks racing from the rocket to each end of the line.
+    for (const dir of [-1, 1] as const) {
+      const streak = this.add.image(origin.px, origin.py, 'img-fx-glint').setTint(0xffffff).setAlpha(0.95).setDepth(3);
+      streak.setDisplaySize(cellPx * 1.7, cellPx * 0.55);
+      if (vertical) streak.setAngle(90);
+      const to = dir === -1 ? (vertical ? start.py : start.px) : (vertical ? end.py : end.px);
+      this.tweens.add({
+        targets: streak,
+        [vertical ? 'y' : 'x']: to + dir * cellPx * 0.5,
+        alpha: 0.2,
+        duration: 240,
+        ease: 'Quad.easeIn',
+        onComplete: () => streak.destroy(),
+      });
+    }
+    // The rocket piece itself goes first, then cells pop outward in both directions.
+    const jobs: Promise<void>[] = [this.popCell(coord, 0, consumed)];
+    for (const t of own) {
+      if (t.x === coord.x && t.y === coord.y) continue;
+      const dist = Math.abs(vertical ? t.y - coord.y : t.x - coord.x);
+      jobs.push(this.popCell(t, dist * 15, consumed));
+    }
+    await Promise.all(jobs);
+  }
+
+  /** Fuse spark on the bomb, then boom: shockwave + radial outward pops. */
+  private async animateTnt(coord: Coord, own: Coord[], consumed: Set<string>, big: boolean): Promise<void> {
+    const origin = cellToXY(this.layout, coord.x, coord.y);
+    const bomb = this.sprites.get(key(coord));
+    const spark = this.add.image(origin.px + this.layout.cell * 0.3, origin.py - this.layout.cell * 0.38, 'img-fx-sparkle-1')
+      .setTint(0xffe08a).setScale(0.3).setDepth(3);
+    this.tweens.add({ targets: spark, scale: 0.65, angle: 180, duration: 125, yoyo: true, repeat: 1, ease: 'Quad.easeInOut' });
+    if (bomb) this.tweens.add({ targets: bomb, scale: bomb.scale * 1.12, duration: 125, yoyo: true, repeat: 1 });
+    await new Promise<void>((resolve) => this.time.delayedCall(250, () => resolve()));
+    spark.destroy();
+    sfx(this, 'explosion-boom');
+    this.cameras.main.shake(big ? 220 : 150, big ? 0.01 : 0.007);
+    this.shockwave(origin.px, origin.py, big ? 2.8 : 2);
+    if (big) this.shockwave(origin.px, origin.py, 2.8, 90);
+    const jobs: Promise<void>[] = [this.popCell(coord, 0, consumed)];
+    for (const t of own) {
+      if (t.x === coord.x && t.y === coord.y) continue;
+      const { px, py } = cellToXY(this.layout, t.x, t.y);
+      const d = Math.hypot(px - origin.px, py - origin.py);
+      const s = d > 0 ? this.layout.cell * 0.3 / d : 0;
+      jobs.push(this.popCell(t, d * 0.12, consumed, { dx: (px - origin.px) * s, dy: (py - origin.py) * s }));
+    }
+    await Promise.all(jobs);
+  }
+
+  /** The lollipop pulses while zapping each target in sequence with a white flash. */
+  private async animateLightball(coord: Coord, own: Coord[], consumed: Set<string>): Promise<void> {
+    sfx(this, 'lightning-zap');
+    const ball = this.sprites.get(key(coord));
+    if (ball) {
+      ball.setDepth(3);
+      this.tweens.add({ targets: ball, scale: ball.scale * 1.18, duration: 130, yoyo: true, repeat: Math.max(1, Math.ceil(own.length / 8)) });
+    }
+    const jobs: Promise<void>[] = [];
+    let i = 0;
+    for (const t of own) {
+      if (t.x === coord.x && t.y === coord.y) continue;
+      const delay = i * 25;
+      i += 1;
+      const { px, py } = cellToXY(this.layout, t.x, t.y);
+      const sp = this.sprites.get(key(t));
+      const tint = sp ? tintForTexture(sp.texture.key) : 0xffffff;
+      this.time.delayedCall(delay, () => {
+        const flash = this.add.image(px, py, 'img-fx-glint').setTint(0xffffff).setAlpha(0.9).setScale(0.35).setDepth(3);
+        this.tweens.add({ targets: flash, scale: 1, alpha: 0, duration: 160, ease: 'Quad.easeOut', onComplete: () => flash.destroy() });
+        const zap = this.add.image(px, py, 'img-fx-sparkle-1').setTint(tint).setScale(0.28).setDepth(3);
+        this.tweens.add({ targets: zap, scale: 0.75, alpha: 0, angle: 120, duration: 200, ease: 'Quad.easeOut', onComplete: () => zap.destroy() });
+      });
+      jobs.push(this.popCell(t, delay + 40, consumed));
+    }
+    await Promise.all(jobs);
+    await this.popCell(coord, 0, consumed);
+  }
+
+  /** Lift-off, spin, and a bezier arc to the flown-to target; neighbors pop behind it. */
+  private async animatePropeller(coord: Coord, own: Coord[], consumed: Set<string>): Promise<void> {
+    sfx(this, 'propeller-whir');
+    const origin = cellToXY(this.layout, coord.x, coord.y);
+    const isAdj = (t: Coord): boolean => Math.abs(t.x - coord.x) + Math.abs(t.y - coord.y) === 1;
+    // boosterTargets = 4 orthogonal neighbors + one flown-to pick; the pick is
+    // the one non-adjacent target (adjacent picks just pop with the neighbors).
+    const flight = own.find((t) => !isAdj(t) && !(t.x === coord.x && t.y === coord.y)) ?? null;
+    const jobs: Promise<void>[] = [];
+    let ni = 0;
+    for (const t of own) {
+      if (t === flight || (t.x === coord.x && t.y === coord.y)) continue;
+      jobs.push(this.popCell(t, 120 + ni * 30, consumed));
+      ni += 1;
+    }
+    const prop = this.sprites.get(key(coord));
+    if (prop === undefined) {
+      if (flight) jobs.push(this.popCell(flight, 200, consumed));
+      jobs.push(this.popCell(coord, 0, consumed));
+      await Promise.all(jobs);
+      return;
+    }
+    consumed.add(key(coord));
+    this.sprites.delete(key(coord));
+    prop.setDepth(4);
+    await this.tweenAsync({ targets: prop, scale: prop.scale * 1.35, duration: 140, ease: 'Back.easeOut' });
+    if (flight) {
+      const dest = cellToXY(this.layout, flight.x, flight.y);
+      // Quadratic bezier via manual interpolation: control point offset
+      // perpendicular to the flight line for a real arc.
+      const mx = (origin.px + dest.px) / 2;
+      const my = (origin.py + dest.py) / 2;
+      const dx = dest.px - origin.px;
+      const dy = dest.py - origin.py;
+      const len = Math.max(1, Math.hypot(dx, dy));
+      const cx = mx - (dy / len) * this.layout.cell * 2.2;
+      const cy = my + (dx / len) * this.layout.cell * 2.2;
+      const p = { t: 0 };
+      this.tweens.add({ targets: prop, angle: 720, duration: 450, ease: 'Linear' });
+      await this.tweenAsync({
+        targets: p,
+        t: 1,
+        duration: 450,
+        ease: 'Sine.easeInOut',
+        onUpdate: () => {
+          const u = 1 - p.t;
+          prop.setPosition(
+            u * u * origin.px + 2 * u * p.t * cx + p.t * p.t * dest.px,
+            u * u * origin.py + 2 * u * p.t * cy + p.t * p.t * dest.py,
+          );
+        },
+      });
+      const hit = this.add.image(dest.px, dest.py, 'img-fx-sparkle-1').setTint(0xffffff).setScale(0.4).setDepth(3);
+      this.tweens.add({ targets: hit, scale: 1, alpha: 0, duration: 220, ease: 'Quad.easeOut', onComplete: () => hit.destroy() });
+      jobs.push(this.popCell(flight, 0, consumed));
+    } else {
+      this.tweens.add({ targets: prop, angle: 360, duration: 300, ease: 'Linear' });
+    }
+    jobs.push(this.tweenAsync({ targets: prop, scale: 0, alpha: 0, duration: 160, ease: 'Back.easeIn' }).then(() => prop.destroy()));
+    await Promise.all(jobs);
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => this.time.delayedCall(ms, () => resolve()));
+  }
+
+  // -------------------------------------------------------------------------
+  // In-level assists (block 3): hammer / row-arrow / shuffle.
+  // -------------------------------------------------------------------------
+
+  /** Resolve an assist through the core, then charge and animate. The wallet is
+   *  only touched AFTER a valid resolution: an invalid target or a stuck-board
+   *  ShuffleError restart must never cost coins (same principle as the
+   *  pre-level picker's charge-at-play-tap). No move is consumed. */
+  private async runAssist(kind: AssistKind, target?: Coord): Promise<void> {
+    if (this.busy || this.state.status !== 'playing') return;
+    const price = ASSIST_PRICES[kind];
+    if (price > 0 && this.wallet.data().coins < price) {
+      this.wiggleSlot(kind);
+      return;
+    }
+    this.busy = true;
+    try {
+      let out: MoveOutcome;
+      try {
+        out = applyAssist(this.state, kind, target);
+      } catch (e) {
+        if (e instanceof ShuffleError) {
+          await this.shuffleRestart('assist');
+          return;
+        }
+        throw e;
+      }
+      if (out.invalid === true) return;
+      if (price > 0 && !this.wallet.spend(price)) {
+        this.wiggleSlot(kind);
+        return;
+      }
+      this.coinText.setText(String(this.wallet.data().coins));
+      this.journal.log('assist_used', { level: this.state.level.id, kind, cost: price });
+      // Assist-specific staging fx fire before the core's event stream plays.
+      if (kind === 'hammer' && target !== undefined) await this.hammerSmash(target);
+      if (kind === 'rowClear' && target !== undefined) this.rowSweepFx(target.y);
+      this.state = out.state;
+      let wave = 0;
+      for (const step of planSteps(out.events)) {
+        if (step.event.type === 'clear') {
+          await this.animateStep(step, wave);
+          wave += 1;
+        } else {
+          await this.animateStep(step);
+        }
+      }
+      this.syncBoard();
+      this.updateHud();
+      if (this.flightJobs.length > 0) {
+        await Promise.all(this.flightJobs);
+        this.flightJobs = [];
+        this.updateHud();
+      }
+      if (this.state.status === 'won') await this.onWin();
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  /** Hammer swing at the target cell: mallet arcs in, starburst on impact. */
+  private async hammerSmash(target: Coord): Promise<void> {
+    const { px, py } = cellToXY(this.layout, target.x, target.y);
+    const cell = this.layout.cell;
+    const mallet = this.add.sprite(px + cell * 0.7, py - cell * 1.1, 'ui-hammer').setDisplaySize(cell * 1.1, cell * 1.1).setAngle(45).setDepth(5);
+    await this.tweenAsync({ targets: mallet, angle: -18, x: px + cell * 0.28, y: py - cell * 0.3, duration: 160, ease: 'Back.easeIn' });
+    this.cameras.main.shake(90, 0.006);
+    const burst = this.add.image(px, py, 'img-fx-starburst-hard').setTint(0xffffff).setScale(0.3).setDepth(4);
+    this.tweens.add({ targets: burst, scale: 1.1, alpha: 0, duration: 240, ease: 'Quad.easeOut', onComplete: () => burst.destroy() });
+    this.tweens.add({ targets: mallet, alpha: 0, duration: 140, onComplete: () => mallet.destroy() });
+  }
+
+  /** Row-arrow sweep: white bar flash across the chosen row (rocket-like). */
+  private rowSweepFx(y: number): void {
+    sfx(this, 'rocket-whoosh', { volume: 0.8 });
+    this.cameras.main.shake(90, 0.004);
+    const start = cellToXY(this.layout, 0, y);
+    const end = cellToXY(this.layout, this.state.board.width - 1, y);
+    const lineLen = this.layout.cell * this.state.board.width;
+    const bar = this.add.rectangle((start.px + end.px) / 2, start.py, lineLen, this.layout.cell * 0.34, 0xffffff, 0.55).setDepth(2);
+    this.tweens.add({ targets: bar, alpha: 0, scaleY: 0.1, duration: 260, ease: 'Quad.easeOut', onComplete: () => bar.destroy() });
+    const streak = this.add.image(start.px, start.py, 'img-fx-glint').setTint(0xffffff).setAlpha(0.95).setDepth(3);
+    streak.setDisplaySize(this.layout.cell * 1.7, this.layout.cell * 0.55);
+    this.tweens.add({ targets: streak, x: end.px + this.layout.cell * 0.5, alpha: 0.2, duration: 240, ease: 'Quad.easeIn', onComplete: () => streak.destroy() });
+  }
+
+  // -------------------------------------------------------------------------
+  // RM signature mechanics (block 2): goal fly-to-counter + win finale.
+  // -------------------------------------------------------------------------
+
+  /** If this cleared piece feeds an incomplete collect goal whose display lags
+   *  the core truth, launch a flying copy toward its HUD icon (visual only). */
+  private maybeFlyGoalPiece(c: Coord, texKey: string): void {
+    this.state.goals.forEach((gs, i) => {
+      if (gs.goal.type !== 'collect') return;
+      if (texKey !== pieceTextureKey({ kind: 'normal', color: gs.goal.color }, this.pack)) return;
+      const shown = this.goalDisplay[i] ?? 0;
+      const inFlight = this.goalInFlight[i] ?? 0;
+      if (shown + inFlight >= gs.collected) return;
+      this.goalInFlight[i] = inFlight + 1;
+      this.flightJobs.push(this.flyGoalPiece(c, texKey, i));
+    });
+  }
+
+  private flyGoalPiece(c: Coord, texKey: string, goalIdx: number): Promise<void> {
+    const hud = this.goalHud[goalIdx];
+    if (hud === undefined) {
+      this.goalInFlight[goalIdx] = Math.max(0, (this.goalInFlight[goalIdx] ?? 1) - 1);
+      return Promise.resolve();
+    }
+    const { px, py } = cellToXY(this.layout, c.x, c.y);
+    const flier = this.add.sprite(px, py, texKey).setDisplaySize(this.layout.cell * 0.8, this.layout.cell * 0.8).setDepth(6);
+    const startScale = flier.scale;
+    const dest = { x: hud.icon.x, y: hud.icon.y };
+    // Quadratic bezier: control point lofted above the straight line for an arc.
+    const cx = (px + dest.x) / 2 + (px < dest.x ? -90 : 90);
+    const cy = Math.min(py, dest.y) - 140;
+    this.tweens.add({ targets: flier, scale: startScale * 0.5, duration: 400, ease: 'Quad.easeIn' });
+    const p = { t: 0 };
+    return this.tweenAsync({
+      targets: p,
+      t: 1,
+      duration: 400,
+      ease: 'Sine.easeIn',
+      onUpdate: () => {
+        const u = 1 - p.t;
+        flier.setPosition(
+          u * u * px + 2 * u * p.t * cx + p.t * p.t * dest.x,
+          u * u * py + 2 * u * p.t * cy + p.t * p.t * dest.y,
+        );
+      },
+    }).then(() => {
+      flier.destroy();
+      sfx(this, 'collect-ding', { volume: 0.7 });
+      this.goalInFlight[goalIdx] = Math.max(0, (this.goalInFlight[goalIdx] ?? 1) - 1);
+      this.goalDisplay[goalIdx] = (this.goalDisplay[goalIdx] ?? 0) + 1;
+      this.paintGoalCount(goalIdx, this.goalDisplay[goalIdx]!);
+      const icon = hud.icon;
+      this.tweens.add({ targets: icon, scale: icon.scale * 1.25, duration: 110, yoyo: true });
+    });
+  }
+
+  /** RM's moves-to-rockets win conversion: leftover moves become rockets that
+   *  auto-fire over the finished board, each worth +3 coins. Pure bonus layer:
+   *  the core planned it deterministically; the GameState is never touched. */
+  private async playFinale(rockets: FinaleRocket[]): Promise<void> {
+    const coins = rockets.length * FINALE_COINS_PER_ROCKET;
+    this.journal.log('finale', { rockets: rockets.length, coins });
+    this.wallet.earnFinale(rockets.length);
+    // Convert: leftover moves drain from the badge as rockets pop in (the
+    // badge drains per planned rocket even if a cell's sprite is missing).
+    for (const [i, r] of rockets.entries()) {
+      this.time.delayedCall(i * 60, () => {
+        sfx(this, 'click', { volume: 0.5 });
+        this.movesText.setText(String(Math.max(0, this.state.movesLeft - (i + 1))));
+        const sp = this.sprites.get(key(r.coord));
+        if (sp === undefined) return;
+        sp.setTexture(r.vertical ? 'img-sp-rocketV' : 'img-sp-rocketH');
+        sp.setDisplaySize(this.layout.cell * 0.92, this.layout.cell * 0.92);
+        this.tweens.add({ targets: sp, scale: sp.scale * 1.18, duration: 90, yoyo: true });
+      });
+    }
+    await this.sleep(rockets.length * 60 + 220);
+    // Fire one by one, 150ms apart (overlapping sweeps, RM style).
+    const consumed = new Set<string>();
+    const jobs: Promise<void>[] = [];
+    for (const [i, r] of rockets.entries()) {
+      jobs.push(
+        this.sleep(i * 150).then(async () => {
+          const { px, py } = cellToXY(this.layout, r.coord.x, r.coord.y);
+          if (this.sprites.has(key(r.coord))) {
+            const own = r.targets.filter((t) => this.sprites.has(key(t)) && !consumed.has(key(t)));
+            await this.animateRocket(r.coord, r.vertical, own, consumed, false);
+          }
+          // +3 coins fly to the counter as each rocket resolves.
+          sfx(this, 'coin-clink', { volume: 0.6 });
+          const pip = this.add.sprite(px, py, 'ui-pip').setTint(0xf1c40f).setScale(1.4).setDepth(12);
+          await this.tweenAsync({ targets: pip, x: this.coinIcon.x, y: this.coinIcon.y, scale: 0.5, duration: 420, ease: 'Cubic.easeIn' });
+          pip.destroy();
+          this.coinText.setText(String(Number(this.coinText.text) + FINALE_COINS_PER_ROCKET));
+        }),
+      );
+    }
+    await Promise.all(jobs);
+  }
+
   private async celebrateGift(moves: number): Promise<void> {
     this.blips.gift();
     const jobs: Promise<void>[] = [];
@@ -853,6 +1553,10 @@ export class PlayScene extends Phaser.Scene {
 
   private async onWin(): Promise<void> {
     this.killHand();
+    // RM moves-to-rockets finale: leftover moves auto-fire as bonus rockets
+    // BEFORE the win overlay. Stars are computed from the untouched movesLeft.
+    const finaleRockets = planFinale(this.state);
+    if (finaleRockets.length > 0) await this.playFinale(finaleRockets);
     const stars = starsFor({
       status: this.state.status,
       giftUsed: this.state.giftUsed,
@@ -870,7 +1574,7 @@ export class PlayScene extends Phaser.Scene {
     const wins = this.adaptive.recordWin();
     const offerBreak = PROFILE.features.danceBreaks && wins >= PROFILE.features.danceBreakEveryWins;
     this.flyCoinPips();
-    this.blips.win();
+    sfx(this, 'win-fanfare');
     this.overlay();
     // Red ribbon banner (pzUH, 512x134 -- near-native at this slot) sweeps in
     // behind the stars (depth 10.5: between dim and stars).
@@ -887,6 +1591,7 @@ export class PlayScene extends Phaser.Scene {
     for (let i = 0; i < stars; i++) {
       const st = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'img-ui-star').setDepth(12).setScale(0);
       starSprites.push(st);
+      sfx(this, 'star-pop', { rate: 1 + i * 0.08 });
       // Blush light bloom under the pop — celebration reads as light, not text.
       const bloom = this.add.image(st.x, st.y, 'ui-glow').setTint(PALETTE.blush).setAlpha(0).setScale(0.2).setDepth(11.5);
       this.tweens.add({
@@ -930,6 +1635,7 @@ export class PlayScene extends Phaser.Scene {
 
   /** 4-6 gold coin pips fly from board center to the coin counter (fire-and-forget). */
   private flyCoinPips(): void {
+    sfx(this, 'coin-clink');
     const n = 4 + Math.floor(Math.random() * 3);
     for (let i = 0; i < n; i++) {
       const pip = this.add
@@ -1097,7 +1803,7 @@ export class PlayScene extends Phaser.Scene {
     this.journal.log('level_end', { level: this.state.level.id, won: false, retries: this.retryCount });
     const outcome = this.adaptive.recordOutcome(false, 0);
     if (outcome.changed) this.journal.log('difficulty_tier', { tier: outcome.tier });
-    this.blips.lose();
+    sfx(this, 'lose-soft');
     const dim = this.overlay();
     const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.5, 'img-ui-retry').setDepth(11).setScale(0).setInteractive();
     await this.tweenAsync({ targets: btn, scale: 1.22, duration: 300, ease: 'Back.easeOut' });

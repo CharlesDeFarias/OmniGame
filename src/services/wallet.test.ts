@@ -34,6 +34,14 @@ describe('wallet', () => {
     expect(w.data()).toEqual({ version: 1, coins: 20, followers: 0, hearts: 0, xp: 0 });
   });
 
+  it('earnFinale pays 3 coins per finale rocket, nothing else', () => {
+    const w = createWallet(memStorage());
+    w.earnFinale(5);
+    expect(w.data()).toEqual({ version: 1, coins: 15, followers: 0, hearts: 0, xp: 0 });
+    w.earnFinale(0);
+    expect(w.data().coins).toBe(15);
+  });
+
   it('earnRunner adds exactly the given coins; xp is floor(coins/2) capped at 30', () => {
     const w = createWallet(memStorage());
     w.earnRunner(24);

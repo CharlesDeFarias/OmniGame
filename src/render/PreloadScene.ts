@@ -3,6 +3,7 @@ import { goto } from './chrome';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
 import { makeTextures } from './theme';
+import { SFX_KEYS } from './audio';
 
 /**
  * Asset preloader (RM-look milestone): loads every mapped PNG from the CC0
@@ -146,6 +147,13 @@ const FALLBACKS: ReadonlyArray<readonly [string, string]> = [
   ['img-ui-btn-sq-blue', 'ui-panel'], ['img-ui-btn-sq-green', 'ui-panel'],
   ['img-ui-btn-pill-green', 'ui-panel'], ['img-ui-next', 'ui-play'],
   ['img-ui-star-sm', 'ui-star'],
+  // Booster-choreography fx (RM-feel pass): pip/glow stand-ins keep the
+  // choreography running when the Kenney fx pack fails to arrive.
+  ['img-fx-sparkle-1', 'ui-pip'], ['img-fx-sparkle-2', 'ui-pip'],
+  ['img-fx-sparkle-3', 'ui-pip'], ['img-fx-glint', 'ui-pip'],
+  ['img-fx-glow', 'ui-glow'], ['img-fx-starburst-hard', 'ui-ringlight'],
+  // Pause sheet (block 4).
+  ['img-ui-settings', 'ui-gear'],
 ];
 
 export class PreloadScene extends Phaser.Scene {
@@ -179,6 +187,10 @@ export class PreloadScene extends Phaser.Scene {
       console.warn(`[preload] failed to load ${file.key} (${file.url}); procedural fallback will cover it`);
     });
     for (const [key, url] of ART_FILES) this.load.image(key, url);
+    // Sound effects (RM-feel milestone): CC0 oggs, see assets/audio/MANIFEST.md.
+    // Same never-strand rule as the art: a failed file just logs (handler
+    // above) and sfx() in audio.ts falls back to the procedural blips.
+    for (const key of SFX_KEYS) this.load.audio(key, `assets/audio/${key}.ogg`);
   }
 
   create(): void {

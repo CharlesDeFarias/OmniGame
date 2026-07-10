@@ -4,11 +4,20 @@ import { boosterTargets, cellsOfColor, comboTargets, type GoalHints } from './bo
 import { applyGravity, refill, type FallMove } from './gravity';
 import { findMatchGroups } from './matches';
 import { canSwap, swapPieces } from './swap';
-import type { Board, Coord, Piece, PieceColor } from './types';
+import type { Board, Coord, Piece, PieceColor, SpecialKind } from './types';
+
+/** A special that fired during a clear wave: where it sat, what it was, what it hit.
+ *  Pure annotation for the renderer's choreography — never feeds back into resolution. */
+export interface SpecialActivation {
+  coord: Coord;
+  special: SpecialKind;
+  targets: Coord[];
+}
 
 export type ResolveEvent =
   | { type: 'swap'; a: Coord; b: Coord }
-  | { type: 'clear'; cells: Coord[] }
+  /** `activations` (present iff any special fired) lists swapped specials first, then chained ones. */
+  | { type: 'clear'; cells: Coord[]; activations?: SpecialActivation[] }
   | { type: 'spawn'; coord: Coord; piece: Piece }
   | { type: 'fall'; moves: FallMove[] }
   | { type: 'refill'; fills: { coord: Coord; piece: Piece }[] }
@@ -33,7 +42,14 @@ const key = (c: Coord): string => `${c.x},${c.y}`;
 /** Set closure (DFS via pop): specials inside the set activate and extend it; each cell once.
  *  Cells in `noExpand` are cleared but never re-fire — used for swapped specials whose targeted
  *  or combo effect was already computed, preventing double-activation. */
-function expandWithSpecials(board: Board, initial: Coord[], rng: RNG, noExpand?: Set<string>, goalHints?: GoalHints): Coord[] {
+function expandWithSpecials(
+  board: Board,
+  initial: Coord[],
+  rng: RNG,
+  noExpand?: Set<string>,
+  goalHints?: GoalHints,
+  activations?: SpecialActivation[],
+): Coord[] {
   const seen = new Map<string, Coord>();
   const queue = [...initial];
   while (queue.length > 0) {
@@ -44,7 +60,9 @@ function expandWithSpecials(board: Board, initial: Coord[], rng: RNG, noExpand?:
     if (noExpand?.has(k)) continue;
     const p = at(board, c.x, c.y);
     if (p?.kind === 'special') {
-      for (const t of boosterTargets(board, c, p.special, rng, goalHints)) queue.push(t);
+      const targets = boosterTargets(board, c, p.special, rng, goalHints);
+      activations?.push({ coord: c, special: p.special, targets });
+      for (const t of targets) queue.push(t);
     }
   }
   return [...seen.values()];
@@ -57,31 +75,26 @@ function countColors(board: Board, cells: Coord[], into: Partial<Record<PieceCol
   }
 }
 
-export function resolveTurn(
-  board: Board,
-  a: Coord,
-  b: Coord,
-  rng: RNG,
-  colorCount: number,
-  goalHints?: GoalHints,
-): TurnResult {
-  if (colorCount < 3) throw new Error(`colorCount must be >= 3, got ${colorCount}`);
-  const check = canSwap(board, a, b);
-  if (!check.valid) return { valid: false, board, events: [], clearedByColor: {}, clearedBoxes: 0, clearedIce: 0, reason: check.reason };
-
-  const work = cloneBoard(board);
+/**
+ * Wave engine: the resolution machinery below the swap decision (clear waves,
+ * box damage, ice, gravity, refill, cascade settling). Both resolveTurn and
+ * resolveAssistClear drive resolution through this ONE implementation so
+ * behavior — and RNG draw order — can never diverge between entry points.
+ * Extraction was mechanical from the original resolveTurn closure.
+ */
+function createWaveEngine(work: Board, rng: RNG, colorCount: number, goalHints?: GoalHints) {
   const events: ResolveEvent[] = [];
   const clearedByColor: Partial<Record<PieceColor, number>> = {};
-  let clearedBoxes = 0;
-  let clearedIce = 0;
+  const totals = { boxes: 0, ice: 0 };
 
-  const pa = at(work, a.x, a.y)!;
-  const pb = at(work, b.x, b.y)!;
-  swapPieces(work, a, b);
-  events.push({ type: 'swap', a, b });
-
-  const clearWave = (cells: Coord[], spawns: { coord: Coord; piece: Piece }[], noExpand?: Set<string>): void => {
-    const expanded = expandWithSpecials(work, cells, rng, noExpand, goalHints);
+  const clearWave = (
+    cells: Coord[],
+    spawns: { coord: Coord; piece: Piece }[],
+    noExpand?: Set<string>,
+    swappedActivations?: SpecialActivation[],
+  ): void => {
+    const activations: SpecialActivation[] = swappedActivations ? [...swappedActivations] : [];
+    const expanded = expandWithSpecials(work, cells, rng, noExpand, goalHints, activations);
     // Partition: normal/special pieces clear outright; blockers directly targeted
     // (booster rows/areas/combos) take a hit instead. Max 1 damage per box per wave.
     const pieceCells: Coord[] = [];
@@ -105,7 +118,7 @@ export function resolveTurn(
       const i = index(work, c.x, c.y);
       if (work.ice[i]) {
         work.ice[i] = false;
-        clearedIce += 1;
+        totals.ice += 1;
         iceCells.push(c);
       }
     };
@@ -120,13 +133,17 @@ export function resolveTurn(
         set(work, c.x, c.y, { kind: 'blocker', hp });
         damagedCells.push(c);
       } else {
-        clearedBoxes += 1;
+        totals.boxes += 1;
         breakIce(c);
         set(work, c.x, c.y, null);
         destroyedCells.push(c);
       }
     }
-    events.push({ type: 'clear', cells: [...pieceCells, ...destroyedCells] });
+    events.push({
+      type: 'clear',
+      cells: [...pieceCells, ...destroyedCells],
+      ...(activations.length > 0 ? { activations } : {}),
+    });
     if (damagedCells.length > 0) events.push({ type: 'damage', cells: damagedCells });
     if (iceCells.length > 0) events.push({ type: 'iceClear', cells: iceCells });
     for (const s of spawns) {
@@ -139,6 +156,48 @@ export function resolveTurn(
     if (fills.length > 0) events.push({ type: 'refill', fills });
   };
 
+  const runCascades = (swappedHint: Coord | null): void => {
+    let hint = swappedHint;
+    const MAX_WAVES = 50;
+    let waves = 0;
+    for (;;) {
+      if (++waves > MAX_WAVES) throw new Error('cascade did not settle within 50 waves');
+      const groups = findMatchGroups(work, hint);
+      hint = null;
+      if (groups.length === 0) break;
+      const cells: Coord[] = [];
+      const spawns: { coord: Coord; piece: Piece }[] = [];
+      for (const g of groups) {
+        cells.push(...g.cells);
+        if (g.special) spawns.push({ coord: g.origin, piece: { kind: 'special', special: g.special } });
+      }
+      clearWave(cells, spawns);
+    }
+  };
+
+  return { events, clearedByColor, totals, clearWave, runCascades };
+}
+
+export function resolveTurn(
+  board: Board,
+  a: Coord,
+  b: Coord,
+  rng: RNG,
+  colorCount: number,
+  goalHints?: GoalHints,
+): TurnResult {
+  if (colorCount < 3) throw new Error(`colorCount must be >= 3, got ${colorCount}`);
+  const check = canSwap(board, a, b);
+  if (!check.valid) return { valid: false, board, events: [], clearedByColor: {}, clearedBoxes: 0, clearedIce: 0, reason: check.reason };
+
+  const work = cloneBoard(board);
+  const engine = createWaveEngine(work, rng, colorCount, goalHints);
+
+  const pa = at(work, a.x, a.y)!;
+  const pb = at(work, b.x, b.y)!;
+  swapPieces(work, a, b);
+  engine.events.push({ type: 'swap', a, b });
+
   // pa is now at b, pb at a.
   if (pa.kind === 'special' && pb.kind === 'special') {
     const targets = comboTargets(
@@ -148,7 +207,10 @@ export function resolveTurn(
       rng,
       goalHints,
     );
-    clearWave([...targets, a, b], [], new Set([key(a), key(b)]));
+    engine.clearWave([...targets, a, b], [], new Set([key(a), key(b)]), [
+      { coord: b, special: pa.special, targets },
+      { coord: a, special: pb.special, targets },
+    ]);
   } else if (pa.kind === 'special' || pb.kind === 'special') {
     const specialAt = pa.kind === 'special' ? b : a;
     const special = pa.kind === 'special' ? pa.special : (pb as Extract<Piece, { kind: 'special' }>).special;
@@ -157,25 +219,34 @@ export function resolveTurn(
       special === 'lightball' && partner.kind === 'normal'
         ? cellsOfColor(work, partner.color)
         : boosterTargets(work, specialAt, special, rng, goalHints);
-    clearWave([...targets, specialAt], [], new Set([key(specialAt)]));
+    engine.clearWave([...targets, specialAt], [], new Set([key(specialAt)]), [
+      { coord: specialAt, special, targets },
+    ]);
   }
 
-  let swappedHint: Coord | null = b;
-  const MAX_WAVES = 50;
-  let waves = 0;
-  for (;;) {
-    if (++waves > MAX_WAVES) throw new Error('cascade did not settle within 50 waves');
-    const groups = findMatchGroups(work, swappedHint);
-    swappedHint = null;
-    if (groups.length === 0) break;
-    const cells: Coord[] = [];
-    const spawns: { coord: Coord; piece: Piece }[] = [];
-    for (const g of groups) {
-      cells.push(...g.cells);
-      if (g.special) spawns.push({ coord: g.origin, piece: { kind: 'special', special: g.special } });
-    }
-    clearWave(cells, spawns);
-  }
+  engine.runCascades(b);
 
-  return { valid: true, board: work, events, clearedByColor, clearedBoxes, clearedIce };
+  return { valid: true, board: work, events: engine.events, clearedByColor: engine.clearedByColor, clearedBoxes: engine.totals.boxes, clearedIce: engine.totals.ice };
+}
+
+/**
+ * Assist resolution (in-level boosters): clear an externally chosen cell set as
+ * one booster-style wave — specials inside it activate, boxes take direct hits
+ * — then settle cascades. NOT on any default path: the sim and calibration
+ * never call this; the shared rng is drawn only when the player fires an
+ * assist, which forks that session's stream deliberately.
+ */
+export function resolveAssistClear(
+  board: Board,
+  cells: Coord[],
+  rng: RNG,
+  colorCount: number,
+  goalHints?: GoalHints,
+): TurnResult {
+  if (colorCount < 3) throw new Error(`colorCount must be >= 3, got ${colorCount}`);
+  const work = cloneBoard(board);
+  const engine = createWaveEngine(work, rng, colorCount, goalHints);
+  engine.clearWave(cells, []);
+  engine.runCascades(null);
+  return { valid: true, board: work, events: engine.events, clearedByColor: engine.clearedByColor, clearedBoxes: engine.totals.boxes, clearedIce: engine.totals.ice };
 }

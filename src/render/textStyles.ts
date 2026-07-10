@@ -6,16 +6,21 @@ type TextStyle = Phaser.Types.GameObjects.Text.TextStyle;
 /**
  * Single typography pipeline (plan 9, legit-look pass): every add.text in the
  * render layer goes through TS.* so the whole app shares one font family and
- * one outline treatment. Fredoka (loaded up front in main.ts) with a system
- * fallback stack that keeps roughly the same rounded metrics.
+ * one outline treatment. Two faces since the RM-feel pass (both loaded up
+ * front in main.ts): Lilita One -- the chunky match-3 display type -- for big
+ * numbers and celebratory text, Fredoka for small/body/parent text. Shared
+ * system fallback stack keeps roughly the same rounded metrics.
  */
 const FAMILY = 'Fredoka, "Trebuchet MS", sans-serif';
+/** Chunky display face (weight 400 only; styles below stay at 400 so the real
+ *  face renders instead of a synthesized bold). */
+const DISPLAY_FAMILY = '\'Lilita One\', Fredoka, "Trebuchet MS", sans-serif';
 
 /** Shared number treatment: semibold, dark midnight outline scaled to size. */
 const numberBase = (size: number, color: string): TextStyle => ({
-  fontFamily: FAMILY,
+  fontFamily: DISPLAY_FAMILY,
   fontSize: `${size}px`,
-  fontStyle: '600',
+  fontStyle: '400',
   color,
   stroke: '#0e1e3d',
   strokeThickness: Math.max(4, Math.round(size * 0.12)),
@@ -30,9 +35,9 @@ export const TS = {
   numberTinted: (size: number, color: string): TextStyle => numberBase(size, color),
   /** Big celebratory/display text: white, royal-blue stroke, soft baked shadow. */
   display: (size: number): TextStyle => ({
-    fontFamily: FAMILY,
+    fontFamily: DISPLAY_FAMILY,
     fontSize: `${size}px`,
-    fontStyle: '600',
+    fontStyle: '400',
     color: '#ffffff',
     stroke: '#16305e',
     strokeThickness: Math.round(size * 0.14),

@@ -17,3 +17,13 @@
 - Plan 9 legit-look pass MERGED: Fredoka typography, gradient/shadow texture v2, ambient backgrounds, fade transitions, button press feel, hub logo + splash. 404 tests. Deploying.
 - Plan 10 RM-read milestone MERGED: CC0 pro art everywhere (pieces/boosters/obstacles/GUI), saga map home screen, RM HUD anatomy, asset preloader with fallbacks, PWA precache fixed. 409 tests. Deploying.
 - Plan 10.5 RM parity MERGED: royal-blue palette, RM HUD anatomy v2, booster bar, pre-level booster picker + win-streak freebies, goal-seeking propellers. RM-PARITY.md tracks every modeled element. 429 tests. Deploying.
+
+## Run 3 — overnight RM feel deep pass (2026-07-04)
+- Decision #58 recorded. Queue: SFX acquisition -> booster choreography -> signature mechanics -> font/buttons/pause -> in-level boosters -> map dressing. Boundary: behavior/mechanics/CC0 only.
+- SFX + font MERGED: 16 real CC0 sounds wired with procedural fallback; Lilita One for big numbers. (Run continued 2026-07-09 from HANDOFF.md on a fresh clone.)
+- Block 1 MERGED: booster choreography. Rockets streak and shake the camera, TNT sparks a fuse then booms with a shockwave, the color ball zaps its targets one by one, propellers fly a real arc, ball+ball flashes the whole board. Cascades tick upward in pitch, pops rotate 3 sounds, pieces thud on landing. Core now annotates WHICH booster fired (zero RNG change — calibration proven intact). 435 tests.
+- Block 2 MERGED: the two RM signature moments. Collected pieces fly to their goal icon and tick the counter on landing; winning with moves left converts them to bonus rockets that fire one by one (+3 coins each, cap 8). 443 tests.
+- Block 3 MERGED: the bottom booster bar is ALIVE. Hammer (80c) smashes any one piece, row-arrow (100c) clears a row, shuffle is free. Tap to arm (gold ring), tap the board to fire. No move consumed. Review caught a charge-ordering bug — a failed restart no longer eats coins. 454 tests.
+- Block 4 MERGED: gear button opens a proper pause sheet — big green resume, replay, back to map, sound toggle, and a new haptics (vibration) toggle. Review caught a drag-onto-gear input leak.
+- Block 5 MERGED: map dressing v2 — glossy round level buttons, the current one bounces, bigger chapter banner, drifting haze + twinkles, and page dots so 2-page chapters read as pages (queue #33). Review caught a Phaser API misuse (yoyoEase doesn't exist) that would have silently dropped the bounce.
+- RUN 3 COMPLETE: merged to main + deployed. 429 -> 454 tests. Queue items 37-44 await Charles (booster feel, finale economy, assist prices, pause-replay generosity, page dots). Next big look lever: a paid match-3 GUI pack (itch.io / GraphicRiver, $10-25, Charles's purchase).
