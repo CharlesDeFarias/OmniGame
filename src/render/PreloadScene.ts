@@ -147,6 +147,10 @@ const FALLBACKS: ReadonlyArray<readonly [string, string]> = [
   ['img-ui-btn-sq-blue', 'ui-panel'], ['img-ui-btn-sq-green', 'ui-panel'],
   ['img-ui-btn-pill-green', 'ui-panel'], ['img-ui-next', 'ui-play'],
   ['img-ui-star-sm', 'ui-star'],
+  // Booster-choreography fx (RM-feel pass): pip/glow stand-ins keep the
+  // choreography running when the Kenney fx pack fails to arrive.
+  ['img-fx-sparkle-1', 'ui-pip'], ['img-fx-glint', 'ui-pip'],
+  ['img-fx-glow', 'ui-glow'],
 ];
 
 export class PreloadScene extends Phaser.Scene {

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { PROFILE } from '../config/profile';
 import { applyMove, findValidMoves, startLevel, starsFor, ShuffleError } from '../core/match3/index';
-import type { Coord, GameState, LevelDef, MoveOutcome, PieceColor } from '../core/match3/index';
+import type { Coord, GameState, LevelDef, MoveOutcome, PieceColor, SpecialActivation } from '../core/match3/index';
 import { CHAPTERS, chapterById, type ChapterId } from '../meta/chapters';
 import { CHAPTER_COIN_BONUS_PER_INDEX } from '../meta/rooms';
 import { createAdaptive, type Adaptive } from '../services/adaptive';
@@ -12,7 +12,7 @@ import { summarize } from '../services/stats';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createWardrobe, type Wardrobe } from '../services/wardrobe';
 import { setPendingBoosters, takePendingBoosters } from './pendingBoosters';
-import { createBlips, sfx, type Blips } from './audio';
+import { createBlips, sfx, type Blips, type SfxKey } from './audio';
 import { EASE, planSteps, type Step } from './choreo';
 import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
@@ -91,6 +91,8 @@ export class PlayScene extends Phaser.Scene {
   private statsOverlay: Phaser.GameObjects.GameObject[] = [];
   private confetti: Phaser.GameObjects.Sprite[] = [];
   private wakeHooked = false;
+  /** Round-robin index over the match-pop-N sfx variants. */
+  private popCycle = 0;
 
   constructor() {
     super('play');
@@ -660,45 +662,38 @@ export class PlayScene extends Phaser.Scene {
         break;
       }
       case 'clear': {
-        const targets = ev.cells.map((c) => this.sprites.get(key(c))).filter((s): s is Phaser.GameObjects.Sprite => s !== undefined);
-        if (ev.cells.length >= 6) {
-          this.blips.booster();
-          // Booster flash: a white ring bursts at each cleared cell (fire-and-forget).
-          for (const c of ev.cells) {
-            const { px, py } = cellToXY(this.layout, c.x, c.y);
-            const ring = this.add.sprite(px, py, 'ui-ringlight').setTint(0xffffff).setAlpha(0.7).setScale(0.2).setDepth(2);
-            this.tweens.add({
-              targets: ring,
-              alpha: 0,
-              scale: 1.2,
-              duration: 250,
-              ease: 'Quad.easeOut',
-              onComplete: () => ring.destroy(),
-            });
+        if (wave >= 1) sfx(this, 'cascade-tick', { rate: 1 + wave * 0.15 });
+        const consumed = new Set<string>();
+        const acts = ev.activations ?? [];
+        if (acts.length > 0) await this.animateActivations(acts, ev.cells, consumed);
+        const rest = ev.cells.filter((c) => !consumed.has(key(c)));
+        const targets = rest.map((c) => this.sprites.get(key(c))).filter((s): s is Phaser.GameObjects.Sprite => s !== undefined);
+        if (rest.length > 0) {
+          const POPS: readonly SfxKey[] = ['match-pop-1', 'match-pop-2', 'match-pop-3'];
+          sfx(this, POPS[this.popCycle++ % POPS.length]!);
+          if (acts.length === 0 && ev.cells.length >= 6) {
+            // Big plain cascade: a white ring bursts at each cleared cell (fire-and-forget).
+            for (const c of rest) {
+              const { px, py } = cellToXY(this.layout, c.x, c.y);
+              const ring = this.add.sprite(px, py, 'ui-ringlight').setTint(0xffffff).setAlpha(0.7).setScale(0.2).setDepth(2);
+              this.tweens.add({
+                targets: ring,
+                alpha: 0,
+                scale: 1.2,
+                duration: 250,
+                ease: 'Quad.easeOut',
+                onComplete: () => ring.destroy(),
+              });
+            }
           }
-        } else this.blips.matchAt(wave);
-        for (const c of ev.cells.slice(0, 12)) {
-          const src = this.sprites.get(key(c));
-          if (src === undefined) continue;
-          const tint = tintForTexture(src.texture.key);
-          const { px, py } = cellToXY(this.layout, c.x, c.y);
-          for (let i = 0; i < 4; i++) {
-            const pip = this.add.sprite(px, py, 'ui-pip').setTint(tint).setScale(0.9).setDepth(1);
-            // Fire-and-forget: not awaited; each pip destroys itself on complete.
-            this.tweens.add({
-              targets: pip,
-              x: px + (Math.random() * 2 - 1) * this.layout.cell * 0.8,
-              y: py + (Math.random() * 2 - 1) * this.layout.cell * 0.8,
-              alpha: 0,
-              scale: 0.2,
-              duration: 320,
-              ease: 'Quad.easeOut',
-              onComplete: () => pip.destroy(),
-            });
+          for (const c of rest.slice(0, 12)) {
+            const src = this.sprites.get(key(c));
+            if (src === undefined) continue;
+            this.burstPips(c, tintForTexture(src.texture.key), 4);
           }
-        }
-        if (targets.length > 0) {
-          await this.tweenAsync({ targets, scale: 0, alpha: 0, duration: step.duration, ease: 'Back.easeIn' });
+          if (targets.length > 0) {
+            await this.tweenAsync({ targets, scale: 0, alpha: 0, duration: step.duration, ease: 'Back.easeIn' });
+          }
         }
         for (const c of ev.cells) {
           const sp = this.sprites.get(key(c));
@@ -726,6 +721,8 @@ export class PlayScene extends Phaser.Scene {
         });
         for (const { sp, to } of moving) this.sprites.set(key(to), sp);
         await Promise.all(jobs);
+        // One settle thunk per fall event, however many pieces dropped.
+        if (moving.length > 0) sfx(this, 'piece-drop', { volume: 0.5 });
         break;
       }
       case 'refill': {
@@ -820,6 +817,282 @@ export class PlayScene extends Phaser.Scene {
         break;
       }
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Booster choreography (RM-feel pass). Pure visuals: the core has already
+  // resolved the wave; these methods just stage HOW the cleared cells leave.
+  // Every popped sprite is removed from this.sprites immediately so the
+  // generic cleanup at the end of the clear step can't double-destroy it.
+  // -------------------------------------------------------------------------
+
+  /** Small colored particle burst at a cell (fire-and-forget). */
+  private burstPips(c: Coord, tint: number, count: number, spread = 0.8): void {
+    const { px, py } = cellToXY(this.layout, c.x, c.y);
+    for (let i = 0; i < count; i++) {
+      const pip = this.add.sprite(px, py, 'ui-pip').setTint(tint).setScale(0.9).setDepth(1);
+      this.tweens.add({
+        targets: pip,
+        x: px + (Math.random() * 2 - 1) * this.layout.cell * spread,
+        y: py + (Math.random() * 2 - 1) * this.layout.cell * spread,
+        alpha: 0,
+        scale: 0.2,
+        duration: 320,
+        ease: 'Quad.easeOut',
+        onComplete: () => pip.destroy(),
+      });
+    }
+  }
+
+  /** Pop one cell's sprite after `delay` ms, with pips and an optional outward drift. */
+  private popCell(c: Coord, delay: number, consumed: Set<string>, drift?: { dx: number; dy: number }): Promise<void> {
+    const k = key(c);
+    consumed.add(k);
+    const sp = this.sprites.get(k);
+    if (sp === undefined) return Promise.resolve();
+    this.sprites.delete(k);
+    const tint = tintForTexture(sp.texture.key);
+    return new Promise((resolve) => {
+      this.time.delayedCall(delay, () => {
+        this.burstPips(c, tint, 3, 0.6);
+        this.tweens.add({
+          targets: sp,
+          scale: 0,
+          alpha: 0,
+          x: sp.x + (drift?.dx ?? 0),
+          y: sp.y + (drift?.dy ?? 0),
+          duration: 180,
+          ease: 'Back.easeIn',
+          onComplete: () => { sp.destroy(); resolve(); },
+        });
+      });
+    });
+  }
+
+  /** White expanding shockwave ring (fire-and-forget). */
+  private shockwave(px: number, py: number, scaleTo = 2, delay = 0): void {
+    const ring = this.add.image(px, py, 'img-fx-glow').setTint(0xffffff).setAlpha(0.6).setScale(0.2).setDepth(3);
+    this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scale: scaleTo,
+      duration: 320,
+      delay,
+      ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+  }
+
+  /** Stage each fired special in order; `big` scales the drama up for combos. */
+  private async animateActivations(acts: SpecialActivation[], cells: Coord[], consumed: Set<string>): Promise<void> {
+    const inClear = new Set(cells.map(key));
+    // Swapped combos share one targets array (resolve.ts hands both specials
+    // the combined list) — that identity is the combo marker.
+    const combo = acts.length >= 2 && acts[0]!.targets === acts[1]!.targets;
+    if (combo && acts[0]!.special === 'lightball' && acts[1]!.special === 'lightball') {
+      await this.animateBoardFlash(acts, inClear, consumed);
+      return;
+    }
+    for (const [i, act] of acts.entries()) {
+      const own = act.targets.filter((t) => inClear.has(key(t)) && !consumed.has(key(t)));
+      // Only the swapped combo pair gets the big treatment, not chained specials.
+      const big = combo && i < 2;
+      switch (act.special) {
+        case 'rocketH':
+        case 'rocketV':
+          await this.animateRocket(act.coord, act.special === 'rocketV', own, consumed, big);
+          break;
+        case 'tnt':
+          await this.animateTnt(act.coord, own, consumed, big);
+          break;
+        case 'lightball':
+          await this.animateLightball(act.coord, own, consumed);
+          break;
+        case 'propeller':
+          await this.animatePropeller(act.coord, own, consumed);
+          break;
+      }
+    }
+  }
+
+  /** Ball+ball: full-board white flash, then every CLEARED cell pops radially
+   *  outward (surviving damaged boxes stay — they get the damage-event shake). */
+  private async animateBoardFlash(acts: SpecialActivation[], inClear: Set<string>, consumed: Set<string>): Promise<void> {
+    sfx(this, 'lightning-zap');
+    sfx(this, 'explosion-boom', { delay: 0.12 });
+    this.cameras.main.shake(220, 0.01);
+    const flash = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0xffffff, 0).setDepth(9);
+    await this.tweenAsync({ targets: flash, fillAlpha: 0.85, duration: 110, yoyo: true, ease: 'Quad.easeOut' });
+    flash.destroy();
+    const origin = cellToXY(this.layout, acts[0]!.coord.x, acts[0]!.coord.y);
+    this.shockwave(origin.px, origin.py, 3.2);
+    this.shockwave(origin.px, origin.py, 3.2, 100);
+    const jobs: Promise<void>[] = [];
+    for (const t of acts[0]!.targets) {
+      if (!inClear.has(key(t))) continue;
+      const { px, py } = cellToXY(this.layout, t.x, t.y);
+      const d = Math.hypot(px - origin.px, py - origin.py);
+      const s = d > 0 ? this.layout.cell * 0.35 / d : 0;
+      jobs.push(this.popCell(t, d * 0.35, consumed, { dx: (px - origin.px) * s, dy: (py - origin.py) * s }));
+    }
+    await Promise.all(jobs);
+  }
+
+  /** Streak sweeping the full row/col + staggered pops rippling out from the rocket. */
+  private async animateRocket(coord: Coord, vertical: boolean, own: Coord[], consumed: Set<string>, big: boolean): Promise<void> {
+    sfx(this, 'rocket-whoosh');
+    this.cameras.main.shake(100, big ? 0.008 : 0.005);
+    const origin = cellToXY(this.layout, coord.x, coord.y);
+    const cellPx = this.layout.cell;
+    // Actual pixel extents of the swept line (cell centers of both endpoints).
+    const n = vertical ? this.state.board.height : this.state.board.width;
+    const start = vertical ? cellToXY(this.layout, coord.x, 0) : cellToXY(this.layout, 0, coord.y);
+    const end = vertical ? cellToXY(this.layout, coord.x, n - 1) : cellToXY(this.layout, n - 1, coord.y);
+    const lineLen = cellPx * n;
+    const midX = (start.px + end.px) / 2;
+    const midY = (start.py + end.py) / 2;
+    // White bar the full length of the line, collapsing as the streaks pass.
+    const bar = this.add.rectangle(midX, midY, vertical ? cellPx * 0.34 : lineLen, vertical ? lineLen : cellPx * 0.34, 0xffffff, 0.55).setDepth(2);
+    this.tweens.add({ targets: bar, alpha: 0, [vertical ? 'scaleX' : 'scaleY']: 0.1, duration: 260, ease: 'Quad.easeOut', onComplete: () => bar.destroy() });
+    // Two glint streaks racing from the rocket to each end of the line.
+    for (const dir of [-1, 1] as const) {
+      const streak = this.add.image(origin.px, origin.py, 'img-fx-glint').setTint(0xffffff).setAlpha(0.95).setDepth(3);
+      streak.setDisplaySize(cellPx * 1.7, cellPx * 0.55);
+      if (vertical) streak.setAngle(90);
+      const to = dir === -1 ? (vertical ? start.py : start.px) : (vertical ? end.py : end.px);
+      this.tweens.add({
+        targets: streak,
+        [vertical ? 'y' : 'x']: to + dir * cellPx * 0.5,
+        alpha: 0.2,
+        duration: 240,
+        ease: 'Quad.easeIn',
+        onComplete: () => streak.destroy(),
+      });
+    }
+    // The rocket piece itself goes first, then cells pop outward in both directions.
+    const jobs: Promise<void>[] = [this.popCell(coord, 0, consumed)];
+    for (const t of own) {
+      if (t.x === coord.x && t.y === coord.y) continue;
+      const dist = Math.abs(vertical ? t.y - coord.y : t.x - coord.x);
+      jobs.push(this.popCell(t, dist * 15, consumed));
+    }
+    await Promise.all(jobs);
+  }
+
+  /** Fuse spark on the bomb, then boom: shockwave + radial outward pops. */
+  private async animateTnt(coord: Coord, own: Coord[], consumed: Set<string>, big: boolean): Promise<void> {
+    const origin = cellToXY(this.layout, coord.x, coord.y);
+    const bomb = this.sprites.get(key(coord));
+    const spark = this.add.image(origin.px + this.layout.cell * 0.3, origin.py - this.layout.cell * 0.38, 'img-fx-sparkle-1')
+      .setTint(0xffe08a).setScale(0.3).setDepth(3);
+    this.tweens.add({ targets: spark, scale: 0.65, angle: 180, duration: 125, yoyo: true, repeat: 1, ease: 'Quad.easeInOut' });
+    if (bomb) this.tweens.add({ targets: bomb, scale: bomb.scale * 1.12, duration: 125, yoyo: true, repeat: 1 });
+    await new Promise<void>((resolve) => this.time.delayedCall(250, () => resolve()));
+    spark.destroy();
+    sfx(this, 'explosion-boom');
+    this.cameras.main.shake(big ? 220 : 150, big ? 0.01 : 0.007);
+    this.shockwave(origin.px, origin.py, big ? 2.8 : 2);
+    if (big) this.shockwave(origin.px, origin.py, 2.8, 90);
+    const jobs: Promise<void>[] = [this.popCell(coord, 0, consumed)];
+    for (const t of own) {
+      if (t.x === coord.x && t.y === coord.y) continue;
+      const { px, py } = cellToXY(this.layout, t.x, t.y);
+      const d = Math.hypot(px - origin.px, py - origin.py);
+      const s = d > 0 ? this.layout.cell * 0.3 / d : 0;
+      jobs.push(this.popCell(t, d * 0.12, consumed, { dx: (px - origin.px) * s, dy: (py - origin.py) * s }));
+    }
+    await Promise.all(jobs);
+  }
+
+  /** The lollipop pulses while zapping each target in sequence with a white flash. */
+  private async animateLightball(coord: Coord, own: Coord[], consumed: Set<string>): Promise<void> {
+    sfx(this, 'lightning-zap');
+    const ball = this.sprites.get(key(coord));
+    if (ball) {
+      ball.setDepth(3);
+      this.tweens.add({ targets: ball, scale: ball.scale * 1.18, duration: 130, yoyo: true, repeat: Math.max(1, Math.ceil(own.length / 8)) });
+    }
+    const jobs: Promise<void>[] = [];
+    let i = 0;
+    for (const t of own) {
+      if (t.x === coord.x && t.y === coord.y) continue;
+      const delay = i * 25;
+      i += 1;
+      const { px, py } = cellToXY(this.layout, t.x, t.y);
+      const sp = this.sprites.get(key(t));
+      const tint = sp ? tintForTexture(sp.texture.key) : 0xffffff;
+      this.time.delayedCall(delay, () => {
+        const flash = this.add.image(px, py, 'img-fx-glint').setTint(0xffffff).setAlpha(0.9).setScale(0.35).setDepth(3);
+        this.tweens.add({ targets: flash, scale: 1, alpha: 0, duration: 160, ease: 'Quad.easeOut', onComplete: () => flash.destroy() });
+        const zap = this.add.image(px, py, 'img-fx-sparkle-1').setTint(tint).setScale(0.28).setDepth(3);
+        this.tweens.add({ targets: zap, scale: 0.75, alpha: 0, angle: 120, duration: 200, ease: 'Quad.easeOut', onComplete: () => zap.destroy() });
+      });
+      jobs.push(this.popCell(t, delay + 40, consumed));
+    }
+    await Promise.all(jobs);
+    await this.popCell(coord, 0, consumed);
+  }
+
+  /** Lift-off, spin, and a bezier arc to the flown-to target; neighbors pop behind it. */
+  private async animatePropeller(coord: Coord, own: Coord[], consumed: Set<string>): Promise<void> {
+    sfx(this, 'propeller-whir');
+    const origin = cellToXY(this.layout, coord.x, coord.y);
+    const isAdj = (t: Coord): boolean => Math.abs(t.x - coord.x) + Math.abs(t.y - coord.y) === 1;
+    // boosterTargets = 4 orthogonal neighbors + one flown-to pick; the pick is
+    // the one non-adjacent target (adjacent picks just pop with the neighbors).
+    const flight = own.find((t) => !isAdj(t) && !(t.x === coord.x && t.y === coord.y)) ?? null;
+    const jobs: Promise<void>[] = [];
+    let ni = 0;
+    for (const t of own) {
+      if (t === flight || (t.x === coord.x && t.y === coord.y)) continue;
+      jobs.push(this.popCell(t, 120 + ni * 30, consumed));
+      ni += 1;
+    }
+    const prop = this.sprites.get(key(coord));
+    if (prop === undefined) {
+      if (flight) jobs.push(this.popCell(flight, 200, consumed));
+      jobs.push(this.popCell(coord, 0, consumed));
+      await Promise.all(jobs);
+      return;
+    }
+    consumed.add(key(coord));
+    this.sprites.delete(key(coord));
+    prop.setDepth(4);
+    await this.tweenAsync({ targets: prop, scale: prop.scale * 1.35, duration: 140, ease: 'Back.easeOut' });
+    if (flight) {
+      const dest = cellToXY(this.layout, flight.x, flight.y);
+      // Quadratic bezier via manual interpolation: control point offset
+      // perpendicular to the flight line for a real arc.
+      const mx = (origin.px + dest.px) / 2;
+      const my = (origin.py + dest.py) / 2;
+      const dx = dest.px - origin.px;
+      const dy = dest.py - origin.py;
+      const len = Math.max(1, Math.hypot(dx, dy));
+      const cx = mx - (dy / len) * this.layout.cell * 2.2;
+      const cy = my + (dx / len) * this.layout.cell * 2.2;
+      const p = { t: 0 };
+      this.tweens.add({ targets: prop, angle: 720, duration: 450, ease: 'Linear' });
+      await this.tweenAsync({
+        targets: p,
+        t: 1,
+        duration: 450,
+        ease: 'Sine.easeInOut',
+        onUpdate: () => {
+          const u = 1 - p.t;
+          prop.setPosition(
+            u * u * origin.px + 2 * u * p.t * cx + p.t * p.t * dest.px,
+            u * u * origin.py + 2 * u * p.t * cy + p.t * p.t * dest.py,
+          );
+        },
+      });
+      const hit = this.add.image(dest.px, dest.py, 'img-fx-sparkle-1').setTint(0xffffff).setScale(0.4).setDepth(3);
+      this.tweens.add({ targets: hit, scale: 1, alpha: 0, duration: 220, ease: 'Quad.easeOut', onComplete: () => hit.destroy() });
+      jobs.push(this.popCell(flight, 0, consumed));
+    } else {
+      this.tweens.add({ targets: prop, angle: 360, duration: 300, ease: 'Linear' });
+    }
+    jobs.push(this.tweenAsync({ targets: prop, scale: 0, alpha: 0, duration: 160, ease: 'Back.easeIn' }).then(() => prop.destroy()));
+    await Promise.all(jobs);
   }
 
   private async celebrateGift(moves: number): Promise<void> {

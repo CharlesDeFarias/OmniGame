@@ -8,7 +8,7 @@ export type { SwapCheck } from './swap';
 export { findValidMoves, hasValidMove, shuffleBoard, ShuffleError } from './moves';
 export type { Move } from './moves';
 export { resolveTurn } from './resolve';
-export type { ResolveEvent, TurnResult } from './resolve';
+export type { ResolveEvent, SpecialActivation, TurnResult } from './resolve';
 export { applyCleared, goalsComplete, initGoals } from './goals';
 export type { ClearBoxesGoal, ClearIceGoal, CollectGoal, Goal, GoalState } from './goals';
 export { LevelError, parseLevel } from './level';
