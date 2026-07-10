@@ -10,6 +10,8 @@ export const PROFILE = {
     adaptiveDifficulty: true,
     managerTasks: true,
     playlistMusic: true,
+    /** Shows the haptics toggle in the pause sheet; vibration itself also honors the toggle. */
+    haptics: true,
   },
   textTier: 'none' as const, // 'none' | 'minimal' | 'full' — reserved (#8); only 'none' implemented
 } as const;

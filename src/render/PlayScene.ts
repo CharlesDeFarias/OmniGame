@@ -14,6 +14,7 @@ import { createWallet, type Wallet } from '../services/wallet';
 import { createWardrobe, type Wardrobe } from '../services/wardrobe';
 import { setPendingBoosters, takePendingBoosters } from './pendingBoosters';
 import { createBlips, sfx, type Blips, type SfxKey } from './audio';
+import { hapticsEnabled, setHapticsEnabled, vibrate } from './haptics';
 import { EASE, planSteps, type Step } from './choreo';
 import { buildBackground, fadeIn, goto, pressify } from './chrome';
 import { BOTTOM_RESERVE, GAME_HEIGHT, GAME_WIDTH, TOP_RESERVE } from './config';
@@ -102,6 +103,9 @@ export class PlayScene extends Phaser.Scene {
   private flightJobs: Promise<void>[] = [];
   /** Armed in-level assist awaiting a board tap (hammer/rowClear; shuffle fires instantly). */
   private assistArmed: Exclude<AssistKind, 'shuffle'> | null = null;
+  private muteBtn!: Phaser.GameObjects.Sprite;
+  /** Pause-sheet objects; non-empty = sheet open (blocks board input like the stats overlay). */
+  private pauseSheet: Phaser.GameObjects.GameObject[] = [];
   /** Slot visuals per assist kind: base circle (tap target), icon, chip pieces, armed ring. */
   private assistSlots = new Map<AssistKind, {
     base: Phaser.GameObjects.Arc;
@@ -138,18 +142,22 @@ export class PlayScene extends Phaser.Scene {
     }
     const startMuted = window.localStorage.getItem('omnigame.muted.v1') === '1';
     this.blips.setMuted(startMuted);
-    const muteBtn = this.add
+    this.muteBtn = this.add
       .sprite(GAME_WIDTH - 60, 60, startMuted ? 'ui-sound-off' : 'ui-sound-on')
       .setDisplaySize(72, 72)
       .setDepth(8)
       .setInteractive();
-    pressify(this, muteBtn);
-    muteBtn.on('pointerup', () => {
-      const m = !this.blips.muted();
-      this.blips.setMuted(m);
-      muteBtn.setTexture(m ? 'ui-sound-off' : 'ui-sound-on');
-      window.localStorage.setItem('omnigame.muted.v1', m ? '1' : '0');
-    });
+    pressify(this, this.muteBtn);
+    this.muteBtn.on('pointerup', () => this.toggleMute());
+    // Gear (block 4): pause sheet, top-right under the mute button, clear of
+    // the goals panel (panel right edge <= 620; board top ~311).
+    const gearBtn = this.add
+      .sprite(GAME_WIDTH - 60, 152, 'img-ui-settings')
+      .setDisplaySize(72, 72)
+      .setDepth(8)
+      .setInteractive();
+    pressify(this, gearBtn);
+    gearBtn.on('pointerup', () => this.openPause());
     this.chapter = this.progress.chapter;
     this.levels = loadLevels(this.chapter);
     this.marker = this.add
@@ -445,6 +453,87 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  private toggleMute(): void {
+    const m = !this.blips.muted();
+    this.blips.setMuted(m);
+    this.muteBtn.setTexture(m ? 'ui-sound-off' : 'ui-sound-on');
+    window.localStorage.setItem('omnigame.muted.v1', m ? '1' : '0');
+  }
+
+  // -------------------------------------------------------------------------
+  // Pause sheet (block 4): RM anatomy — resume big and green, replay, map,
+  // sound + haptics toggles. Icons and one number nowhere: near-zero text.
+  // -------------------------------------------------------------------------
+
+  private openPause(): void {
+    if (this.pauseSheet.length > 0 || this.busy || this.statsOverlay.length > 0) return;
+    if (this.state === undefined || this.state.status !== 'playing') return;
+    sfx(this, 'click', { volume: 0.6 });
+    this.journal.log('pause_open', { level: this.state.level.id });
+    this.disarmAssist();
+    this.select(null);
+    this.downAt = null;
+    const objs = this.pauseSheet;
+    const dim = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.7)
+      .setDepth(30)
+      .setInteractive();
+    const openedAt = this.time.now;
+    dim.on('pointerup', (p: Phaser.Input.Pointer) => {
+      if (p.downTime > openedAt) this.closePause();
+    });
+    objs.push(dim);
+    objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-panel-cream').setDisplaySize(520, 680).setDepth(31));
+    const button = (x: number, y: number, tex: string, size: number, onTap: () => void): Phaser.GameObjects.Sprite => {
+      const b = this.add.sprite(x, y, tex).setDisplaySize(size, size).setDepth(32).setInteractive();
+      pressify(this, b);
+      b.on('pointerup', onTap);
+      objs.push(b);
+      return b;
+    };
+    // Resume: the big green one (RM anatomy) — a play glyph on a green pill.
+    const pill = this.add.image(GAME_WIDTH / 2, 500, 'img-ui-btn-pill-green').setDisplaySize(300, 110).setDepth(31.5);
+    objs.push(pill);
+    button(GAME_WIDTH / 2, 500, 'ui-play', 76, () => this.closePause());
+    // Replay + map (quit) side by side.
+    button(GAME_WIDTH / 2 - 90, 660, 'img-ui-retry', 96, () => {
+      this.closePause();
+      this.journal.log('replay', { level: this.state.level.id, from: 'pause' });
+      if (this.activeBoosters.length > 0) setPendingBoosters(this.activeBoosters);
+      this.retryCount += 1;
+      this.startCurrentLevel();
+    });
+    button(GAME_WIDTH / 2 + 90, 660, 'img-ui-home', 96, () => {
+      this.closePause();
+      this.journal.log('quit_to_map', { level: this.state.level.id, from: 'pause' });
+      goto(this, 'map');
+    });
+    // Toggles: sound + (profile-gated) haptics. Off state = dimmed and greyed.
+    const soundBtn = button(GAME_WIDTH / 2 - 90, 810, this.blips.muted() ? 'ui-sound-off' : 'ui-sound-on', 84, () => {
+      this.toggleMute();
+      soundBtn.setTexture(this.blips.muted() ? 'ui-sound-off' : 'ui-sound-on');
+    });
+    if (PROFILE.features.haptics) {
+      const paintHaptics = (b: Phaser.GameObjects.Sprite): void => {
+        const on = hapticsEnabled();
+        b.setAlpha(on ? 1 : 0.45);
+        if (on) b.clearTint();
+        else b.setTint(0xaab2c4);
+      };
+      const hapticsBtn = button(GAME_WIDTH / 2 + 90, 810, 'ui-haptics', 84, () => {
+        setHapticsEnabled(!hapticsEnabled());
+        paintHaptics(hapticsBtn);
+        vibrate(40);
+      });
+      paintHaptics(hapticsBtn);
+    }
+  }
+
+  private closePause(): void {
+    for (const o of this.pauseSheet) o.destroy();
+    this.pauseSheet = [];
+  }
+
   private onSecretTap(): void {
     const now = Date.now();
     this.secretTaps = this.secretTaps.filter((t) => now - t < 2500);
@@ -595,7 +684,7 @@ export class PlayScene extends Phaser.Scene {
 
   private onDown(p: Phaser.Input.Pointer): void {
     this.blips.unlock();
-    if (this.statsOverlay.length > 0) return;
+    if (this.statsOverlay.length > 0 || this.pauseSheet.length > 0) return;
     if (this.hand !== null) {
       this.killHand();
       // Re-arm: show again after 8s of inactivity while the condition still holds.
@@ -611,6 +700,10 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private onUp(p: Phaser.Input.Pointer): void {
+    // Sheet/overlay guard mirrors onDown: a drag released over the gear opens
+    // the pause sheet via the object handler BEFORE this scene-level handler,
+    // and the stale downAt must not turn into a swap behind the dim.
+    if (this.pauseSheet.length > 0 || this.statsOverlay.length > 0) { this.downAt = null; return; }
     if (this.busy || this.downAt === null || this.state === undefined || this.state.status !== 'playing') return;
     const start = this.downAt;
     this.downAt = null;
@@ -838,7 +931,7 @@ export class PlayScene extends Phaser.Scene {
           const sp = this.sprites.get(key(c));
           if (sp) { sp.destroy(); this.sprites.delete(key(c)); }
         }
-        if (ev.cells.length > 0 && navigator.vibrate) navigator.vibrate(20);
+        if (ev.cells.length > 0) vibrate(20);
         break;
       }
       case 'spawn': {

@@ -648,6 +648,33 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillRoundedRect(c - r * 0.95, c - r * 0.42, r * 0.3, r * 0.84, r * 0.08);
     g.fillRoundedRect(c + r * 0.65, c - r * 0.42, r * 0.3, r * 0.84, r * 0.08);
   });
+  // Fallback gear for the pause button (block 4) when the GUI pack is missing.
+  ui('ui-gear', (g) => {
+    g.fillStyle(0x8a93a6);
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4;
+      g.fillRoundedRect(c + Math.cos(a) * r * 0.72 - r * 0.14, c + Math.sin(a) * r * 0.72 - r * 0.14, r * 0.28, r * 0.28, r * 0.06);
+    }
+    g.fillCircle(c, c, r * 0.62);
+    g.fillStyle(0x2c2c54);
+    g.fillCircle(c, c, r * 0.24);
+  });
+  // Pause-sheet haptics toggle (block 4): phone silhouette + motion arcs.
+  ui('ui-haptics', (g) => {
+    g.fillStyle(0x2c2c54);
+    g.fillRoundedRect(c - r * 0.32, c - r * 0.55, r * 0.64, r * 1.1, r * 0.12);
+    g.fillStyle(0xffffff, 0.85);
+    g.fillRoundedRect(c - r * 0.24, c - r * 0.44, r * 0.48, r * 0.8, r * 0.06);
+    g.lineStyle(s * 0.045, 0x2c2c54);
+    for (const side of [-1, 1]) {
+      g.beginPath();
+      g.arc(c + side * r * 0.55, c, r * 0.32, side === 1 ? -0.7 : Math.PI - 0.7, side === 1 ? 0.7 : Math.PI + 0.7);
+      g.strokePath();
+      g.beginPath();
+      g.arc(c + side * r * 0.75, c, r * 0.5, side === 1 ? -0.6 : Math.PI - 0.6, side === 1 ? 0.6 : Math.PI + 0.6);
+      g.strokePath();
+    }
+  });
   // In-level assist icon (block 3): steel head + wooden handle mallet.
   ui('ui-hammer', (g) => {
     g.fillStyle(0x9c6b30);

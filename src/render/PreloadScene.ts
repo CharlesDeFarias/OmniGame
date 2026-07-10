@@ -151,6 +151,8 @@ const FALLBACKS: ReadonlyArray<readonly [string, string]> = [
   // choreography running when the Kenney fx pack fails to arrive.
   ['img-fx-sparkle-1', 'ui-pip'], ['img-fx-glint', 'ui-pip'],
   ['img-fx-glow', 'ui-glow'],
+  // Pause sheet (block 4).
+  ['img-ui-settings', 'ui-gear'],
 ];
 
 export class PreloadScene extends Phaser.Scene {
