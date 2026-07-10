@@ -27,3 +27,7 @@
 - Block 4 MERGED: gear button opens a proper pause sheet — big green resume, replay, back to map, sound toggle, and a new haptics (vibration) toggle. Review caught a drag-onto-gear input leak.
 - Block 5 MERGED: map dressing v2 — glossy round level buttons, the current one bounces, bigger chapter banner, drifting haze + twinkles, and page dots so 2-page chapters read as pages (queue #33). Review caught a Phaser API misuse (yoyoEase doesn't exist) that would have silently dropped the bounce.
 - RUN 3 COMPLETE: merged to main + deployed. 429 -> 454 tests. Queue items 37-44 await Charles (booster feel, finale economy, assist prices, pause-replay generosity, page dots). Next big look lever: a paid match-3 GUI pack (itch.io / GraphicRiver, $10-25, Charles's purchase).
+
+## Run 4 — calibration + debt pass (2026-07-10)
+- Kitchen level 10 recalibrated (queue #35 RESOLVED): the random-policy floor was really 13.9% at high sample counts (below the 15% design floor). One yellow tile less (12+11+11) puts it back at 15.8% with the finale difficulty unchanged (greedy ~71%). Levels 4 and 5 re-sampled at n=2000: both safely in band, untouched.
+- Wardrobe 'owned' marker is now the real check icon instead of a text glyph (last near-zero-text violation from plan 7). Two other carry-forwards (stats-list overflow, dead goalHud field) verified already fixed.

@@ -414,12 +414,8 @@ export class CareerScene extends Phaser.Scene {
         objs.push(this.add.circle(x, y, 94).setStrokeStyle(5, 0xf1c40f).setDepth(12));
       }
       if (owned) {
-        objs.push(
-          this.add
-            .text(x, y + 112, '✓', TS.glyph(36, '#2ecc71'))
-            .setOrigin(0.5)
-            .setDepth(12),
-        );
+        // Owned marker: the real check icon, not a text glyph (near-zero-text).
+        objs.push(this.add.sprite(x, y + 112, 'ui-check').setDisplaySize(40, 40).setDepth(12));
       } else {
         objs.push(this.add.sprite(x - 28, y + 112, 'img-ui-coin').setDisplaySize(22, 32).setDepth(12));
         objs.push(
