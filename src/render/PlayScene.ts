@@ -346,6 +346,10 @@ export class PlayScene extends Phaser.Scene {
 
   private onAssistSlotTap(kind: AssistKind): void {
     if (this.busy || this.state === undefined || this.state.status !== 'playing') return;
+    // A swipe that starts on the board and releases over a slot must not carry
+    // its stale down-cell into onUp (same object-before-scene ordering as the
+    // gear): arming is a deliberate two-step, never one gesture.
+    this.downAt = null;
     sfx(this, 'click', { volume: 0.6 });
     if (kind === 'shuffle') {
       this.disarmAssist();

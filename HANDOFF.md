@@ -1,5 +1,7 @@
 # HANDOFF — OmniGame / Luana Studio (paste into Claude Code)
 
+> **EXECUTED 2026-07-09.** The remaining queue below (blocks 1-6) was completed, reviewed, merged to main, and deployed — see `CLAUDE.md` (Autonomous run 3) and `docs/RUN-LOG.md`. Kept for reference only; do NOT re-execute. Local-machine note: Windows paths containing `&` (like `Documents\DocumentSystem\03 Tech & Coding\...`) break npm cmd-shims — clone to a clean path such as `C:\Users\charl\code\OmniGame`.
+
 You are picking up an in-flight project mid-run. Read this fully, then read `CLAUDE.md` (canonical ledger) and `docs/RUN-LOG.md` before writing any code.
 
 ## Setup

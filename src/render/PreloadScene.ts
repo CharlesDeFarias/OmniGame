@@ -151,7 +151,7 @@ const FALLBACKS: ReadonlyArray<readonly [string, string]> = [
   // choreography running when the Kenney fx pack fails to arrive.
   ['img-fx-sparkle-1', 'ui-pip'], ['img-fx-sparkle-2', 'ui-pip'],
   ['img-fx-sparkle-3', 'ui-pip'], ['img-fx-glint', 'ui-pip'],
-  ['img-fx-glow', 'ui-glow'],
+  ['img-fx-glow', 'ui-glow'], ['img-fx-starburst-hard', 'ui-ringlight'],
   // Pause sheet (block 4).
   ['img-ui-settings', 'ui-gear'],
 ];
