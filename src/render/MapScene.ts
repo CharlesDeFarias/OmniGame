@@ -99,6 +99,59 @@ export class MapScene extends Phaser.Scene {
         .rectangle(GAME_WIDTH / 2, GAME_HEIGHT - i * bandH - bandH / 2, GAME_WIDTH, bandH + 1, PALETTE.bgDeep, alpha + 0.12)
         .setDepth(-2);
     }
+    // Map dressing v2 (block 5): soft warm haze drifting across the vista
+    // (ui-glow bakes gold — reads as sunlit candy-land air, deliberately warm)
+    // and a few slow twinkles along the path band. Pure ambience, fire-and-loop.
+    const clouds = [
+      { y: 300, size: 340, dur: 52000, alpha: 0.12 },
+      { y: 470, size: 260, dur: 41000, alpha: 0.1 },
+      { y: 700, size: 300, dur: 60000, alpha: 0.08 },
+    ];
+    for (const [i, cl] of clouds.entries()) {
+      const cloud = this.add
+        .image(-200 + i * 380, cl.y, 'ui-glow')
+        .setDisplaySize(cl.size, cl.size * 0.42)
+        .setAlpha(cl.alpha)
+        .setDepth(-2.5);
+      // Drift right, wrap to the left edge, repeat. Recursive onComplete keeps
+      // speed constant regardless of the staggered start; scene shutdown kills
+      // the active tween, so the chain can't leak.
+      const drift = (fromX: number): void => {
+        cloud.setX(fromX);
+        const span = GAME_WIDTH + 220 - fromX;
+        this.tweens.add({
+          targets: cloud,
+          x: GAME_WIDTH + 220,
+          duration: cl.dur * (span / (GAME_WIDTH + 440)),
+          ease: 'Linear',
+          onComplete: () => drift(-220),
+        });
+      };
+      drift(cloud.x);
+    }
+    const twinkles = [
+      { x: 96, y: 380, s: 30 }, { x: 636, y: 480, s: 24 }, { x: 120, y: 760, s: 26 },
+      { x: 610, y: 860, s: 30 }, { x: 340, y: 300, s: 22 }, { x: 560, y: 640, s: 24 },
+    ];
+    twinkles.forEach((tw, i) => {
+      const spark = this.add
+        .image(tw.x, tw.y, `img-fx-sparkle-${(i % 3) + 1}`)
+        .setDisplaySize(tw.s, tw.s)
+        .setTint(0xfff2c4)
+        .setAlpha(0.15)
+        .setDepth(0)
+        .setAngle(i * 30);
+      this.tweens.add({
+        targets: spark,
+        alpha: 0.7,
+        angle: spark.angle + 40,
+        duration: 1700 + i * 300,
+        delay: i * 420,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    });
   }
 
   /** Winding level path: dotted trail + one node per level of the active chapter. */
@@ -132,13 +185,12 @@ export class MapScene extends Phaser.Scene {
       if (current) {
         this.buildCurrentNode(x, y, label);
       } else if (completed) {
-        // Gold node: the neutral grey FGG square tinted gold (no blank circle
-        // in the pack; grey takes the gold tint cleanly -- judgment call).
-        this.add.image(x, y, 'img-ui-btn-sq-grey').setDisplaySize(84, 84).setTint(PALETTE.gold).setDepth(1);
+        // Completed: glossy gold round button (block 5 restyle, RM-look).
+        this.add.image(x, y, 'ui-node-gold').setDisplaySize(88, 88).setDepth(1);
         this.add.text(x, y - 4, label, TS.number(34)).setOrigin(0.5).setDepth(2);
       } else {
-        // Locked ahead: dim node, dim number (RM shows numbers on locked too).
-        this.add.image(x, y, 'img-ui-btn-sq-grey').setDisplaySize(84, 84).setAlpha(0.5).setDepth(1);
+        // Locked ahead: dim round node, dim number (RM shows numbers on locked too).
+        this.add.image(x, y, 'ui-node-grey').setDisplaySize(88, 88).setAlpha(0.55).setDepth(1);
         this.add.text(x, y - 4, label, TS.number(34)).setOrigin(0.5).setDepth(2).setAlpha(0.55);
       }
       // Up to 3 tiny gold stars below any earned node (per-level best).
@@ -150,6 +202,32 @@ export class MapScene extends Phaser.Scene {
           .setDepth(2);
       }
     }
+    // Page-flip affordance (queue #33): page dots under the chapter banner
+    // when the chapter spans multiple 10-level pages, plus faded trail stubs
+    // where the path continues off this page.
+    const pages = Math.ceil(levels.length / 10);
+    if (pages > 1) {
+      const page = Math.floor(start / 10);
+      for (let d = 0; d < pages; d++) {
+        const dot = this.add.circle(GAME_WIDTH / 2 + (d - (pages - 1) / 2) * 34, 200, 9, d === page ? PALETTE.gold : PALETTE.cream);
+        dot.setAlpha(d === page ? 1 : 0.45).setDepth(5);
+      }
+      // Faded dotted stubs where the path continues beyond this page: fading
+      // dots trail off below the first node (earlier page) / above the last
+      // node (later page), angled clear of the play pill and banner.
+      const stubDots = (x0: number, y0: number, dx: number, dy: number): void => {
+        for (let d = 1; d <= 3; d++) {
+          this.add.sprite(x0 + dx * d, y0 + dy * d, 'ui-pip')
+            .setTint(PALETTE.cream).setScale(1.5).setAlpha(0.55 - d * 0.15).setDepth(0);
+        }
+      };
+      if (start > 0) stubDots(NODE_X[0]!, nodeY(0), -8, 36);
+      if (end < levels.length) {
+        const lastLi = end - 1 - start;
+        // dx 36 keeps the stub clear of the avatar standing on a top-row current node.
+        stubDots(NODE_X[lastLi]!, nodeY(lastLi), 36, -30);
+      }
+    }
     // Chapter-forward arrow lives at the path top: only meaningful (and only
     // positioned correctly) on the last page.
     if (end === levels.length) this.maybeChapterArrow(levels, levelIndex);
@@ -158,21 +236,24 @@ export class MapScene extends Phaser.Scene {
   /** Current level: bigger blue node, pulsing gold ring, avatar standing on it; tap -> play. */
   private buildCurrentNode(x: number, y: number, label: string): void {
     const node = this.add
-      .image(x, y, 'img-ui-btn-sq-blue')
-      .setDisplaySize(108, 108)
+      .image(x, y, 'ui-node-blue')
+      .setDisplaySize(112, 112)
       .setDepth(1)
       .setInteractive();
-    this.add.text(x, y - 4, label, TS.number(40)).setOrigin(0.5).setDepth(2);
+    const numTxt = this.add.text(x, y - 4, label, TS.number(40)).setOrigin(0.5).setDepth(2);
     const ring = this.add.circle(x, y, 66).setStrokeStyle(6, PALETTE.gold).setDepth(1);
     this.tweens.add({ targets: ring, alpha: 0.4, scale: 1.08, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    this.tweens.add({
-      targets: node,
-      scaleX: node.scaleX * 1.06,
-      scaleY: node.scaleY * 1.06,
-      duration: 700,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
+    // Current-node bounce (block 5): the node hops with its number and lands
+    // with a bounce — reads as 'this one!' louder than the old scale pulse.
+    // (Chain, not yoyo: Phaser has no yoyoEase, and the landing needs Bounce.)
+    this.tweens.chain({
+      targets: [node, numTxt],
+      loop: -1,
+      loopDelay: 560,
+      tweens: [
+        { y: '-=14', duration: 460, ease: 'Quad.easeOut', hold: 120 },
+        { y: '+=14', duration: 460, ease: 'Bounce.easeOut' },
+      ],
     });
     // The influencer herself stands on the node (equipped wardrobe outfit when
     // one is set -- same pattern as PlayScene's dance break).
@@ -253,9 +334,12 @@ export class MapScene extends Phaser.Scene {
         .setOrigin(0, 0.5)
         .setDepth(5);
     });
-    // Chapter banner: red ribbon + the chapter's goal icon (icons-only).
-    this.add.image(GAME_WIDTH / 2, 156, 'img-ui-banner').setDisplaySize(250, 66).setDepth(4);
-    this.add.sprite(GAME_WIDTH / 2, 150, CHAPTER_ICON[this.progress.chapter]).setDisplaySize(46, 46).setDepth(5);
+    // Chapter banner (block 5: bigger, brighter): red ribbon + the chapter's
+    // goal icon flanked by two tiny stars (icons-only).
+    this.add.image(GAME_WIDTH / 2, 156, 'img-ui-banner').setDisplaySize(310, 82).setDepth(4);
+    this.add.sprite(GAME_WIDTH / 2, 150, CHAPTER_ICON[this.progress.chapter]).setDisplaySize(54, 54).setDepth(5);
+    this.add.sprite(GAME_WIDTH / 2 - 62, 152, 'img-ui-star-sm').setDisplaySize(26, 26).setDepth(5);
+    this.add.sprite(GAME_WIDTH / 2 + 62, 152, 'img-ui-star-sm').setDisplaySize(26, 26).setDepth(5);
   }
 
   /** RM-style bottom bar: MAP (active) + ROOMS buttons, small HOME, big PLAY pill above. */

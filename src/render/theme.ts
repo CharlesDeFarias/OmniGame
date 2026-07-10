@@ -380,6 +380,11 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillTriangle(c + r * 0.75, c - r * 0.45, c + r * 0.2, c - r * 0.55, c + r * 0.55, c - r * 0.05);
   });
   ui('ui-pip', (g) => { g.fillStyle(0xffffff); g.fillCircle(c, c, r * 0.3); });
+  // Saga-map round level nodes (block 5, RM-look): glossy circle buttons in
+  // three states — current (blue), completed (gold), locked-ahead (grey).
+  ui('ui-node-blue', (g) => circleButton(g, 0x3f7fd9));
+  ui('ui-node-gold', (g) => circleButton(g, 0xf1b52e));
+  ui('ui-node-grey', (g) => circleButton(g, 0x8a93a6));
   // Tutorial pointer: white hand (palm circle + one finger) on transparent bg.
   ui('ui-hand', (g) => {
     g.lineStyle(s * 0.04, 0x2c2c54);
