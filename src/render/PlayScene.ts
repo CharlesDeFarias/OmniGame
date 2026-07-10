@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { PROFILE } from '../config/profile';
-import { applyMove, findValidMoves, planFinale, startLevel, starsFor, FINALE_COINS_PER_ROCKET, ShuffleError } from '../core/match3/index';
-import type { Coord, FinaleRocket, GameState, LevelDef, MoveOutcome, PieceColor, SpecialActivation } from '../core/match3/index';
+import { applyAssist, applyMove, findValidMoves, planFinale, startLevel, starsFor, FINALE_COINS_PER_ROCKET, ShuffleError } from '../core/match3/index';
+import type { AssistKind, Coord, FinaleRocket, GameState, LevelDef, MoveOutcome, PieceColor, SpecialActivation } from '../core/match3/index';
 import { CHAPTERS, chapterById, type ChapterId } from '../meta/chapters';
 import { CHAPTER_COIN_BONUS_PER_INDEX } from '../meta/rooms';
 import { createAdaptive, type Adaptive } from '../services/adaptive';
+import { ASSIST_PRICES } from '../services/boosterShop';
 import { createJournal, type Journal } from '../services/journal';
 import { createIdbBackend, createMusicStore, type MusicStore } from '../services/music';
 import { loadProgress, saveProgress, type ProgressData } from '../services/progress';
@@ -99,6 +100,17 @@ export class PlayScene extends Phaser.Scene {
   private goalInFlight: number[] = [];
   /** Pending flier tweens; awaited at end of turn so win/lose never cuts one off. */
   private flightJobs: Promise<void>[] = [];
+  /** Armed in-level assist awaiting a board tap (hammer/rowClear; shuffle fires instantly). */
+  private assistArmed: Exclude<AssistKind, 'shuffle'> | null = null;
+  /** Slot visuals per assist kind: base circle (tap target), icon, chip pieces, armed ring. */
+  private assistSlots = new Map<AssistKind, {
+    base: Phaser.GameObjects.Arc;
+    icon: Phaser.GameObjects.Sprite;
+    chip: Phaser.GameObjects.GameObject[];
+    ring: Phaser.GameObjects.Arc;
+    ringTween: Phaser.Tweens.Tween | null;
+    wiggleTween: Phaser.Tweens.Tween | null;
+  }>();
 
   constructor() {
     super('play');
@@ -181,6 +193,7 @@ export class PlayScene extends Phaser.Scene {
 
   private startCurrentLevel(): void {
     this.select(null);
+    this.disarmAssist();
     this.killHand();
     this.movesMadeThisLevel = 0;
     this.tutorialLogged = false;
@@ -293,23 +306,100 @@ export class PlayScene extends Phaser.Scene {
   }
 
   /**
-   * RM anatomy: 3 round booster slots (rocket/tnt/lightball) under the board.
-   * Visual parity only this pass -- our boosters are bought PRE-level (picker)
-   * and consumed by placement at level start, so the in-level bar is INERT:
-   * dimmed type icons behind a lock ring (interactive in-level boosters are
-   * future work, tracked in docs/RM-PARITY.md).
+   * RM anatomy, now LIVE (block 3): 3 tappable assist slots under the board.
+   * Hammer (smash one chosen cell, 80c) and row-arrow (clear a chosen row,
+   * 100c) arm on tap and apply on the next board tap; shuffle (free) fires
+   * immediately. Price chips show numbers only (near-zero text).
    */
   private buildBoosterBar(): void {
-    const slots = [
-      { x: 240, key: 'img-sp-rocketH' },
-      { x: 360, key: 'img-sp-tnt' },
-      { x: 480, key: 'img-sp-lightball' },
+    const slots: { kind: AssistKind; x: number; icon: string; iconSize: number }[] = [
+      { kind: 'hammer', x: 240, icon: 'ui-hammer', iconSize: 62 },
+      { kind: 'rowClear', x: 360, icon: 'img-ui-next', iconSize: 56 },
+      { kind: 'shuffle', x: 480, icon: 'img-ui-retry', iconSize: 56 },
     ];
     for (const sl of slots) {
-      this.add.circle(sl.x, BOOSTER_BAR_Y, 52, PALETTE.panel, 0.6).setStrokeStyle(4, 0x8a93a6, 0.9).setDepth(2);
-      this.add.sprite(sl.x, BOOSTER_BAR_Y, sl.key).setDisplaySize(62, 62).setAlpha(0.45).setTint(0xaab2c4).setDepth(2);
-      this.add.sprite(sl.x + 34, BOOSTER_BAR_Y + 34, 'img-ui-lock').setDisplaySize(34, 34).setDepth(3);
+      const base = this.add.circle(sl.x, BOOSTER_BAR_Y, 52, PALETTE.panel, 0.85).setStrokeStyle(4, 0x8a93a6, 0.9).setDepth(2);
+      const icon = this.add.sprite(sl.x, BOOSTER_BAR_Y, sl.icon).setDisplaySize(sl.iconSize, sl.iconSize).setDepth(2.1);
+      // Armed indicator: gold ring, hidden until the slot arms.
+      const ring = this.add.circle(sl.x, BOOSTER_BAR_Y, 58, 0x000000, 0).setStrokeStyle(6, PALETTE.gold, 1).setDepth(2.2).setVisible(false);
+      const price = ASSIST_PRICES[sl.kind];
+      const chip: Phaser.GameObjects.GameObject[] = [];
+      if (price > 0) {
+        chip.push(
+          this.add.circle(sl.x + 34, BOOSTER_BAR_Y + 34, 20, PALETTE.gold).setStrokeStyle(3, 0xb8860b).setDepth(2.3),
+          this.add.text(sl.x + 34, BOOSTER_BAR_Y + 34, String(price), TS.number(18)).setOrigin(0.5).setDepth(2.4),
+        );
+      }
+      base.setInteractive();
+      base.on('pointerup', () => this.onAssistSlotTap(sl.kind));
+      this.assistSlots.set(sl.kind, { base, icon, chip, ring, ringTween: null, wiggleTween: null });
     }
+  }
+
+  private onAssistSlotTap(kind: AssistKind): void {
+    if (this.busy || this.state === undefined || this.state.status !== 'playing') return;
+    sfx(this, 'click', { volume: 0.6 });
+    if (kind === 'shuffle') {
+      this.disarmAssist();
+      void this.runAssist('shuffle').catch((e: unknown) => {
+        this.journal.log('error', { where: 'runAssist', message: String(e) });
+        this.busy = false;
+      });
+      return;
+    }
+    if (this.assistArmed === kind) {
+      this.disarmAssist();
+      return;
+    }
+    if (this.wallet.data().coins < ASSIST_PRICES[kind]) {
+      this.wiggleSlot(kind);
+      return;
+    }
+    this.disarmAssist();
+    this.select(null);
+    this.assistArmed = kind;
+    const slot = this.assistSlots.get(kind);
+    if (slot) {
+      slot.ring.setVisible(true).setScale(1);
+      slot.ringTween = this.tweens.add({ targets: slot.ring, scale: 1.08, duration: 340, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
+  }
+
+  private disarmAssist(): void {
+    if (this.assistArmed === null) return;
+    const slot = this.assistSlots.get(this.assistArmed);
+    if (slot) {
+      slot.ringTween?.stop();
+      slot.ringTween = null;
+      slot.ring.setVisible(false).setScale(1);
+    }
+    this.assistArmed = null;
+  }
+
+  /** Can't-afford feedback: the whole slot (chip included) wiggles side to side.
+   *  The previous wiggle is killed and positions restored first, so spamming the
+   *  slot can't compound mid-tween offsets into a permanent displacement. */
+  private wiggleSlot(kind: AssistKind): void {
+    const slot = this.assistSlots.get(kind);
+    if (slot === undefined) return;
+    const parts = [slot.base, slot.icon, ...slot.chip] as (Phaser.GameObjects.GameObject & { x: number; setX(x: number): unknown })[];
+    if (slot.wiggleTween !== null) {
+      slot.wiggleTween.stop();
+      const homeX = slot.ring.x;
+      for (const part of parts) part.setX(part === slot.base || part === slot.icon ? homeX : homeX + 34);
+    }
+    const starts = parts.map((part) => part.x);
+    slot.wiggleTween = this.tweens.add({
+      targets: parts,
+      x: '+=9',
+      duration: 45,
+      yoyo: true,
+      repeat: 3,
+      onComplete: () => {
+        slot.wiggleTween = null;
+        parts.forEach((part, i) => part.setX(starts[i]!));
+      },
+    });
   }
 
   private updateHud(): void {
@@ -524,6 +614,16 @@ export class PlayScene extends Phaser.Scene {
     if (this.busy || this.downAt === null || this.state === undefined || this.state.status !== 'playing') return;
     const start = this.downAt;
     this.downAt = null;
+    // An armed assist consumes the next board tap (tap or drag, RM-style).
+    if (this.assistArmed !== null) {
+      const kind = this.assistArmed;
+      this.disarmAssist();
+      void this.runAssist(kind, start.cell).catch((e: unknown) => {
+        this.journal.log('error', { where: 'runAssist', message: String(e) });
+        this.busy = false;
+      });
+      return;
+    }
     const dx = p.x - start.px;
     const dy = p.y - start.py;
     const dragDist = Math.hypot(dx, dy);
@@ -592,18 +692,7 @@ export class PlayScene extends Phaser.Scene {
       out = applyMove(this.state, a, b);
     } catch (e) {
       if (e instanceof ShuffleError) {
-        this.journal.log('shuffle_error', { level: this.state.level.id, phase: 'move' });
-        if (this.activeBoosters.length > 0) setPendingBoosters(this.activeBoosters);
-        this.retryCount += 1;
-        // Friendly cue before the silent restart: dim + spinning retry icon.
-        this.busy = true;
-        const dim = this.overlay();
-        const spinner = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-retry').setDepth(11).setScale(1.22);
-        await this.tweenAsync({ targets: spinner, angle: 360, duration: 900, ease: 'Cubic.easeInOut' });
-        dim.destroy();
-        spinner.destroy();
-        this.startCurrentLevel();
-        this.busy = false;
+        await this.shuffleRestart('move');
         return;
       }
       throw e;
@@ -619,6 +708,22 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     await this.runTurn(out, specialSwap);
+  }
+
+  /** Friendly cue before a silent level restart after an unshufflable board:
+   *  dim + spinning retry icon, boosters re-staged, retry counted. */
+  private async shuffleRestart(phase: 'move' | 'assist'): Promise<void> {
+    this.journal.log('shuffle_error', { level: this.state.level.id, phase });
+    if (this.activeBoosters.length > 0) setPendingBoosters(this.activeBoosters);
+    this.retryCount += 1;
+    this.busy = true;
+    const dim = this.overlay();
+    const spinner = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-retry').setDepth(11).setScale(1.22);
+    await this.tweenAsync({ targets: spinner, angle: 360, duration: 900, ease: 'Cubic.easeInOut' });
+    dim.destroy();
+    spinner.destroy();
+    this.startCurrentLevel();
+    this.busy = false;
   }
 
   private wiggle(c: Coord): Promise<void> {
@@ -733,7 +838,7 @@ export class PlayScene extends Phaser.Scene {
           const sp = this.sprites.get(key(c));
           if (sp) { sp.destroy(); this.sprites.delete(key(c)); }
         }
-        if (navigator.vibrate) navigator.vibrate(20);
+        if (ev.cells.length > 0 && navigator.vibrate) navigator.vibrate(20);
         break;
       }
       case 'spawn': {
@@ -1132,6 +1237,92 @@ export class PlayScene extends Phaser.Scene {
 
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => this.time.delayedCall(ms, () => resolve()));
+  }
+
+  // -------------------------------------------------------------------------
+  // In-level assists (block 3): hammer / row-arrow / shuffle.
+  // -------------------------------------------------------------------------
+
+  /** Resolve an assist through the core, then charge and animate. The wallet is
+   *  only touched AFTER a valid resolution: an invalid target or a stuck-board
+   *  ShuffleError restart must never cost coins (same principle as the
+   *  pre-level picker's charge-at-play-tap). No move is consumed. */
+  private async runAssist(kind: AssistKind, target?: Coord): Promise<void> {
+    if (this.busy || this.state.status !== 'playing') return;
+    const price = ASSIST_PRICES[kind];
+    if (price > 0 && this.wallet.data().coins < price) {
+      this.wiggleSlot(kind);
+      return;
+    }
+    this.busy = true;
+    try {
+      let out: MoveOutcome;
+      try {
+        out = applyAssist(this.state, kind, target);
+      } catch (e) {
+        if (e instanceof ShuffleError) {
+          await this.shuffleRestart('assist');
+          return;
+        }
+        throw e;
+      }
+      if (out.invalid === true) return;
+      if (price > 0 && !this.wallet.spend(price)) {
+        this.wiggleSlot(kind);
+        return;
+      }
+      this.coinText.setText(String(this.wallet.data().coins));
+      this.journal.log('assist_used', { level: this.state.level.id, kind, cost: price });
+      // Assist-specific staging fx fire before the core's event stream plays.
+      if (kind === 'hammer' && target !== undefined) await this.hammerSmash(target);
+      if (kind === 'rowClear' && target !== undefined) this.rowSweepFx(target.y);
+      this.state = out.state;
+      let wave = 0;
+      for (const step of planSteps(out.events)) {
+        if (step.event.type === 'clear') {
+          await this.animateStep(step, wave);
+          wave += 1;
+        } else {
+          await this.animateStep(step);
+        }
+      }
+      this.syncBoard();
+      this.updateHud();
+      if (this.flightJobs.length > 0) {
+        await Promise.all(this.flightJobs);
+        this.flightJobs = [];
+        this.updateHud();
+      }
+      if (this.state.status === 'won') await this.onWin();
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  /** Hammer swing at the target cell: mallet arcs in, starburst on impact. */
+  private async hammerSmash(target: Coord): Promise<void> {
+    const { px, py } = cellToXY(this.layout, target.x, target.y);
+    const cell = this.layout.cell;
+    const mallet = this.add.sprite(px + cell * 0.7, py - cell * 1.1, 'ui-hammer').setDisplaySize(cell * 1.1, cell * 1.1).setAngle(45).setDepth(5);
+    await this.tweenAsync({ targets: mallet, angle: -18, x: px + cell * 0.28, y: py - cell * 0.3, duration: 160, ease: 'Back.easeIn' });
+    this.cameras.main.shake(90, 0.006);
+    const burst = this.add.image(px, py, 'img-fx-starburst-hard').setTint(0xffffff).setScale(0.3).setDepth(4);
+    this.tweens.add({ targets: burst, scale: 1.1, alpha: 0, duration: 240, ease: 'Quad.easeOut', onComplete: () => burst.destroy() });
+    this.tweens.add({ targets: mallet, alpha: 0, duration: 140, onComplete: () => mallet.destroy() });
+  }
+
+  /** Row-arrow sweep: white bar flash across the chosen row (rocket-like). */
+  private rowSweepFx(y: number): void {
+    sfx(this, 'rocket-whoosh', { volume: 0.8 });
+    this.cameras.main.shake(90, 0.004);
+    const start = cellToXY(this.layout, 0, y);
+    const end = cellToXY(this.layout, this.state.board.width - 1, y);
+    const lineLen = this.layout.cell * this.state.board.width;
+    const bar = this.add.rectangle((start.px + end.px) / 2, start.py, lineLen, this.layout.cell * 0.34, 0xffffff, 0.55).setDepth(2);
+    this.tweens.add({ targets: bar, alpha: 0, scaleY: 0.1, duration: 260, ease: 'Quad.easeOut', onComplete: () => bar.destroy() });
+    const streak = this.add.image(start.px, start.py, 'img-fx-glint').setTint(0xffffff).setAlpha(0.95).setDepth(3);
+    streak.setDisplaySize(this.layout.cell * 1.7, this.layout.cell * 0.55);
+    this.tweens.add({ targets: streak, x: end.px + this.layout.cell * 0.5, alpha: 0.2, duration: 240, ease: 'Quad.easeIn', onComplete: () => streak.destroy() });
   }
 
   // -------------------------------------------------------------------------

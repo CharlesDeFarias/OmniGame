@@ -75,28 +75,17 @@ function countColors(board: Board, cells: Coord[], into: Partial<Record<PieceCol
   }
 }
 
-export function resolveTurn(
-  board: Board,
-  a: Coord,
-  b: Coord,
-  rng: RNG,
-  colorCount: number,
-  goalHints?: GoalHints,
-): TurnResult {
-  if (colorCount < 3) throw new Error(`colorCount must be >= 3, got ${colorCount}`);
-  const check = canSwap(board, a, b);
-  if (!check.valid) return { valid: false, board, events: [], clearedByColor: {}, clearedBoxes: 0, clearedIce: 0, reason: check.reason };
-
-  const work = cloneBoard(board);
+/**
+ * Wave engine: the resolution machinery below the swap decision (clear waves,
+ * box damage, ice, gravity, refill, cascade settling). Both resolveTurn and
+ * resolveAssistClear drive resolution through this ONE implementation so
+ * behavior — and RNG draw order — can never diverge between entry points.
+ * Extraction was mechanical from the original resolveTurn closure.
+ */
+function createWaveEngine(work: Board, rng: RNG, colorCount: number, goalHints?: GoalHints) {
   const events: ResolveEvent[] = [];
   const clearedByColor: Partial<Record<PieceColor, number>> = {};
-  let clearedBoxes = 0;
-  let clearedIce = 0;
-
-  const pa = at(work, a.x, a.y)!;
-  const pb = at(work, b.x, b.y)!;
-  swapPieces(work, a, b);
-  events.push({ type: 'swap', a, b });
+  const totals = { boxes: 0, ice: 0 };
 
   const clearWave = (
     cells: Coord[],
@@ -129,7 +118,7 @@ export function resolveTurn(
       const i = index(work, c.x, c.y);
       if (work.ice[i]) {
         work.ice[i] = false;
-        clearedIce += 1;
+        totals.ice += 1;
         iceCells.push(c);
       }
     };
@@ -144,7 +133,7 @@ export function resolveTurn(
         set(work, c.x, c.y, { kind: 'blocker', hp });
         damagedCells.push(c);
       } else {
-        clearedBoxes += 1;
+        totals.boxes += 1;
         breakIce(c);
         set(work, c.x, c.y, null);
         destroyedCells.push(c);
@@ -167,6 +156,48 @@ export function resolveTurn(
     if (fills.length > 0) events.push({ type: 'refill', fills });
   };
 
+  const runCascades = (swappedHint: Coord | null): void => {
+    let hint = swappedHint;
+    const MAX_WAVES = 50;
+    let waves = 0;
+    for (;;) {
+      if (++waves > MAX_WAVES) throw new Error('cascade did not settle within 50 waves');
+      const groups = findMatchGroups(work, hint);
+      hint = null;
+      if (groups.length === 0) break;
+      const cells: Coord[] = [];
+      const spawns: { coord: Coord; piece: Piece }[] = [];
+      for (const g of groups) {
+        cells.push(...g.cells);
+        if (g.special) spawns.push({ coord: g.origin, piece: { kind: 'special', special: g.special } });
+      }
+      clearWave(cells, spawns);
+    }
+  };
+
+  return { events, clearedByColor, totals, clearWave, runCascades };
+}
+
+export function resolveTurn(
+  board: Board,
+  a: Coord,
+  b: Coord,
+  rng: RNG,
+  colorCount: number,
+  goalHints?: GoalHints,
+): TurnResult {
+  if (colorCount < 3) throw new Error(`colorCount must be >= 3, got ${colorCount}`);
+  const check = canSwap(board, a, b);
+  if (!check.valid) return { valid: false, board, events: [], clearedByColor: {}, clearedBoxes: 0, clearedIce: 0, reason: check.reason };
+
+  const work = cloneBoard(board);
+  const engine = createWaveEngine(work, rng, colorCount, goalHints);
+
+  const pa = at(work, a.x, a.y)!;
+  const pb = at(work, b.x, b.y)!;
+  swapPieces(work, a, b);
+  engine.events.push({ type: 'swap', a, b });
+
   // pa is now at b, pb at a.
   if (pa.kind === 'special' && pb.kind === 'special') {
     const targets = comboTargets(
@@ -176,7 +207,7 @@ export function resolveTurn(
       rng,
       goalHints,
     );
-    clearWave([...targets, a, b], [], new Set([key(a), key(b)]), [
+    engine.clearWave([...targets, a, b], [], new Set([key(a), key(b)]), [
       { coord: b, special: pa.special, targets },
       { coord: a, special: pb.special, targets },
     ]);
@@ -188,27 +219,34 @@ export function resolveTurn(
       special === 'lightball' && partner.kind === 'normal'
         ? cellsOfColor(work, partner.color)
         : boosterTargets(work, specialAt, special, rng, goalHints);
-    clearWave([...targets, specialAt], [], new Set([key(specialAt)]), [
+    engine.clearWave([...targets, specialAt], [], new Set([key(specialAt)]), [
       { coord: specialAt, special, targets },
     ]);
   }
 
-  let swappedHint: Coord | null = b;
-  const MAX_WAVES = 50;
-  let waves = 0;
-  for (;;) {
-    if (++waves > MAX_WAVES) throw new Error('cascade did not settle within 50 waves');
-    const groups = findMatchGroups(work, swappedHint);
-    swappedHint = null;
-    if (groups.length === 0) break;
-    const cells: Coord[] = [];
-    const spawns: { coord: Coord; piece: Piece }[] = [];
-    for (const g of groups) {
-      cells.push(...g.cells);
-      if (g.special) spawns.push({ coord: g.origin, piece: { kind: 'special', special: g.special } });
-    }
-    clearWave(cells, spawns);
-  }
+  engine.runCascades(b);
 
-  return { valid: true, board: work, events, clearedByColor, clearedBoxes, clearedIce };
+  return { valid: true, board: work, events: engine.events, clearedByColor: engine.clearedByColor, clearedBoxes: engine.totals.boxes, clearedIce: engine.totals.ice };
+}
+
+/**
+ * Assist resolution (in-level boosters): clear an externally chosen cell set as
+ * one booster-style wave — specials inside it activate, boxes take direct hits
+ * — then settle cascades. NOT on any default path: the sim and calibration
+ * never call this; the shared rng is drawn only when the player fires an
+ * assist, which forks that session's stream deliberately.
+ */
+export function resolveAssistClear(
+  board: Board,
+  cells: Coord[],
+  rng: RNG,
+  colorCount: number,
+  goalHints?: GoalHints,
+): TurnResult {
+  if (colorCount < 3) throw new Error(`colorCount must be >= 3, got ${colorCount}`);
+  const work = cloneBoard(board);
+  const engine = createWaveEngine(work, rng, colorCount, goalHints);
+  engine.clearWave(cells, []);
+  engine.runCascades(null);
+  return { valid: true, board: work, events: engine.events, clearedByColor: engine.clearedByColor, clearedBoxes: engine.totals.boxes, clearedIce: engine.totals.ice };
 }

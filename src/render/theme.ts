@@ -648,6 +648,15 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillRoundedRect(c - r * 0.95, c - r * 0.42, r * 0.3, r * 0.84, r * 0.08);
     g.fillRoundedRect(c + r * 0.65, c - r * 0.42, r * 0.3, r * 0.84, r * 0.08);
   });
+  // In-level assist icon (block 3): steel head + wooden handle mallet.
+  ui('ui-hammer', (g) => {
+    g.fillStyle(0x9c6b30);
+    g.fillRoundedRect(c - r * 0.11, c - r * 0.2, r * 0.22, r * 1.05, r * 0.08);
+    g.fillStyle(0xb0bec9);
+    g.fillRoundedRect(c - r * 0.62, c - r * 0.85, r * 1.24, r * 0.62, r * 0.14);
+    g.fillStyle(0xffffff, 0.35);
+    g.fillRoundedRect(c - r * 0.52, c - r * 0.78, r * 1.04, r * 0.18, r * 0.08);
+  });
   // --- Plan 6.5: generic furniture for dance/gym/vanity rooms (plan 7 replaces with real art) ---
   // Per-chapter accent hue, modulated per style: a = base, b = lightened, c = darkened.
   const CHAPTER_FURN_ACCENT: Record<string, number> = { dance: 0x9b59b6, gym: 0x2ecc71, vanity: 0xfd79a8 };

@@ -1,10 +1,10 @@
 import { createRng, type RNG } from '../rng';
-import { createBoard } from './board';
+import { cloneBoard, createBoard, inBounds } from './board';
 import type { GoalHints } from './boosters';
 import { applyCleared, goalsComplete, initGoals, type GoalState } from './goals';
 import type { LevelDef } from './level';
 import { hasValidMove, shuffleBoard } from './moves';
-import { resolveTurn, type ResolveEvent } from './resolve';
+import { resolveAssistClear, resolveTurn, type ResolveEvent } from './resolve';
 import type { Board, Coord, PieceColor, SpecialKind } from './types';
 
 export type GameStatus = 'playing' | 'won' | 'lost';
@@ -86,6 +86,42 @@ export function goalHintsFrom(goals: GoalState[]): GoalHints {
     else wantIce = true;
   }
   return { colors, wantBoxes, wantIce };
+}
+
+export type AssistKind = 'hammer' | 'rowClear' | 'shuffle';
+
+/**
+ * In-level assist (RM hammer-style): resolves like a booster wave WITHOUT
+ * consuming a move. Hammer clears one chosen cell (activating a special,
+ * direct-hitting a box); rowClear sweeps the target's row; shuffle re-deals
+ * the board (may throw ShuffleError like any shuffle — caller restarts).
+ * Payment and journaling live in the renderer layer: core stays
+ * monetization-free. Draws from the shared rng — a player assist forks that
+ * session's stream deliberately (never called on sim/calibration paths).
+ */
+export function applyAssist(state: GameState, kind: AssistKind, target?: Coord): MoveOutcome {
+  if (state.status !== 'playing') return { state, events: [], invalid: true, reason: 'not-playing' };
+  if (kind === 'shuffle') {
+    const board = cloneBoard(state.board);
+    shuffleBoard(board, state.rng);
+    return { state: { ...state, board }, events: [{ type: 'shuffle' }] };
+  }
+  if (target === undefined || !inBounds(state.board, target.x, target.y)) {
+    return { state, events: [], invalid: true, reason: 'empty-cell' };
+  }
+  const cells: Coord[] =
+    kind === 'hammer'
+      ? [target]
+      : Array.from({ length: state.board.width }, (_, x) => ({ x, y: target.y }));
+  const result = resolveAssistClear(state.board, cells, state.rng, state.level.board.colorCount, goalHintsFrom(state.goals));
+  const goals = applyCleared(state.goals, result.clearedByColor, result.clearedBoxes, result.clearedIce);
+  const status: GameStatus = goalsComplete(goals) ? 'won' : 'playing';
+  let events = result.events;
+  if (status === 'playing' && !hasValidMove(result.board)) {
+    shuffleBoard(result.board, state.rng);
+    events = [...events, { type: 'shuffle' }];
+  }
+  return { state: { ...state, board: result.board, goals, status }, events };
 }
 
 export function applyMove(state: GameState, a: Coord, b: Coord): MoveOutcome {
