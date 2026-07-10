@@ -6,7 +6,7 @@
   "giftMoves": 5,
   "goals": [
     { "type": "collect", "color": "red", "count": 12 },
-    { "type": "collect", "color": "yellow", "count": 12 },
+    { "type": "collect", "color": "yellow", "count": 11 },
     { "type": "collect", "color": "green", "count": 11 }
   ]
 }
