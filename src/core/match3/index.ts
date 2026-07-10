@@ -16,5 +16,7 @@ export type { LevelDef } from './level';
 export type { GoalHints } from './boosters';
 export { applyMove, goalHintsFrom, startLevel } from './game';
 export type { GameState, GameStatus, MoveOutcome, StartOptions } from './game';
+export { FINALE_COINS_PER_ROCKET, FINALE_ROCKET_CAP, planFinale } from './finale';
+export type { FinaleRocket } from './finale';
 export { starsFor } from './stars';
 export type { StarInput } from './stars';

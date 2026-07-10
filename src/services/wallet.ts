@@ -1,3 +1,4 @@
+import { FINALE_COINS_PER_ROCKET } from '../core/match3/finale';
 import type { JournalStorage } from './journal';
 
 export interface WalletData {
@@ -20,6 +21,8 @@ export interface Wallet {
   earnTask(): void;
   /** Gate-runner payout (queue #20): coins already computed by coinsForScore; xp = min(30, floor(coins/2)). */
   earnRunner(coins: number): void;
+  /** Win-finale payout (RM moves-to-rockets): flat 3 coins per auto-fired rocket. */
+  earnFinale(rockets: number): void;
   spend(cost: number): boolean;
   level(): number;
 }
@@ -100,6 +103,10 @@ export function createWallet(storage: JournalStorage): Wallet {
     earnRunner(coins) {
       state.coins += coins;
       state.xp += Math.min(30, Math.floor(coins / 2));
+      save();
+    },
+    earnFinale(rockets) {
+      state.coins += FINALE_COINS_PER_ROCKET * rockets;
       save();
     },
     spend(cost) {

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { PROFILE } from '../config/profile';
-import { applyMove, findValidMoves, startLevel, starsFor, ShuffleError } from '../core/match3/index';
-import type { Coord, GameState, LevelDef, MoveOutcome, PieceColor, SpecialActivation } from '../core/match3/index';
+import { applyMove, findValidMoves, planFinale, startLevel, starsFor, FINALE_COINS_PER_ROCKET, ShuffleError } from '../core/match3/index';
+import type { Coord, FinaleRocket, GameState, LevelDef, MoveOutcome, PieceColor, SpecialActivation } from '../core/match3/index';
 import { CHAPTERS, chapterById, type ChapterId } from '../meta/chapters';
 import { CHAPTER_COIN_BONUS_PER_INDEX } from '../meta/rooms';
 import { createAdaptive, type Adaptive } from '../services/adaptive';
@@ -93,6 +93,12 @@ export class PlayScene extends Phaser.Scene {
   private wakeHooked = false;
   /** Round-robin index over the match-pop-N sfx variants. */
   private popCycle = 0;
+  /** Goal-counter values as currently DISPLAYED (bumped by landing fliers, not state). */
+  private goalDisplay: number[] = [];
+  /** Fliers still arcing toward each goal icon. */
+  private goalInFlight: number[] = [];
+  /** Pending flier tweens; awaited at end of turn so win/lose never cuts one off. */
+  private flightJobs: Promise<void>[] = [];
 
   constructor() {
     super('play');
@@ -271,6 +277,10 @@ export class PlayScene extends Phaser.Scene {
         .setDepth(2);
       this.goalHud.push({ icon, txt });
     });
+    // Fly-to-counter display state starts synced with the (fresh) core state.
+    this.goalDisplay = this.state.goals.map((gs) => gs.collected);
+    this.goalInFlight = this.state.goals.map(() => 0);
+    this.flightJobs = [];
     // Streak flame: gold spark + win-streak count on the badge shoulder once
     // the streak reaches 3 (the free-booster threshold, adaptive.streakBonus).
     const streak = this.adaptive.state().streak;
@@ -305,11 +315,22 @@ export class PlayScene extends Phaser.Scene {
   private updateHud(): void {
     this.movesText.setText(String(this.state.movesLeft));
     this.state.goals.forEach((gs, i) => {
-      const remaining = Math.max(0, gs.goal.count - gs.collected);
-      const hud = this.goalHud[i]!;
-      hud.txt.setText(remaining === 0 ? '✓' : String(remaining));
-      hud.txt.setColor(remaining === 0 ? '#54b842' : PALETTE.textOnDark);
+      // While fliers are in the air the counter shows the display value; each
+      // landing bumps it. Once the air clears, snap the display to the truth.
+      const pending = (this.goalInFlight[i] ?? 0) > 0;
+      if (!pending) this.goalDisplay[i] = gs.collected;
+      this.paintGoalCount(i, pending ? this.goalDisplay[i]! : gs.collected);
     });
+  }
+
+  /** Paint one goal counter from a given collected value. */
+  private paintGoalCount(i: number, collected: number): void {
+    const gs = this.state.goals[i];
+    const hud = this.goalHud[i];
+    if (gs === undefined || hud === undefined) return;
+    const remaining = Math.max(0, gs.goal.count - collected);
+    hud.txt.setText(remaining === 0 ? '✓' : String(remaining));
+    hud.txt.setColor(remaining === 0 ? '#54b842' : PALETTE.textOnDark);
   }
 
   private syncBoard(): void {
@@ -638,6 +659,14 @@ export class PlayScene extends Phaser.Scene {
       await this.celebrateGift(out.gift);
       this.updateHud();
     }
+    // Let every goal flier land before the win/lose beat (and before input unblocks).
+    if (this.flightJobs.length > 0) {
+      await Promise.all(this.flightJobs);
+      this.flightJobs = [];
+      // Snap displays to truth: a spriteless cleared cell launches no flier, so
+      // the lagging counter would otherwise stay stale through the win overlay.
+      this.updateHud();
+    }
     if (this.state.status === 'won') await this.onWin();
     else if (this.state.status === 'lost') await this.onLose();
     this.busy = false;
@@ -685,6 +714,11 @@ export class PlayScene extends Phaser.Scene {
                 onComplete: () => ring.destroy(),
               });
             }
+          }
+          for (const c of rest) {
+            const src = this.sprites.get(key(c));
+            if (src === undefined) continue;
+            this.maybeFlyGoalPiece(c, src.texture.key);
           }
           for (const c of rest.slice(0, 12)) {
             const src = this.sprites.get(key(c));
@@ -854,6 +888,7 @@ export class PlayScene extends Phaser.Scene {
     const tint = tintForTexture(sp.texture.key);
     return new Promise((resolve) => {
       this.time.delayedCall(delay, () => {
+        this.maybeFlyGoalPiece(c, sp.texture.key);
         this.burstPips(c, tint, 3, 0.6);
         this.tweens.add({
           targets: sp,
@@ -1095,6 +1130,110 @@ export class PlayScene extends Phaser.Scene {
     await Promise.all(jobs);
   }
 
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => this.time.delayedCall(ms, () => resolve()));
+  }
+
+  // -------------------------------------------------------------------------
+  // RM signature mechanics (block 2): goal fly-to-counter + win finale.
+  // -------------------------------------------------------------------------
+
+  /** If this cleared piece feeds an incomplete collect goal whose display lags
+   *  the core truth, launch a flying copy toward its HUD icon (visual only). */
+  private maybeFlyGoalPiece(c: Coord, texKey: string): void {
+    this.state.goals.forEach((gs, i) => {
+      if (gs.goal.type !== 'collect') return;
+      if (texKey !== pieceTextureKey({ kind: 'normal', color: gs.goal.color }, this.pack)) return;
+      const shown = this.goalDisplay[i] ?? 0;
+      const inFlight = this.goalInFlight[i] ?? 0;
+      if (shown + inFlight >= gs.collected) return;
+      this.goalInFlight[i] = inFlight + 1;
+      this.flightJobs.push(this.flyGoalPiece(c, texKey, i));
+    });
+  }
+
+  private flyGoalPiece(c: Coord, texKey: string, goalIdx: number): Promise<void> {
+    const hud = this.goalHud[goalIdx];
+    if (hud === undefined) {
+      this.goalInFlight[goalIdx] = Math.max(0, (this.goalInFlight[goalIdx] ?? 1) - 1);
+      return Promise.resolve();
+    }
+    const { px, py } = cellToXY(this.layout, c.x, c.y);
+    const flier = this.add.sprite(px, py, texKey).setDisplaySize(this.layout.cell * 0.8, this.layout.cell * 0.8).setDepth(6);
+    const startScale = flier.scale;
+    const dest = { x: hud.icon.x, y: hud.icon.y };
+    // Quadratic bezier: control point lofted above the straight line for an arc.
+    const cx = (px + dest.x) / 2 + (px < dest.x ? -90 : 90);
+    const cy = Math.min(py, dest.y) - 140;
+    this.tweens.add({ targets: flier, scale: startScale * 0.5, duration: 400, ease: 'Quad.easeIn' });
+    const p = { t: 0 };
+    return this.tweenAsync({
+      targets: p,
+      t: 1,
+      duration: 400,
+      ease: 'Sine.easeIn',
+      onUpdate: () => {
+        const u = 1 - p.t;
+        flier.setPosition(
+          u * u * px + 2 * u * p.t * cx + p.t * p.t * dest.x,
+          u * u * py + 2 * u * p.t * cy + p.t * p.t * dest.y,
+        );
+      },
+    }).then(() => {
+      flier.destroy();
+      sfx(this, 'collect-ding', { volume: 0.7 });
+      this.goalInFlight[goalIdx] = Math.max(0, (this.goalInFlight[goalIdx] ?? 1) - 1);
+      this.goalDisplay[goalIdx] = (this.goalDisplay[goalIdx] ?? 0) + 1;
+      this.paintGoalCount(goalIdx, this.goalDisplay[goalIdx]!);
+      const icon = hud.icon;
+      this.tweens.add({ targets: icon, scale: icon.scale * 1.25, duration: 110, yoyo: true });
+    });
+  }
+
+  /** RM's moves-to-rockets win conversion: leftover moves become rockets that
+   *  auto-fire over the finished board, each worth +3 coins. Pure bonus layer:
+   *  the core planned it deterministically; the GameState is never touched. */
+  private async playFinale(rockets: FinaleRocket[]): Promise<void> {
+    const coins = rockets.length * FINALE_COINS_PER_ROCKET;
+    this.journal.log('finale', { rockets: rockets.length, coins });
+    this.wallet.earnFinale(rockets.length);
+    // Convert: leftover moves drain from the badge as rockets pop in (the
+    // badge drains per planned rocket even if a cell's sprite is missing).
+    for (const [i, r] of rockets.entries()) {
+      this.time.delayedCall(i * 60, () => {
+        sfx(this, 'click', { volume: 0.5 });
+        this.movesText.setText(String(Math.max(0, this.state.movesLeft - (i + 1))));
+        const sp = this.sprites.get(key(r.coord));
+        if (sp === undefined) return;
+        sp.setTexture(r.vertical ? 'img-sp-rocketV' : 'img-sp-rocketH');
+        sp.setDisplaySize(this.layout.cell * 0.92, this.layout.cell * 0.92);
+        this.tweens.add({ targets: sp, scale: sp.scale * 1.18, duration: 90, yoyo: true });
+      });
+    }
+    await this.sleep(rockets.length * 60 + 220);
+    // Fire one by one, 150ms apart (overlapping sweeps, RM style).
+    const consumed = new Set<string>();
+    const jobs: Promise<void>[] = [];
+    for (const [i, r] of rockets.entries()) {
+      jobs.push(
+        this.sleep(i * 150).then(async () => {
+          const { px, py } = cellToXY(this.layout, r.coord.x, r.coord.y);
+          if (this.sprites.has(key(r.coord))) {
+            const own = r.targets.filter((t) => this.sprites.has(key(t)) && !consumed.has(key(t)));
+            await this.animateRocket(r.coord, r.vertical, own, consumed, false);
+          }
+          // +3 coins fly to the counter as each rocket resolves.
+          sfx(this, 'coin-clink', { volume: 0.6 });
+          const pip = this.add.sprite(px, py, 'ui-pip').setTint(0xf1c40f).setScale(1.4).setDepth(12);
+          await this.tweenAsync({ targets: pip, x: this.coinIcon.x, y: this.coinIcon.y, scale: 0.5, duration: 420, ease: 'Cubic.easeIn' });
+          pip.destroy();
+          this.coinText.setText(String(Number(this.coinText.text) + FINALE_COINS_PER_ROCKET));
+        }),
+      );
+    }
+    await Promise.all(jobs);
+  }
+
   private async celebrateGift(moves: number): Promise<void> {
     this.blips.gift();
     const jobs: Promise<void>[] = [];
@@ -1126,6 +1265,10 @@ export class PlayScene extends Phaser.Scene {
 
   private async onWin(): Promise<void> {
     this.killHand();
+    // RM moves-to-rockets finale: leftover moves auto-fire as bonus rockets
+    // BEFORE the win overlay. Stars are computed from the untouched movesLeft.
+    const finaleRockets = planFinale(this.state);
+    if (finaleRockets.length > 0) await this.playFinale(finaleRockets);
     const stars = starsFor({
       status: this.state.status,
       giftUsed: this.state.giftUsed,
