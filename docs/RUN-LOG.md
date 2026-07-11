@@ -34,6 +34,11 @@
 - Adversarial review caught the dimensional-coupling class: star pops at 1/3 size, every coin squashed (15 sites), win stars/buttons shrunk 2x — all converted to explicit display sizes.
 - MERGED to main + deployed. Next (Charles's picks, research-backed): cooking rebuilt as a Burger-Party-style order-stack diner (design reference only — GPL code untouched; old recipe flow preserved for future reuse; economy stays), runner replaced with a jetpack-style game (Ourcade MIT template as design/stack reference).
 
+## Run 6 — mini-game rebuilds (2026-07-10, decision #62)
+- DINER MERGED as the cooking game: customers walk in with picture-stack orders, tap ingredients to build bottom-to-top, wrong taps bounce off harmlessly (pantry shield eats the first one), serve for coins + tips, 5-customer shifts, stars by mistakes. Same coin payout as the old flow; the 15-recipe system is preserved unrouted. Review caught bell-mash mistakes + a ramp that could open on the tallest dish — both fixed with tests.
+- JETPACK MERGED as the runner: hold anywhere to fly, release to fall; 3 fixed-length runs; coins thread the safe gaps; hits cost hearts with blink-invincibility; hearts-out ends the run early with everything kept (never a fail screen). Old gate-runner preserved unrouted.
+- Queue items 47-48 collect Charles's playtest questions (loop feel, physics speed, star migration).
+
 ## Run 4 — calibration + debt pass (2026-07-10)
 - Kitchen level 10 recalibrated (queue #35 RESOLVED): the random-policy floor was really 13.9% at high sample counts (below the 15% design floor). One yellow tile less (12+11+11) puts it back at 15.8% with the finale difficulty unchanged (greedy ~71%). Levels 4 and 5 re-sampled at n=2000: both safely in band, untouched.
 - Wardrobe 'owned' marker is now the real check icon instead of a text glyph (last near-zero-text violation from plan 7). Two other carry-forwards (stats-list overflow, dead goalHud field) verified already fixed.

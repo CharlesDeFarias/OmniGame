@@ -147,7 +147,9 @@ export class HubScene extends Phaser.Scene {
     pressify(this, card);
     card.on('pointerup', () => {
       this.blips.ding();
-      goto(this, 'runner');
+      // Decision #62: the runner card opens the jetpack game; the old
+      // gate-runner stays in the codebase unrouted.
+      goto(this, 'jetpack');
     });
   }
 
