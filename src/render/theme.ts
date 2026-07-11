@@ -875,6 +875,67 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillStyle(0xf5deb3);
     g.fillRoundedRect(s * 0.2, s * 0.18, s * 0.6, s * 0.66, { tl: s * 0.24, tr: s * 0.24, bl: s * 0.07, br: s * 0.07 });
   });
+  // --- Diner stack layers (run 6, decision #62): drawn as WIDE horizontal
+  // layers so they read stacked on the build plate; flat Kenney language. ---
+  shadowed('ing-bun-bottom', (g) => {
+    g.fillStyle(0xc68642);
+    g.fillRoundedRect(s * 0.12, s * 0.42, s * 0.76, s * 0.26, { tl: s * 0.06, tr: s * 0.06, bl: s * 0.12, br: s * 0.12 });
+    g.fillStyle(0xf5deb3);
+    g.fillRect(s * 0.12, s * 0.42, s * 0.76, s * 0.08);
+  });
+  shadowed('ing-bun-top', (g) => {
+    g.fillStyle(0xc68642);
+    g.fillRoundedRect(s * 0.12, s * 0.3, s * 0.76, s * 0.38, { tl: s * 0.34, tr: s * 0.34, bl: s * 0.05, br: s * 0.05 });
+    g.fillStyle(0xf5deb3);
+    for (const [dx, dy] of [[-0.2, -0.02], [0, -0.08], [0.2, -0.02]] as const) {
+      g.fillEllipse(c + s * dx, s * 0.48 + s * dy, s * 0.07, s * 0.04);
+    }
+  });
+  shadowed('ing-patty', (g) => {
+    g.fillStyle(0x6e3f1f);
+    g.fillRoundedRect(s * 0.14, s * 0.42, s * 0.72, s * 0.22, s * 0.11);
+    g.fillStyle(0x8a5430);
+    g.fillRoundedRect(s * 0.14, s * 0.42, s * 0.72, s * 0.09, s * 0.05);
+  });
+  shadowed('ing-plate', (g) => {
+    g.fillStyle(0xd7dbdd);
+    g.fillEllipse(c, s * 0.55, s * 0.84, s * 0.24);
+    g.fillStyle(0xf4f6f7);
+    g.fillEllipse(c, s * 0.52, s * 0.66, s * 0.16);
+  });
+  shadowed('ing-pancake', (g) => {
+    g.fillStyle(0xd4a24e);
+    g.fillRoundedRect(s * 0.14, s * 0.44, s * 0.72, s * 0.18, s * 0.09);
+    g.fillStyle(0xe8bd70);
+    g.fillRoundedRect(s * 0.14, s * 0.44, s * 0.72, s * 0.08, s * 0.05);
+  });
+  shadowed('ing-syrup', (g) => {
+    g.fillStyle(0x9c5a1e);
+    g.fillRoundedRect(s * 0.18, s * 0.44, s * 0.64, s * 0.12, s * 0.06);
+    for (const dx of [-0.2, 0, 0.2] as const) {
+      g.fillRoundedRect(c + s * dx - s * 0.035, s * 0.52, s * 0.07, s * 0.16, s * 0.035);
+    }
+  });
+  shadowed('ing-cup', (g) => {
+    g.fillStyle(0xe8eef5);
+    g.fillRoundedRect(s * 0.3, s * 0.28, s * 0.4, s * 0.5, { tl: s * 0.03, tr: s * 0.03, bl: s * 0.12, br: s * 0.12 });
+    g.lineStyle(s * 0.035, 0xaab7c4);
+    g.strokeRoundedRect(s * 0.3, s * 0.28, s * 0.4, s * 0.5, { tl: s * 0.03, tr: s * 0.03, bl: s * 0.12, br: s * 0.12 });
+  });
+  shadowed('ing-juice', (g) => {
+    g.fillStyle(0xf39c12);
+    g.fillRoundedRect(s * 0.33, s * 0.4, s * 0.34, s * 0.34, { tl: 0, tr: 0, bl: s * 0.1, br: s * 0.1 });
+    g.fillStyle(0xf7b94e);
+    g.fillEllipse(c, s * 0.4, s * 0.34, s * 0.07);
+  });
+  shadowed('ing-straw', (g) => {
+    g.fillStyle(0xd8402e);
+    g.fillRoundedRect(c - s * 0.035, s * 0.26, s * 0.07, s * 0.44, s * 0.035);
+    g.fillRoundedRect(c - s * 0.035, s * 0.2, s * 0.2, s * 0.07, s * 0.035);
+    g.fillStyle(0xffffff, 0.35);
+    g.fillRect(c - s * 0.012, s * 0.28, s * 0.024, s * 0.4);
+  });
+
   // Butter: yellow block (lighter top face) on a grey dish.
   shadowed('ing-butter', (g) => {
     g.fillStyle(0xd7dbdd);

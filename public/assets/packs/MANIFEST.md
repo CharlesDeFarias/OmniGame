@@ -57,8 +57,9 @@ flat textures (theme.ts) via PreloadScene FALLBACKS aliases — drawn to match t
 
 | File | Texture key |
 |---|---|
-| character_malePerson_idle.png | `img-toon-bro-idle` (manager panel + map cameo) |
-| femalePerson idle/cheer0/cheer1/walk0 + malePerson cheer0/cheer1/walk0 | staged on disk, NOT loaded — reserved for the wardrobe rebuild (queue #46) |
+| character_malePerson_idle.png | `img-toon-bro-idle` (manager panel + map cameo; glasses+beard baked at preload) |
+| character_femalePerson_idle/walk0.png | `img-toon-cust-a` / `img-toon-cust-b` (diner customers) |
+| femalePerson cheer0/cheer1 + malePerson cheer0/cheer1/walk0 | staged on disk, NOT loaded — reserved for the wardrobe rebuild (queue #46) |
 
 ### Particles (`kenney-particle-fx/fx/`)
 White sprites, tint at runtime.

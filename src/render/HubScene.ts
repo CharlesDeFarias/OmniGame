@@ -1,17 +1,14 @@
 import Phaser from 'phaser';
 import { APP_IDENTITY } from '../config/appIdentity';
 import { PROFILE } from '../config/profile';
-import { createCooking } from '../services/cooking';
 import { createJournal, type Journal } from '../services/journal';
 import { createIdbBackend, createMusicStore, MAX_TRACK_BYTES, type MusicStore } from '../services/music';
 import { loadProgress } from '../services/progress';
-import { createRunner } from '../services/runner';
 import { summarize } from '../services/stats';
 import { createTasks, TASK_ICONS, type Tasks } from '../services/tasks';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createBlips, type Blips } from './audio';
 import { buildBackground, fadeIn, goto, pressify } from './chrome';
-import { loadRunnerLevels } from './levels';
 import { TASK_ICON_TEXTURE } from './taskIcons';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
@@ -79,14 +76,18 @@ export class HubScene extends Phaser.Scene {
     // Two big game cards, stacked (portrait): icon cluster left, progress
     // hint right (numbers only — stays inside the near-zero-text rule).
     const matchStars = Object.values(loadProgress(window.localStorage).stars).reduce((a, b) => a + b, 0);
-    const recipesDone = Object.keys(createCooking(window.localStorage).data().best).length;
+    // Diner card badge: completed shifts (the old recipesDone stat belongs to
+    // the unrouted recipe flow and would freeze forever).
+    const shiftsDone = this.journal.read().filter((e) => e.type === 'diner_shift_end').length;
     this.gameCard(510, 'map', { icon: 'img-ui-star', value: matchStars }, (x, y) => {
       // Match-3: piece cluster.
       this.add.sprite(x - 36, y + 8, 'img-shape-red').setDisplaySize(96, 96).setDepth(2);
       this.add.sprite(x + 50, y - 34, 'img-shape-blue').setDisplaySize(84, 84).setDepth(2);
       this.add.sprite(x + 40, y + 50, 'img-shape-green').setDisplaySize(76, 76).setDepth(2);
     }, 'Puzzle');
-    this.gameCard(830, 'cooking', { icon: 'ui-check', value: recipesDone }, (x, y) => {
+    // Decision #62: the Cooking card opens the DINER; the recipe flow stays
+    // in the codebase unrouted.
+    this.gameCard(830, 'diner', { icon: 'ui-check', value: shiftsDone }, (x, y) => {
       this.add.sprite(x, y, 'ui-pan-card').setDisplaySize(150, 150).setDepth(2);
     }, 'Cooking');
     // Gate-runner card (game #3): real once influencer level >= 2 (early treat);
@@ -123,9 +124,18 @@ export class HubScene extends Phaser.Scene {
         .setDepth(3);
       return;
     }
-    // Star-progress hint, bottom-right: total stars across runner levels.
-    const rp = createRunner(window.localStorage);
-    const runnerStars = loadRunnerLevels().reduce((a, l) => a + rp.bestFor(l.id), 0);
+    // Star-progress hint, bottom-right: best stars per JETPACK level from the
+    // journal (the old omnigame.runner.v1 bests belong to the unrouted
+    // gate-runner and would freeze forever — same fix as the diner badge).
+    const best = new Map<string, number>();
+    for (const e of this.journal.read()) {
+      if (e.type !== 'jet_run_end') continue;
+      const d = e.data as { level?: string; stars?: number };
+      if (typeof d.level === 'string' && typeof d.stars === 'number') {
+        best.set(d.level, Math.max(best.get(d.level) ?? 0, d.stars));
+      }
+    }
+    const runnerStars = [...best.values()].reduce((a, b) => a + b, 0);
     this.add
       .text(x + 40, y + 56, String(runnerStars), TS.number(30))
       .setOrigin(1, 0.5)
@@ -144,7 +154,9 @@ export class HubScene extends Phaser.Scene {
     pressify(this, card);
     card.on('pointerup', () => {
       this.blips.ding();
-      goto(this, 'runner');
+      // Decision #62: the runner card opens the jetpack game; the old
+      // gate-runner stays in the codebase unrouted.
+      goto(this, 'jetpack');
     });
   }
 

@@ -3,6 +3,8 @@ import { APP_IDENTITY } from '../config/appIdentity';
 import { CareerScene } from './CareerScene';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { CookingScene } from './CookingScene';
+import { DinerScene } from './DinerScene';
+import { JetpackScene } from './JetpackScene';
 import { HubScene } from './HubScene';
 import { MapScene } from './MapScene';
 import { PlayScene } from './PlayScene';
@@ -68,7 +70,9 @@ void loadBrandFonts().then(() => {
       width: GAME_WIDTH,
       height: GAME_HEIGHT,
     },
-    scene: [PreloadScene, HubScene, MapScene, CareerScene, PlayScene, CookingScene, RunnerScene],
+    // CookingScene + RunnerScene stay registered but unrouted (decision #62:
+    // old flows preserved); the hub routes to the diner and jetpack instead.
+    scene: [PreloadScene, HubScene, MapScene, CareerScene, PlayScene, DinerScene, JetpackScene, CookingScene, RunnerScene],
   });
   // Lift the splash curtain once the game is READY (the hub's create() runs
   // the same tick and opens with a camera fade from the same #0e1e3d, so the

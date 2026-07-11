@@ -80,9 +80,11 @@ export const ART_FILES: ReadonlyArray<readonly [string, string]> = [
   ['k2-glyph-audio-off', `${K2}/icons/audioOff.png`],
   ['k2-glyph-lock', `${K2}/icons/locked.png`],
   ['k2-glyph-check', `${K2}/icons/checkmark.png`],
-  // --- Siblings (decision #61): only the wired pose loads; the rest of the
-  // toon poses stay staged on disk for the wardrobe rebuild (queue #46).
+  // --- Siblings (decision #61) + diner customers (run 6). Remaining toon
+  // poses stay staged on disk for the wardrobe rebuild (queue #46).
   ['img-toon-bro-idle', `${K2}/toon/character_malePerson_idle.png`],
+  ['img-toon-cust-a', `${K2}/toon/character_femalePerson_idle.png`],
+  ['img-toon-cust-b', `${K2}/toon/character_femalePerson_walk0.png`],
   // --- Board frame (UI Pack Adventure): warm brown 9-slice ---
   ['img-board-frame', `${K2}/ui/panel_brown.png`],
   // --- Backgrounds ---
