@@ -1,117 +1,72 @@
-# Art packs manifest — RM-look milestone
+# Art packs manifest — the Kenney family (decision #60, 2026-07-10)
 
-All assets below are **CC0 1.0** (public domain dedication). Downloaded 2026-07-04.
-Only the files we intend to use were copied from each source pack (originals kept in scratch, not in repo).
-Total added size: ~2.1 MB across 72 files. No Royal Match / Dream Games material anywhere — genre conventions only, via original CC0 art.
+All assets below are **CC0 1.0** (public domain dedication) — legally safe to sit in this public repo.
+Only the files we use were copied from each source pack (source zips re-downloadable, not committed).
+No Royal Match / Dream Games material anywhere — RM is modeled in MECHANICS/layout/palette only (docs/RM-PARITY.md); the art is Kenney's.
+The retired OpenGameArt packs (Sylly gems, MELLE candy, pzUH GUI, cdgramos heart) were removed this pass — one family now (docs/ART-BIBLE.md).
 
 ## Sources
 
 | Pack dir | Source pack | Author | Source URL | License |
 |---|---|---|---|---|
-| `gem-match-3-sylly/` | Gem Match 3 Set | Sylly | https://opengameart.org/content/gem-match-3-set | CC0 1.0 |
-| `candy-match-3-melle/` | Candy Match 3 | MELLE (submitted by Luca Pixel) | https://opengameart.org/content/candy-match-3 | CC0 1.0 |
-| `free-game-gui-pzuh/` | Free Game GUI | pzUH | https://opengameart.org/content/free-game-gui | CC0 1.0 |
-| `heart-cdgramos/` | Heart 1 | cdgramos (submitted by soulwolf) | https://opengameart.org/content/heart-1 | CC0 1.0 |
-| `kenney-particle-fx/` | Particle Pack | Kenney (kenney.nl) | https://kenney.nl/assets/particle-pack | CC0 1.0 |
+| `kenney2/ui/` | UI Pack v2.0 | Kenney (kenney.nl) | https://kenney.nl/assets/ui-pack | CC0 1.0 |
+| `kenney2/icons/` | Game Icons | Kenney | https://kenney.nl/assets/game-icons | CC0 1.0 |
+| `kenney2/shape/` | Shape Characters | Kenney | https://kenney.nl/assets/shape-characters | CC0 1.0 |
+| `kenney2/toon/` | Toon Characters | Kenney | https://kenney.nl/assets/toon-characters | CC0 1.0 |
+| `kenney2/misc/coin.png` | Puzzle Pack 2 | Kenney | https://kenney.nl/assets/puzzle-pack-2 | CC0 1.0 |
+| `kenney2/misc/bg-map.png` | Starter Kit Match-3 (background) | Kenney | https://github.com/KenneyNL/Starter-Kit-Match-3 | CC0 1.0 (assets; kit code MIT, unused) |
+| `kenney-particle-fx/` | Particle Pack | Kenney | https://kenney.nl/assets/particle-pack | CC0 1.0 |
 
-Notes:
-- OpenGameArt license verified on each art page (CC0 badge only; no dual/other licensing on the chosen entries).
-- Kenney assets are CC0 site-wide; the particle-pack page carries the CC0 line.
-- GUI sheets (`Button.png` 3999x3037, `Window.png` 4000x5000) and the candy sheet (700x700) were sliced here; individual elements were trimmed to alpha bounds and (for large panels) downscaled. Particle sprites downscaled 512 -> 256.
+Kenney assets are CC0 site-wide; each page carries the CC0 line.
 
 ## Texture-key mapping
 
-### Match-3 pieces — gem theme (`gem-match-3-sylly/gems/`)
-Six glossy rimmed gems; shape AND color differ between confusable color pairs (CVD-friendly).
+### Match-3 pieces (`kenney2/shape/`, composited at preload)
+Body + face are baked into one `img-shape-<color>` canvas per color. Triple-coded identity
+(color + body shape + face) — CVD-friendly and readable for Luana.
 
-| File | Intended texture key | Piece |
+| Piece color | Body file | Face file |
 |---|---|---|
-| gem_blue.png | `piece.blue` | blue diamond (Type1) |
-| gem_green.png | `piece.green` | green octagon (Type2) |
-| gem_purple.png | `piece.purple` | purple/pink triangle (Type3) |
-| gem_red.png | `piece.red` | red rounded square (Type4) |
-| gem_yellow.png | `piece.yellow` | yellow diamond (Type1) |
-| gem_black.png | `piece.extra` | black octagon (Type2) — 6th color if a level needs it |
+| red | red_body_circle.png | face_a.png |
+| blue | blue_body_square.png | face_b.png |
+| green | green_body_rhombus.png | face_c.png |
+| yellow | yellow_body_squircle.png | face_g.png |
+| purple | purple_body_circle.png | face_d.png |
+| 'orange' | pink_body_square.png | face_e.png (pink serves orange: the set has no orange body) |
 
-### Match-3 pieces — candy theme (`candy-match-3-melle/gems/`)
-Alternate piece theme (Candy-Crush-style, glossy). Each piece distinct in shape and color.
+Specials (`img-sp-*`), obstacles (`img-ob-*`), banner, and heart resolve to the PROCEDURAL
+flat textures (theme.ts) via PreloadScene FALLBACKS aliases — drawn to match the family.
 
-| File | Intended texture key |
+### GUI (`kenney2/ui/` + `kenney2/icons/`)
+
+| File(s) | Texture key(s) |
 |---|---|
-| candy_orange.png | `piece.orange` (candy theme) |
-| candy_blue.png | `piece.blue` |
-| candy_red.png | `piece.red` (berry cluster) |
-| candy_green.png | `piece.green` |
-| candy_purple.png | `piece.purple` |
-| candy_lollipop.png | `booster.colorbomb` (rainbow wheel) |
-| striped/candy_<color>_striped_h.png | `booster.striped_h.<color>` (row clear) |
-| striped/candy_<color>_striped_v.png | `booster.striped_v.<color>` (column clear) |
+| <theme>_button_rectangle_depth_gradient.png (blue/green/red/grey) | `img-ui-btn-pill-<theme>` |
+| <theme>_button_square_depth_gradient.png (blue/green/red/grey) | `img-ui-btn-sq-<theme>` |
+| blue_button_rectangle_flat.png | `img-ui-panel-blue` (the cream panel is procedural `ui-panel-cream`) |
+| blue_arrow_decorative_e.png (2x variant) | `img-ui-next` |
+| yellow_star.png | `img-ui-star`, `img-ui-star-sm` |
+| grey_star_outline.png | `img-ui-star-slot` |
+| blue/green/grey_button_round_depth_gradient.png + a glyph | composited at preload into `img-ui-play/retry/home/settings/sound-on/sound-off/lock/ok` |
+| icons/gear,home,audioOn,audioOff,locked,checkmark.png | glyph inputs (`k2-glyph-*`) for the composites |
+| misc/coin.png | `img-ui-coin` |
+| misc/bg-map.png | `img-bg-map` |
+| panel_brown.png (UI Pack Adventure, CC0 — https://kenney.nl/assets/ui-pack-adventure) | `img-board-frame` (match-3 board 9-slice frame) |
 
-### Board obstacles (`candy-match-3-melle/tiles/`)
+### Siblings (`kenney2/toon/`, decision #61)
 
-| File | Intended texture key | Use |
-|---|---|---|
-| tile_crate.png | `obstacle.box.hp2` | cracker = wooden-crate equivalent, full HP |
-| tile_crate_cracked.png | `obstacle.box.hp1` | cracked state (matches core box hp<=2) |
-| tile_crate_choco.png | `obstacle.box.variant` | decorated variant / reward crate |
-| tile_ice.png | `obstacle.ice` | translucent glossy square |
-| tile_frosting.png | `obstacle.ice.cap` | icing drip overlay (sits on top of a tile) |
-| tile_chocolate.png | `obstacle.chocolate` | spreading-blocker candidate |
-| tile_gift.png | `collectible.gift` | wrapped-gift collect target |
-
-### Specials / FX pieces (`candy-match-3-melle/fx/`)
-
-| File | Intended texture key |
+| File | Texture key |
 |---|---|
-| bomb.png | `booster.bomb` |
-| candy_wrapped_h.png / candy_wrapped_v.png | `collectible.candy_gold` (collect targets / rewards) |
-
-### Map / backgrounds (`candy-match-3-melle/map/`)
-
-| File | Intended texture key | Use |
-|---|---|---|
-| bg_candyland.png | `bg.map` | saga-map / menu background (1024x768, winding path vista) |
-| bg_candyland_blur.png | `bg.play` | in-level backdrop (blurred variant, board stays readable) |
-
-### GUI (`free-game-gui-pzuh/ui/`)
-Glossy cartoon set: cream panels + red ribbon banners + gold stars (closest CC0 match to the premium casual look).
-
-| File | Intended texture key |
-|---|---|
-| btn_pill_blue/green/red/grey.png | `ui.btn.primary/confirm/danger/disabled` (pill; grey = disabled) |
-| btn_sq_blue/green/red/grey.png | `ui.btn.sq.*` (blank square bases for custom glyphs) |
-| btn_play_blue.png | `ui.btn.play` |
-| btn_home_blue.png | `ui.btn.home` |
-| btn_pause_blue.png | `ui.btn.pause` |
-| btn_restart_blue.png | `ui.btn.replay` |
-| btn_gear_blue.png | `ui.btn.settings` |
-| btn_sound_blue.png / btn_sound_grey.png | `ui.btn.sound.on/off` (mute toggle) |
-| btn_check_green.png | `ui.btn.ok` |
-| btn_x_red.png | `ui.btn.close` |
-| btn_lock.png | `ui.level.locked` (locked level node / chapter lock) |
-| btn_arrow_blue.png | `ui.btn.next` |
-| panel_plain.png | `ui.panel` (9-slice-able rounded cream panel) |
-| panel_banner.png | `ui.panel.titled` (panel with red ribbon header) |
-| banner_ribbon.png | `ui.banner` (standalone ribbon for titles) |
-| star_gold_lg/md/sm.png | `ui.star.1/2/3` (win-screen stars) |
-| progress_stars.png | `ui.progress.stars` (star-progress bar w/ counter) |
-| progress_bar.png | `ui.progress` (generic bar) |
-| counter_coins.png | `ui.counter.coins` (coin counter plate) |
-| icon_coin_dollar.png | `ui.icon.coin` |
-
-### Hearts (`heart-cdgramos/ui/`)
-
-| File | Intended texture key |
-|---|---|
-| heart_red.png | `ui.icon.heart` (hearts currency, 125px glossy) |
+| character_malePerson_idle.png | `img-toon-bro-idle` (manager panel + map cameo) |
+| femalePerson idle/cheer0/cheer1/walk0 + malePerson cheer0/cheer1/walk0 | staged on disk, NOT loaded — reserved for the wardrobe rebuild (queue #46) |
 
 ### Particles (`kenney-particle-fx/fx/`)
 White sprites, tint at runtime.
 
-| File | Intended texture key |
+| File | Texture key |
 |---|---|
-| star_04.png / star_06.png / star_07.png | `fx.sparkle.1/2/3` (match-clear sparkles) |
-| star_05.png / star_08.png | `fx.starburst.soft/hard` (combo bursts) |
-| flare_01.png | `fx.glint` (gem shine sweep) |
-| circle_05.png | `fx.glow` (soft glow under pieces/boosters) |
-| twirl_02.png | `fx.swirl` (special-piece charge) |
+| star_04/06/07.png | `img-fx-sparkle-1/2/3` |
+| star_05/08.png | `img-fx-starburst-soft/hard` |
+| flare_01.png | `img-fx-glint` |
+| circle_05.png | `img-fx-glow` |
+| twirl_02.png | `img-fx-swirl` |

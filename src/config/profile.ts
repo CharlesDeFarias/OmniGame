@@ -13,5 +13,7 @@ export const PROFILE = {
     /** Shows the haptics toggle in the pause sheet; vibration itself also honors the toggle. */
     haptics: true,
   },
-  textTier: 'none' as const, // 'none' | 'minimal' | 'full' — reserved (#8); only 'none' implemented
+  // 'none' | 'minimal' | 'full' (#8). Charles 2026-07-10: pure-icon UI overshot
+  // into confusing — 'minimal' adds short helper words at decision points.
+  textTier: 'minimal' as 'none' | 'minimal' | 'full',
 } as const;

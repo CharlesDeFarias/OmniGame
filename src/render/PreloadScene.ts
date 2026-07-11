@@ -20,98 +20,73 @@ import { SFX_KEYS } from './audio';
  */
 
 const PACKS = 'assets/packs';
-const GEMS = `${PACKS}/gem-match-3-sylly/gems`;
-const CANDY = `${PACKS}/candy-match-3-melle`;
-const GUI = `${PACKS}/free-game-gui-pzuh/ui`;
-const HEART = `${PACKS}/heart-cdgramos/ui`;
+const K2 = `${PACKS}/kenney2`;
 const KFX = `${PACKS}/kenney-particle-fx/fx`;
 
 /**
- * Loaded-image texture keys ('img-*') -> pack file. Key names are NEW: the
- * procedural generators keep their old keys as a live fallback layer, and the
- * mapping functions (packs.ts / theme.ts) decide which family to hand out.
+ * Loaded-image texture keys -> pack file. Decision #60: ONE Kenney CC0 family
+ * app-wide (docs/ART-BIBLE.md). Existing 'img-*' key names are preserved so
+ * scene code stays untouched; 'k2-*' keys are raw parts consumed by the
+ * composite step in create() (round button + glyph -> one img-ui-* texture;
+ * shape body + face -> one img-shape-<color> piece).
  *
- * Piece-color mapping judgments (Sylly gem set has no orange):
- * - 'yellow'  -> gem_yellow.png (reads gold/amber -- still the warm one).
- * - 'purple'  -> gem_purple.png (pink/magenta triangle).
- * - 'orange'  -> gem_black.png (silver/black octagon; the only unused file,
- *   hue-distinct from all five others; 'orange' only appears in 6-color levels).
- * Candy theme 'yellow' -> fx/candy_wrapped_h.png (gold wrapped candy: the
- * MELLE set ships only 5 plain candies).
+ * Piece identity is triple-coded (color + body shape + face): red=circle,
+ * blue=square, green=rhombus, yellow=squircle, purple=circle(face d),
+ * 'orange'=pink square(face e) — the shape set has no orange body, same
+ * substitution precedent as the old silver gem.
+ *
+ * Specials (sp-*), obstacles (ob-*), banner and heart now resolve to the
+ * procedural flat textures via the FALLBACKS aliases below — the procedural
+ * layer IS the primary art for those (drawn to match the family).
  */
 export const ART_FILES: ReadonlyArray<readonly [string, string]> = [
-  // --- Match-3 pieces: gem theme (kitchen/gym/vanity) ---
-  ['img-gem-red', `${GEMS}/gem_red.png`],
-  ['img-gem-blue', `${GEMS}/gem_blue.png`],
-  ['img-gem-green', `${GEMS}/gem_green.png`],
-  ['img-gem-yellow', `${GEMS}/gem_yellow.png`],
-  ['img-gem-purple', `${GEMS}/gem_purple.png`],
-  ['img-gem-orange', `${GEMS}/gem_black.png`],
-  // --- Match-3 pieces: candy theme (dance) ---
-  ['img-candy-red', `${CANDY}/gems/candy_red.png`],
-  ['img-candy-blue', `${CANDY}/gems/candy_blue.png`],
-  ['img-candy-green', `${CANDY}/gems/candy_green.png`],
-  ['img-candy-yellow', `${CANDY}/fx/candy_wrapped_h.png`],
-  ['img-candy-purple', `${CANDY}/gems/candy_purple.png`],
-  ['img-candy-orange', `${CANDY}/gems/candy_orange.png`],
-  // --- Specials: red striped pair = rockets, bomb = tnt, lollipop = lightball.
-  // Propeller keeps its procedural texture (no candy equivalent; judgment call).
-  ['img-sp-rocketH', `${CANDY}/gems/striped/candy_red_striped_h.png`],
-  ['img-sp-rocketV', `${CANDY}/gems/striped/candy_red_striped_v.png`],
-  ['img-sp-tnt', `${CANDY}/fx/bomb.png`],
-  ['img-sp-lightball', `${CANDY}/gems/candy_lollipop.png`],
-  // Remaining striped colors: loaded for future per-color striped specials.
-  ['img-striped-blue-h', `${CANDY}/gems/striped/candy_blue_striped_h.png`],
-  ['img-striped-blue-v', `${CANDY}/gems/striped/candy_blue_striped_v.png`],
-  ['img-striped-green-h', `${CANDY}/gems/striped/candy_green_striped_h.png`],
-  ['img-striped-green-v', `${CANDY}/gems/striped/candy_green_striped_v.png`],
-  ['img-striped-orange-h', `${CANDY}/gems/striped/candy_orange_striped_h.png`],
-  ['img-striped-orange-v', `${CANDY}/gems/striped/candy_orange_striped_v.png`],
-  ['img-striped-purple-h', `${CANDY}/gems/striped/candy_purple_striped_h.png`],
-  ['img-striped-purple-v', `${CANDY}/gems/striped/candy_purple_striped_v.png`],
-  // --- Board obstacles ---
-  ['img-ob-box2', `${CANDY}/tiles/tile_crate.png`],
-  ['img-ob-box1', `${CANDY}/tiles/tile_crate_cracked.png`],
-  ['img-ob-box-choco', `${CANDY}/tiles/tile_crate_choco.png`],
-  ['img-ob-ice', `${CANDY}/tiles/tile_ice.png`],
-  ['img-ob-frosting', `${CANDY}/tiles/tile_frosting.png`],
-  ['img-ob-chocolate', `${CANDY}/tiles/tile_chocolate.png`],
-  ['img-collect-gift', `${CANDY}/tiles/tile_gift.png`],
-  ['img-collect-candygold', `${CANDY}/fx/candy_wrapped_v.png`],
+  // --- Match-3 piece parts (composited in create) ---
+  ['k2-body-red', `${K2}/shape/red_body_circle.png`],
+  ['k2-body-blue', `${K2}/shape/blue_body_square.png`],
+  ['k2-body-green', `${K2}/shape/green_body_rhombus.png`],
+  ['k2-body-yellow', `${K2}/shape/yellow_body_squircle.png`],
+  ['k2-body-purple', `${K2}/shape/purple_body_circle.png`],
+  ['k2-body-orange', `${K2}/shape/pink_body_square.png`],
+  ['k2-face-red', `${K2}/shape/face_a.png`],
+  ['k2-face-blue', `${K2}/shape/face_b.png`],
+  ['k2-face-green', `${K2}/shape/face_c.png`],
+  ['k2-face-yellow', `${K2}/shape/face_g.png`],
+  ['k2-face-purple', `${K2}/shape/face_d.png`],
+  ['k2-face-orange', `${K2}/shape/face_e.png`],
+  // --- GUI (Kenney UI Pack v2), direct keys ---
+  ['img-ui-btn-pill-blue', `${K2}/ui/blue_button_rectangle_depth_gradient.png`],
+  ['img-ui-btn-pill-green', `${K2}/ui/green_button_rectangle_depth_gradient.png`],
+  ['img-ui-btn-pill-red', `${K2}/ui/red_button_rectangle_depth_gradient.png`],
+  ['img-ui-btn-pill-grey', `${K2}/ui/grey_button_rectangle_depth_gradient.png`],
+  ['img-ui-btn-sq-blue', `${K2}/ui/blue_button_square_depth_gradient.png`],
+  ['img-ui-btn-sq-green', `${K2}/ui/green_button_square_depth_gradient.png`],
+  ['img-ui-btn-sq-red', `${K2}/ui/red_button_square_depth_gradient.png`],
+  ['img-ui-btn-sq-grey', `${K2}/ui/grey_button_square_depth_gradient.png`],
+  ['img-ui-panel-blue', `${K2}/ui/blue_button_rectangle_flat.png`],
+  ['img-ui-next', `${K2}/ui/blue_arrow_decorative_e.png`],
+  ['img-ui-star', `${K2}/ui/yellow_star.png`],
+  ['img-ui-star-sm', `${K2}/ui/yellow_star.png`],
+  ['img-ui-star-slot', `${K2}/ui/grey_star_outline.png`],
+  ['img-ui-coin', `${K2}/misc/coin.png`],
+  // --- Round button bases + glyphs (composited in create) ---
+  ['k2-round-blue', `${K2}/ui/blue_button_round_depth_gradient.png`],
+  ['k2-round-green', `${K2}/ui/green_button_round_depth_gradient.png`],
+  ['k2-round-grey', `${K2}/ui/grey_button_round_depth_gradient.png`],
+  ['k2-glyph-play', `${K2}/ui/icon_play_light.png`],
+  ['k2-glyph-repeat', `${K2}/ui/icon_repeat_light.png`],
+  ['k2-glyph-gear', `${K2}/icons/gear.png`],
+  ['k2-glyph-home', `${K2}/icons/home.png`],
+  ['k2-glyph-audio-on', `${K2}/icons/audioOn.png`],
+  ['k2-glyph-audio-off', `${K2}/icons/audioOff.png`],
+  ['k2-glyph-lock', `${K2}/icons/locked.png`],
+  ['k2-glyph-check', `${K2}/icons/checkmark.png`],
+  // --- Siblings (decision #61): only the wired pose loads; the rest of the
+  // toon poses stay staged on disk for the wardrobe rebuild (queue #46).
+  ['img-toon-bro-idle', `${K2}/toon/character_malePerson_idle.png`],
+  // --- Board frame (UI Pack Adventure): warm brown 9-slice ---
+  ['img-board-frame', `${K2}/ui/panel_brown.png`],
   // --- Backgrounds ---
-  ['img-bg-map', `${CANDY}/map/bg_candyland.png`],
-  // --- GUI (pzUH) ---
-  ['img-ui-play', `${GUI}/btn_play_blue.png`],
-  ['img-ui-retry', `${GUI}/btn_restart_blue.png`],
-  ['img-ui-home', `${GUI}/btn_home_blue.png`],
-  ['img-ui-lock', `${GUI}/btn_lock.png`],
-  ['img-ui-pause', `${GUI}/btn_pause_blue.png`],
-  ['img-ui-settings', `${GUI}/btn_gear_blue.png`],
-  ['img-ui-sound-on', `${GUI}/btn_sound_blue.png`],
-  ['img-ui-sound-off', `${GUI}/btn_sound_grey.png`],
-  ['img-ui-ok', `${GUI}/btn_check_green.png`],
-  ['img-ui-close', `${GUI}/btn_x_red.png`],
-  ['img-ui-next', `${GUI}/btn_arrow_blue.png`],
-  ['img-ui-btn-pill-blue', `${GUI}/btn_pill_blue.png`],
-  ['img-ui-btn-pill-green', `${GUI}/btn_pill_green.png`],
-  ['img-ui-btn-pill-red', `${GUI}/btn_pill_red.png`],
-  ['img-ui-btn-pill-grey', `${GUI}/btn_pill_grey.png`],
-  ['img-ui-btn-sq-blue', `${GUI}/btn_sq_blue.png`],
-  ['img-ui-btn-sq-green', `${GUI}/btn_sq_green.png`],
-  ['img-ui-btn-sq-red', `${GUI}/btn_sq_red.png`],
-  ['img-ui-btn-sq-grey', `${GUI}/btn_sq_grey.png`],
-  ['img-ui-panel-cream', `${GUI}/panel_plain.png`],
-  ['img-ui-panel-banner', `${GUI}/panel_banner.png`],
-  ['img-ui-banner', `${GUI}/banner_ribbon.png`],
-  ['img-ui-star', `${GUI}/star_gold_lg.png`],
-  ['img-ui-star-md', `${GUI}/star_gold_md.png`],
-  ['img-ui-star-sm', `${GUI}/star_gold_sm.png`],
-  ['img-ui-coin', `${GUI}/icon_coin_dollar.png`],
-  ['img-ui-counter-coins', `${GUI}/counter_coins.png`],
-  ['img-ui-progress', `${GUI}/progress_bar.png`],
-  ['img-ui-progress-stars', `${GUI}/progress_stars.png`],
-  // --- Hearts ---
-  ['img-ui-heart', `${HEART}/heart_red.png`],
+  ['img-bg-map', `${K2}/misc/bg-map.png`],
   // --- Particles (Kenney, white, tint at runtime) ---
   ['img-fx-sparkle-1', `${KFX}/star_04.png`],
   ['img-fx-sparkle-2', `${KFX}/star_06.png`],
@@ -130,31 +105,51 @@ export const ART_FILES: ReadonlyArray<readonly [string, string]> = [
  * reference need entries.
  */
 const FALLBACKS: ReadonlyArray<readonly [string, string]> = [
-  ['img-gem-red', 'gem-red'], ['img-gem-blue', 'gem-blue'], ['img-gem-green', 'gem-green'],
-  ['img-gem-yellow', 'gem-yellow'], ['img-gem-purple', 'gem-purple'], ['img-gem-orange', 'gem-orange'],
-  ['img-candy-red', 'gem-red'], ['img-candy-blue', 'gem-blue'], ['img-candy-green', 'gem-green'],
-  ['img-candy-yellow', 'gem-yellow'], ['img-candy-purple', 'gem-purple'], ['img-candy-orange', 'gem-orange'],
+  // Pieces: composited img-shape-* fall back to the procedural gems.
+  ['img-shape-red', 'gem-red'], ['img-shape-blue', 'gem-blue'], ['img-shape-green', 'gem-green'],
+  ['img-shape-yellow', 'gem-yellow'], ['img-shape-purple', 'gem-purple'], ['img-shape-orange', 'gem-orange'],
+  // Specials/obstacles/banner/heart: the procedural flat textures ARE the
+  // primary art now (decision #60) — these aliases are the wiring, not a net.
   ['img-sp-rocketH', 'sp-rocketH'], ['img-sp-rocketV', 'sp-rocketV'],
   ['img-sp-tnt', 'sp-tnt'], ['img-sp-lightball', 'sp-lightball'],
   ['img-ob-box1', 'ob-box1'], ['img-ob-box2', 'ob-box2'], ['img-ob-ice', 'ob-ice'],
-  ['img-ui-play', 'ui-play'], ['img-ui-retry', 'ui-retry'], ['img-ui-home', 'ui-home'],
-  ['img-ui-lock', 'ui-lock'], ['img-ui-star', 'ui-star'], ['img-ui-coin', 'ui-coin'],
-  ['img-ui-heart', 'ui-heart'], ['img-ui-panel-cream', 'ui-panel'],
+  ['img-ui-heart', 'ui-heart'],
   ['img-ui-panel-banner', 'ui-panel'], ['img-ui-banner', 'ui-panel'],
-  // Map-scene keys (saga map, RM-look): panels stand in for buttons/bg,
-  // procedural play/star cover the arrow and tiny stars.
+  // Composited GUI buttons (round base + glyph): procedural equivalents cover
+  // any missing input; the composite step skips when a part failed to load.
+  ['img-ui-play', 'ui-play'], ['img-ui-retry', 'ui-retry'], ['img-ui-home', 'ui-home'],
+  ['img-ui-lock', 'ui-lock'], ['img-ui-settings', 'ui-gear'],
+  ['img-ui-sound-on', 'ui-sound-on'], ['img-ui-sound-off', 'ui-sound-off'],
+  ['img-ui-ok', 'ui-check'],
+  // Direct-loaded GUI: never-strand stand-ins.
+  ['img-ui-star', 'ui-star'], ['img-ui-star-sm', 'ui-star'], ['img-ui-star-slot', 'ui-star'],
+  // The cream panel is ALWAYS the light procedural sheet: Kenney's grey flat
+  // was too dark for the dark-text overlays (picker/pause/stats readability).
+  ['img-ui-panel-cream', 'ui-panel-cream'],
+  ['img-ui-coin', 'ui-coin'], ['img-ui-panel-blue', 'ui-panel'],
   ['img-bg-map', 'ui-panel'], ['img-ui-btn-sq-grey', 'ui-panel'],
   ['img-ui-btn-sq-blue', 'ui-panel'], ['img-ui-btn-sq-green', 'ui-panel'],
   ['img-ui-btn-pill-green', 'ui-panel'], ['img-ui-next', 'ui-play'],
-  ['img-ui-star-sm', 'ui-star'],
   // Booster-choreography fx (RM-feel pass): pip/glow stand-ins keep the
   // choreography running when the Kenney fx pack fails to arrive.
   ['img-fx-sparkle-1', 'ui-pip'], ['img-fx-sparkle-2', 'ui-pip'],
   ['img-fx-sparkle-3', 'ui-pip'], ['img-fx-glint', 'ui-pip'],
   ['img-fx-glow', 'ui-glow'], ['img-fx-starburst-hard', 'ui-ringlight'],
-  // Pause sheet (block 4).
-  ['img-ui-settings', 'ui-gear'],
 ];
+
+/** Composite recipes run in create(): base sprite + centered glyph -> one key. */
+const COMPOSITES: ReadonlyArray<readonly [string, string, string]> = [
+  ['img-ui-play', 'k2-round-green', 'k2-glyph-play'],
+  ['img-ui-retry', 'k2-round-blue', 'k2-glyph-repeat'],
+  ['img-ui-home', 'k2-round-blue', 'k2-glyph-home'],
+  ['img-ui-settings', 'k2-round-blue', 'k2-glyph-gear'],
+  ['img-ui-sound-on', 'k2-round-blue', 'k2-glyph-audio-on'],
+  ['img-ui-sound-off', 'k2-round-grey', 'k2-glyph-audio-off'],
+  ['img-ui-lock', 'k2-round-grey', 'k2-glyph-lock'],
+  ['img-ui-ok', 'k2-round-green', 'k2-glyph-check'],
+];
+
+const PIECE_COLORS = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'] as const;
 
 export class PreloadScene extends Phaser.Scene {
   constructor() {
@@ -197,11 +192,83 @@ export class PreloadScene extends Phaser.Scene {
     // Procedural layer stays: everything not yet replaced by pack art, plus
     // the fallback source for any pack file that failed to arrive.
     makeTextures(this, 96);
+    // Composite step (decision #60): round button + glyph, shape body + face.
+    // A missing input skips the recipe; the FALLBACKS loop then patches the key.
+    for (const [key, base, glyph] of COMPOSITES) this.composite(key, base, glyph, 0.5);
+    this.decorateBrother();
+    // Pieces bake with padding (body 0.8 of canvas) so a full-bleed square
+    // body still sits INSIDE its board cell instead of kissing its neighbors.
+    for (const color of PIECE_COLORS) this.composite(`img-shape-${color}`, `k2-body-${color}`, `k2-face-${color}`, 0.42, 96, 0.8);
     for (const [img, proc] of FALLBACKS) {
       if (this.textures.exists(img) || !this.textures.exists(proc)) continue;
       const src = this.textures.get(proc).getSourceImage();
       if (src instanceof HTMLCanvasElement) this.textures.addCanvas(img, src);
     }
     goto(this, 'hub');
+  }
+
+  /** The mayor wears rectangular glasses + a short beard (decision #61,
+   *  Charles's spec): baked onto the toon pose once at preload. Coordinates
+   *  are tuned to the 96x128 Kenney toon head; skipped if the pose is absent. */
+  private decorateBrother(): void {
+    const key = 'img-toon-bro-idle';
+    if (!this.textures.exists(key)) return;
+    const src = this.textures.get(key).getSourceImage();
+    if (!(src instanceof HTMLImageElement) && !(src instanceof HTMLCanvasElement)) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = src.width;
+    canvas.height = src.height;
+    const ctx = canvas.getContext('2d');
+    if (ctx === null) return;
+    ctx.drawImage(src, 0, 0);
+    const w = src.width;
+    const h = src.height;
+    // Short beard along the jaw, drawn first so the glasses sit above it.
+    ctx.fillStyle = '#4a3222';
+    ctx.beginPath();
+    ctx.moveTo(w * 0.31, h * 0.34);
+    ctx.quadraticCurveTo(w * 0.5, h * 0.5, w * 0.69, h * 0.34);
+    ctx.quadraticCurveTo(w * 0.5, h * 0.42, w * 0.31, h * 0.34);
+    ctx.closePath();
+    ctx.fill();
+    // Rectangular glasses.
+    ctx.strokeStyle = '#2c2c54';
+    ctx.lineWidth = Math.max(2, w * 0.03);
+    ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    const gy = h * 0.225;
+    const gh = h * 0.08;
+    const gw = w * 0.17;
+    for (const gx of [w * 0.29, w * 0.545]) {
+      ctx.fillRect(gx, gy, gw, gh);
+      ctx.strokeRect(gx, gy, gw, gh);
+    }
+    ctx.beginPath();
+    ctx.moveTo(w * 0.46, gy + gh * 0.35);
+    ctx.lineTo(w * 0.545, gy + gh * 0.35);
+    ctx.stroke();
+    this.textures.remove(key);
+    this.textures.addCanvas(key, canvas);
+  }
+
+  /** Bake base + centered glyph into one square canvas texture under `key`. */
+  private composite(key: string, baseKey: string, glyphKey: string, glyphRatio: number, size = 96, baseRatio = 0.98): void {
+    if (this.textures.exists(key)) return;
+    if (!this.textures.exists(baseKey) || !this.textures.exists(glyphKey)) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (ctx === null) return;
+    const draw = (k: string, maxRatio: number): void => {
+      const img = this.textures.get(k).getSourceImage();
+      if (!(img instanceof HTMLImageElement) && !(img instanceof HTMLCanvasElement)) return;
+      const scale = (size * maxRatio) / Math.max(img.width, img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+    };
+    draw(baseKey, baseRatio);
+    draw(glyphKey, glyphRatio);
+    this.textures.addCanvas(key, canvas);
   }
 }

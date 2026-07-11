@@ -142,7 +142,7 @@ export class RunnerScene extends Phaser.Scene {
     this.viewObjects.push(
       this.add.image(GAME_WIDTH / 2, 96, 'ui-panel').setDisplaySize(664, 128).setAlpha(0.45).setDepth(0),
       this.add.sprite(GAME_WIDTH / 2, 96, 'gr-flag').setDisplaySize(96, 96).setDepth(1),
-      this.add.sprite(530, 96, 'img-ui-coin').setDisplaySize(30, 44).setDepth(1),
+      this.add.sprite(530, 96, 'img-ui-coin').setDisplaySize(42, 42).setDepth(1),
       this.add
         .text(560, 96, String(this.wallet.data().coins), TS.number(32))
         .setOrigin(0, 0.5)
@@ -572,11 +572,13 @@ export class RunnerScene extends Phaser.Scene {
         .setScale(0)
         .setDepth(13);
       this.viewObjects.push(st);
-      this.tweens.add({ targets: st, scale: 96 / 170, duration: 240, delay: 200 + i * 220, ease: 'Back.easeOut' });
+      // Tween display size, not raw scale: scale factors bake in the source
+      // texture's native size, which changed in the Kenney re-skin.
+      this.tweens.add({ targets: st, displayWidth: 96, displayHeight: 90, duration: 240, delay: 200 + i * 220, ease: 'Back.easeOut' });
     }
     // Coin payout (already in the wallet).
     this.viewObjects.push(
-      this.add.sprite(GAME_WIDTH / 2 - 56, GAME_HEIGHT / 2, 'img-ui-coin').setDisplaySize(39, 56).setDepth(12),
+      this.add.sprite(GAME_WIDTH / 2 - 56, GAME_HEIGHT / 2, 'img-ui-coin').setDisplaySize(52, 52).setDepth(12),
       this.add
         .text(GAME_WIDTH / 2 - 16, GAME_HEIGHT / 2, `+${coins}`, TS.number(44))
         .setOrigin(0, 0.5)

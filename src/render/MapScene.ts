@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PROFILE } from '../config/profile';
 import type { LevelDef, SpecialKind } from '../core/match3/index';
 import { CHAPTERS, chapterById, type ChapterId } from '../meta/chapters';
 import { createAdaptive, streakBonus } from '../services/adaptive';
@@ -77,6 +78,12 @@ export class MapScene extends Phaser.Scene {
     this.buildPath();
     this.buildTopBar();
     this.buildBottomBar();
+    // The mayor watches over his town's map (decision #61): brother cameo,
+    // bottom-left clear of node 0 (200,1030) and the home button (64,1218).
+    if (this.textures.exists('img-toon-bro-idle')) {
+      const bro = this.add.sprite(74, 952, 'img-toon-bro-idle').setDisplaySize(88, 112).setDepth(1);
+      this.tweens.add({ targets: bro, y: 946, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
   }
 
   /** Candyland map art, cover-fit to 720x1280 (center crop), + dark vignette bands top/bottom for HUD readability. */
@@ -328,7 +335,7 @@ export class MapScene extends Phaser.Scene {
     this.add.image(GAME_WIDTH / 2, BAR_Y, 'ui-panel').setDisplaySize(704, 92).setAlpha(0.45).setDepth(4);
     items.forEach((it, i) => {
       const x = 90 + i * 180;
-      this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(it.icon === 'img-ui-coin' ? 30 : 44, 44).setDepth(5);
+      this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(44, 44).setDepth(5);
       this.add
         .text(x - 14, BAR_Y, values[it.k], TS.number(30))
         .setOrigin(0, 0.5)
@@ -372,7 +379,8 @@ export class MapScene extends Phaser.Scene {
     const idx = Math.min(this.progress.levelIndexByChapter[chapter], levels.length - 1);
     const label = String(parseInt(levels[idx]!.id.replace(/^[a-z]+-/, ''), 10));
     const pill = this.add.image(GAME_WIDTH / 2, 1118, 'img-ui-btn-pill-green').setDisplaySize(264, 88).setDepth(5).setInteractive();
-    const pillTxt = this.add.text(GAME_WIDTH / 2, 1114, label, TS.number(40)).setOrigin(0.5).setDepth(6);
+    const pillWord = PROFILE.textTier !== 'none' ? `Play ${label}` : label;
+    const pillTxt = this.add.text(GAME_WIDTH / 2, 1114, pillWord, TS.number(36)).setOrigin(0.5).setDepth(6);
     this.tweens.add({
       targets: [pill, pillTxt],
       scaleX: '*=1.05',
@@ -424,7 +432,10 @@ export class MapScene extends Phaser.Scene {
     });
     objs.push(dim);
     objs.push(this.add.image(360, 600, 'img-ui-panel-cream').setDisplaySize(560, 700).setDepth(31).setInteractive());
-    objs.push(this.add.text(360, 330, label, TS.numberTinted(64, '#0e1e3d')).setOrigin(0.5).setDepth(32));
+    if (PROFILE.textTier !== 'none') {
+      objs.push(this.add.text(360, 292, 'Level', TS.numberOnLight(30)).setOrigin(0.5).setDepth(32));
+    }
+    objs.push(this.add.text(360, 340, label, TS.numberOnLight(68)).setOrigin(0.5).setDepth(32));
     // Goal preview row: same icon mapping as PlayScene's HUD.
     const goals = def.goals;
     goals.forEach((goal, i) => {
@@ -434,7 +445,7 @@ export class MapScene extends Phaser.Scene {
         : 'img-ob-ice';
       const cx = 360 + (i - (goals.length - 1) / 2) * 110;
       objs.push(this.add.sprite(cx, 432, iconKey).setDisplaySize(60, 60).setDepth(32));
-      objs.push(this.add.text(cx, 490, String(goal.count), TS.numberTinted(28, '#0e1e3d')).setOrigin(0.5).setDepth(32));
+      objs.push(this.add.text(cx, 494, String(goal.count), TS.numberOnLight(34)).setOrigin(0.5).setDepth(32));
     });
     // Booster toggle slots.
     const kinds: { kind: ShopBoosterKind; x: number; icon: string }[] = [
@@ -455,7 +466,7 @@ export class MapScene extends Phaser.Scene {
         // Free streak booster: spark marker instead of a price, never charged.
         objs.push(this.add.sprite(k.x, SLOT_Y + 92, 'img-fx-sparkle-1').setDisplaySize(42, 42).setTint(PALETTE.gold).setDepth(32));
       } else {
-        objs.push(this.add.sprite(k.x - 26, SLOT_Y + 92, 'img-ui-coin').setDisplaySize(16, 24).setDepth(32));
+        objs.push(this.add.sprite(k.x - 26, SLOT_Y + 92, 'img-ui-coin').setDisplaySize(22, 22).setDepth(32));
         objs.push(
           this.add.text(k.x - 10, SLOT_Y + 92, String(BOOSTER_PRICES[k.kind]), TS.numberTinted(26, '#0e1e3d')).setOrigin(0, 0.5).setDepth(32),
         );
@@ -488,9 +499,10 @@ export class MapScene extends Phaser.Scene {
       });
     }
     // Big green play pill: buys the selected boosters NOW, stages them for
-    // PlayScene, and goes. Level number only (near-zero text).
+    // PlayScene, and goes. textTier 'minimal': the word makes the action clear.
     const pill = this.add.image(360, 850, 'img-ui-btn-pill-green').setDisplaySize(300, 96).setDepth(32).setInteractive();
-    const pillTxt = this.add.text(360, 846, label, TS.number(44)).setOrigin(0.5).setDepth(33);
+    const playWord = PROFILE.textTier !== 'none' ? 'Play!' : label;
+    const pillTxt = this.add.text(360, 846, playWord, TS.number(40)).setOrigin(0.5).setDepth(33);
     objs.push(pill, pillTxt);
     pressify(this, pill, pillTxt);
     pill.on('pointerup', () => {

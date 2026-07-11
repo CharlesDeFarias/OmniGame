@@ -10,7 +10,9 @@ import { textureKeyFor } from './theme';
 export type PackId = 'gems' | 'candy' | 'music';
 
 export function pieceTextureKey(piece: Piece, pack: PackId): string {
+  // Decision #60 (full-Kenney family): 'gems' and 'candy' both resolve to the
+  // composited shape-character pieces via textureKeyFor — kept as ids so
+  // chapters/profile data stays stable. 'music' keeps its piece-pack feature.
   if (piece.kind === 'normal' && pack === 'music') return `music-${piece.color}`;
-  if (piece.kind === 'normal' && pack === 'candy') return `img-candy-${piece.color}`;
   return textureKeyFor(piece);
 }

@@ -2,6 +2,8 @@
 
 Charles's direction (2026-07-04): temporarily model the game's style, color scheme, button layout, and mechanics/powerups on Royal Match, tracking every RM-modeled element here for later replacement/iteration. Boundary held throughout: NO Royal Match asset files or pixel-close replicas of their specific artwork/characters — mechanics, layouts, palettes, and style direction only (not protectable expression). All art remains CC0 (see public/assets/packs/MANIFEST.md).
 
+**Art-direction update (decision #60, 2026-07-10):** RM's glossy-rendered ART STYLE is no longer the target — the app committed to one coherent Kenney CC0 family (docs/ART-BIBLE.md) after the asset-planning research showed coherence, not gloss, drives the pro read. Rows below that describe RM-modeled MECHANICS, LAYOUT, and PALETTE remain in force; rows describing candy-gloss looks are historical.
+
 | Element | RM model | Our implementation | Replace-later notes |
 |---|---|---|---|
 | Booster: rocket (h/v) | 4-match line clear | striped candy art, line clear | identical mechanic; art is CC0 candy |

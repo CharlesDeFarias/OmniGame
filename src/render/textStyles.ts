@@ -57,4 +57,21 @@ export const TS = {
     fontStyle: '500',
     color,
   }),
+  /** Numbers on LIGHT panels (picker/stats/parent): dark ink, NO stroke —
+   *  the dark-on-dark stroke turns to mud on cream grounds. */
+  numberOnLight: (size: number): TextStyle => ({
+    fontFamily: DISPLAY_FAMILY,
+    fontSize: `${size}px`,
+    fontStyle: '400',
+    color: '#1d2a44',
+  }),
+  /** Short helper words (textTier 'minimal'): small, friendly, readable on dark. */
+  label: (size: number): TextStyle => ({
+    fontFamily: FAMILY,
+    fontSize: `${size}px`,
+    fontStyle: '600',
+    color: '#fff4e0',
+    stroke: '#0e1e3d',
+    strokeThickness: Math.max(3, Math.round(size * 0.1)),
+  }),
 } as const;
