@@ -77,6 +77,12 @@ export class MapScene extends Phaser.Scene {
     this.buildPath();
     this.buildTopBar();
     this.buildBottomBar();
+    // The mayor watches over his town's map (decision #61): brother cameo,
+    // bottom-left clear of node 0 (200,1030) and the home button (64,1218).
+    if (this.textures.exists('img-toon-bro-idle')) {
+      const bro = this.add.sprite(74, 952, 'img-toon-bro-idle').setDisplaySize(88, 112).setDepth(1);
+      this.tweens.add({ targets: bro, y: 946, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
   }
 
   /** Candyland map art, cover-fit to 720x1280 (center crop), + dark vignette bands top/bottom for HUD readability. */
@@ -328,7 +334,7 @@ export class MapScene extends Phaser.Scene {
     this.add.image(GAME_WIDTH / 2, BAR_Y, 'ui-panel').setDisplaySize(704, 92).setAlpha(0.45).setDepth(4);
     items.forEach((it, i) => {
       const x = 90 + i * 180;
-      this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(it.icon === 'img-ui-coin' ? 30 : 44, 44).setDepth(5);
+      this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(44, 44).setDepth(5);
       this.add
         .text(x - 14, BAR_Y, values[it.k], TS.number(30))
         .setOrigin(0, 0.5)
@@ -455,7 +461,7 @@ export class MapScene extends Phaser.Scene {
         // Free streak booster: spark marker instead of a price, never charged.
         objs.push(this.add.sprite(k.x, SLOT_Y + 92, 'img-fx-sparkle-1').setDisplaySize(42, 42).setTint(PALETTE.gold).setDepth(32));
       } else {
-        objs.push(this.add.sprite(k.x - 26, SLOT_Y + 92, 'img-ui-coin').setDisplaySize(16, 24).setDepth(32));
+        objs.push(this.add.sprite(k.x - 26, SLOT_Y + 92, 'img-ui-coin').setDisplaySize(22, 22).setDepth(32));
         objs.push(
           this.add.text(k.x - 10, SLOT_Y + 92, String(BOOSTER_PRICES[k.kind]), TS.numberTinted(26, '#0e1e3d')).setOrigin(0, 0.5).setDepth(32),
         );

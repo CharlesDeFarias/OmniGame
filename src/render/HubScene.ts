@@ -82,9 +82,9 @@ export class HubScene extends Phaser.Scene {
     const recipesDone = Object.keys(createCooking(window.localStorage).data().best).length;
     this.gameCard(510, 'map', { icon: 'img-ui-star', value: matchStars }, (x, y) => {
       // Match-3: gem cluster.
-      this.add.sprite(x - 36, y + 8, 'img-gem-red').setDisplaySize(96, 96).setDepth(2);
-      this.add.sprite(x + 50, y - 34, 'img-gem-blue').setDisplaySize(84, 84).setDepth(2);
-      this.add.sprite(x + 40, y + 50, 'img-gem-green').setDisplaySize(76, 76).setDepth(2);
+      this.add.sprite(x - 36, y + 8, 'img-shape-red').setDisplaySize(96, 96).setDepth(2);
+      this.add.sprite(x + 50, y - 34, 'img-shape-blue').setDisplaySize(84, 84).setDepth(2);
+      this.add.sprite(x + 40, y + 50, 'img-shape-green').setDisplaySize(76, 76).setDepth(2);
     });
     this.gameCard(830, 'cooking', { icon: 'ui-check', value: recipesDone }, (x, y) => {
       this.add.sprite(x, y, 'ui-pan-card').setDisplaySize(150, 150).setDepth(2);
@@ -161,8 +161,10 @@ export class HubScene extends Phaser.Scene {
     decorate: (x: number, y: number) => void,
   ): void {
     const x = GAME_WIDTH / 2;
-    const card = this.add.image(x, y, 'ui-panel').setDisplaySize(560, 250).setAlpha(0.97).setDepth(1).setInteractive();
-    const strip = this.add.image(x, y + 82, 'btn-pill').setDisplaySize(480, 46).setAlpha(0.4).setDepth(1.5);
+    // Kenney-look pass: cards sit on the family's blue flat panel; the CTA
+    // strip becomes the green pill (same texture the map's PLAY uses).
+    const card = this.add.image(x, y, 'img-ui-panel-blue').setDisplaySize(560, 250).setDepth(1).setInteractive();
+    const strip = this.add.image(x, y + 82, 'img-ui-btn-pill-green').setDisplaySize(480, 46).setAlpha(0.9).setDepth(1.5);
     this.tweens.add({
       targets: card,
       scaleX: card.scaleX * 1.02,
@@ -209,7 +211,7 @@ export class HubScene extends Phaser.Scene {
     this.add.image(GAME_WIDTH / 2, BAR_Y, 'ui-panel').setDisplaySize(704, 92).setAlpha(0.35).setDepth(1);
     items.forEach((it, i) => {
       const x = 90 + i * 180;
-      this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(it.icon === 'img-ui-coin' ? 30 : 44, 44).setDepth(2);
+      this.add.sprite(x - 44, BAR_Y, it.icon).setDisplaySize(44, 44).setDepth(2);
       this.add
         .text(x - 14, BAR_Y, values[it.k], TS.number(30))
         .setOrigin(0, 0.5)
@@ -255,6 +257,12 @@ export class HubScene extends Phaser.Scene {
     // Parent-facing overlay: cream FGG panel (commit-3 GUI pass); the plum task
     // chips + dark-outlined text keep their contrast on the light ground.
     objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-panel-cream').setDisplaySize(620, 1000).setDepth(22));
+    // The manager IS the brother (decision #61): he fronts his own panel,
+    // reviewing his sister's stats. Toon Character, CC0 (docs/ART-BIBLE.md).
+    if (this.textures.exists('img-toon-bro-idle')) {
+      // y 218: feet clear the 5th task chip (top edge 282) below him.
+      objs.push(this.add.sprite(585, 218, 'img-toon-bro-idle').setDisplaySize(96, 122).setDepth(23));
+    }
     const textStyle = TS.number(32);
     // Compact stats summary: plays / wins / win rate (full detail stays in PlayScene's overlay).
     const stats = summarize(this.journal.read());

@@ -47,12 +47,12 @@ const HUD_W_BASE = 420;
 const HUD_W_PER_GOAL = 50;
 const BOOSTER_BAR_Y = 1215;
 
-/** Particle tint from a sprite's texture key: '(img-)gem/candy/music-red' -> COLOR_HEX.red; crates -> brown; specials/unknown -> white. */
+/** Particle tint from a sprite's texture key: '(img-)shape/gem/music-red' -> COLOR_HEX.red; crates -> brown; specials/unknown -> white. */
 const tintForTexture = (texKey: string): number => {
-  // The 'orange' gem renders as the silver/black octagon (no orange in the
-  // Sylly set), so its clear-particles go silver instead of COLOR_HEX.orange.
-  if (texKey === 'img-gem-orange') return 0xaab2bd;
-  const m = /^(?:img-)?(?:gem|candy|music)-(\w+)$/.exec(texKey);
+  // The 'orange' piece is the PINK square in the Kenney shape set (no orange
+  // body; decision #60), so its clear-particles go pink to match.
+  if (texKey === 'img-shape-orange') return 0xec7cb5;
+  const m = /^(?:img-)?(?:shape|gem|candy|music)-(\w+)$/.exec(texKey);
   if (m !== null) return COLOR_HEX[m[1] as PieceColor] ?? 0xffffff;
   return texKey.includes('ob-box') ? 0x9c6b30 : 0xffffff;
 };
@@ -143,7 +143,7 @@ export class PlayScene extends Phaser.Scene {
     const startMuted = window.localStorage.getItem('omnigame.muted.v1') === '1';
     this.blips.setMuted(startMuted);
     this.muteBtn = this.add
-      .sprite(GAME_WIDTH - 60, 60, startMuted ? 'ui-sound-off' : 'ui-sound-on')
+      .sprite(GAME_WIDTH - 60, 60, startMuted ? 'img-ui-sound-off' : 'img-ui-sound-on')
       .setDisplaySize(72, 72)
       .setDepth(8)
       .setInteractive();
@@ -183,7 +183,7 @@ export class PlayScene extends Phaser.Scene {
     // Coin counter: small strip in the very top-right corner, above the moves
     // badge (RM anatomy), left of the mute button which keeps the corner slot.
     // Coin icon is the pzUH dollar glyph (90x130): width scaled to keep aspect.
-    this.coinIcon = this.add.sprite(512, 44, 'img-ui-coin').setDisplaySize(19, 28).setDepth(2);
+    this.coinIcon = this.add.sprite(512, 44, 'img-ui-coin').setDisplaySize(26, 26).setDepth(2);
     this.coinText = this.add
       .text(534, 44, String(this.wallet.data().coins), TS.number(24))
       .setOrigin(0, 0.5)
@@ -238,10 +238,12 @@ export class PlayScene extends Phaser.Scene {
     for (let y = 0; y < def.board.height; y++) {
       for (let x = 0; x < def.board.width; x++) {
         const { px, py } = cellToXY(this.layout, x, y);
+        // Board grid readability (Kenney-look polish): the checkerboard needs
+        // real presence or the pieces float on the background.
         const tile = this.add
           .image(px, py, 'ui-tile')
           .setDisplaySize(this.layout.cell * 0.98, this.layout.cell * 0.98)
-          .setAlpha((x + y) % 2 === 0 ? 0.06 : 0.1)
+          .setAlpha((x + y) % 2 === 0 ? 0.14 : 0.22)
           .setDepth(-1);
         this.backdrop.push(tile);
       }
@@ -460,7 +462,7 @@ export class PlayScene extends Phaser.Scene {
   private toggleMute(): void {
     const m = !this.blips.muted();
     this.blips.setMuted(m);
-    this.muteBtn.setTexture(m ? 'ui-sound-off' : 'ui-sound-on');
+    this.muteBtn.setTexture(m ? 'img-ui-sound-off' : 'img-ui-sound-on');
     window.localStorage.setItem('omnigame.muted.v1', m ? '1' : '0');
   }
 
@@ -513,9 +515,9 @@ export class PlayScene extends Phaser.Scene {
       goto(this, 'map');
     });
     // Toggles: sound + (profile-gated) haptics. Off state = dimmed and greyed.
-    const soundBtn = button(GAME_WIDTH / 2 - 90, 810, this.blips.muted() ? 'ui-sound-off' : 'ui-sound-on', 84, () => {
+    const soundBtn = button(GAME_WIDTH / 2 - 90, 810, this.blips.muted() ? 'img-ui-sound-off' : 'img-ui-sound-on', 84, () => {
       this.toggleMute();
-      soundBtn.setTexture(this.blips.muted() ? 'ui-sound-off' : 'ui-sound-on');
+      soundBtn.setTexture(this.blips.muted() ? 'img-ui-sound-off' : 'img-ui-sound-on');
     });
     if (PROFILE.features.haptics) {
       const paintHaptics = (b: Phaser.GameObjects.Sprite): void => {
@@ -592,7 +594,7 @@ export class PlayScene extends Phaser.Scene {
     ];
     currencies.forEach((c, i) => {
       const cx = 130 + i * 150;
-      objs.push(this.add.sprite(cx, y, c.icon).setDisplaySize(c.icon === 'img-ui-coin' ? 28 : 40, 40).setDepth(23));
+      objs.push(this.add.sprite(cx, y, c.icon).setDisplaySize(40, 40).setDepth(23));
       objs.push(this.add.text(cx + 30, y, c.value, textStyle).setOrigin(0, 0.5).setDepth(23));
     });
     y += 58;
@@ -1576,16 +1578,19 @@ export class PlayScene extends Phaser.Scene {
     this.flyCoinPips();
     sfx(this, 'win-fanfare');
     this.overlay();
-    // Red ribbon banner (pzUH, 512x134 -- near-native at this slot) sweeps in
-    // behind the stars (depth 10.5: between dim and stars).
+    // Win banner (flat panel since the Kenney pass) sweeps in behind the
+    // stars (depth 10.5: between dim and stars). Star sizes are explicit
+    // pixels — the old code scaled off the retired 170px star texture.
     const bannerW = GAME_WIDTH * 0.7;
     const bannerY = GAME_HEIGHT * 0.38;
     const banner = this.add.image(-bannerW / 2, bannerY, 'img-ui-banner').setDisplaySize(bannerW, 132).setDepth(10.5);
     this.tweens.add({ targets: banner, x: GAME_WIDTH / 2, duration: 300, ease: 'Back.easeOut' });
+    const STAR_W = 165;
+    const STAR_H = 155;
     const starSprites: Phaser.GameObjects.Sprite[] = [];
     for (let i = 0; i < 3; i++) {
       const slot = this.add.sprite(GAME_WIDTH / 2 + (i - 1) * 170, GAME_HEIGHT * 0.38, 'img-ui-star')
-        .setDepth(11).setScale(1.24).setTint(0x555566);
+        .setDepth(11).setDisplaySize(STAR_W, STAR_H).setTint(0x555566);
       starSprites.push(slot);
     }
     for (let i = 0; i < stars; i++) {
@@ -1613,7 +1618,7 @@ export class PlayScene extends Phaser.Scene {
           onComplete: () => pip.destroy(),
         });
       }
-      await this.tweenAsync({ targets: st, scale: 1.24, duration: 260, ease: 'Back.easeOut' });
+      await this.tweenAsync({ targets: st, displayWidth: STAR_W, displayHeight: STAR_H, duration: 260, ease: 'Back.easeOut' });
     }
     const idx = this.progress.levelIndexByChapter[this.chapter];
     this.progress.completed[this.state.level.id] = true;
@@ -1624,7 +1629,7 @@ export class PlayScene extends Phaser.Scene {
       await this.showChapterComplete();
       return;
     }
-    const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.62, 'img-ui-play').setDepth(11).setScale(1.22).setInteractive();
+    const btn = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT * 0.62, 'img-ui-play').setDepth(11).setDisplaySize(200, 200).setInteractive();
     pressify(this, btn);
     btn.once('pointerup', () => {
       this.retryCount = 0;

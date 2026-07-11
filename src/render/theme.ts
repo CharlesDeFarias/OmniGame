@@ -21,7 +21,9 @@ export const COLOR_HEX: Record<PieceColor, number> = {
  * candy pack has no three-blade equivalent (judgment call, logged).
  */
 export function textureKeyFor(piece: Piece): string {
-  if (piece.kind === 'normal') return `img-gem-${piece.color}`;
+  // Normals resolve to the composited Kenney shape-character pieces
+  // (decision #60); img-sp-*/img-ob-* alias the procedural flat art.
+  if (piece.kind === 'normal') return `img-shape-${piece.color}`;
   if (piece.kind === 'special') {
     return piece.special === 'propeller' ? 'sp-propeller' : `img-sp-${piece.special}`;
   }
@@ -297,36 +299,76 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.destroy();
   };
 
-  sp('sp-rocketH', (g) => {
-    g.fillStyle(0x2c2c54);
-    g.fillTriangle(c - r, c, c - r * 0.3, c - r * 0.4, c - r * 0.3, c + r * 0.4);
-    g.fillTriangle(c + r, c, c + r * 0.3, c - r * 0.4, c + r * 0.3, c + r * 0.4);
-    g.fillRect(c - r * 0.35, c - r * 0.12, r * 0.7, r * 0.24);
-  });
+  /** Flat cartoon rocket pointing +x: white capsule, red nose + fins, round window. */
+  const rocketGlyph = (g: Phaser.GameObjects.Graphics): void => {
+    g.fillStyle(0xd8402e);
+    g.fillTriangle(c - r * 0.85, c - r * 0.5, c - r * 0.85, c + r * 0.5, c - r * 0.4, c);
+    g.fillStyle(0xf4f6fb);
+    g.fillRoundedRect(c - r * 0.62, c - r * 0.3, r * 1.15, r * 0.6, r * 0.28);
+    g.fillStyle(0xd8402e);
+    g.fillTriangle(c + r * 0.5, c, c + r * 0.95, c - r * 0.32, c + r * 0.95, c + r * 0.32);
+    g.fillTriangle(c + r * 0.5, c, c + r * 0.95, c, c + r * 0.62, c + r * 0.42);
+    g.fillStyle(0x54b8e8);
+    g.fillCircle(c + r * 0.05, c, r * 0.16);
+    g.lineStyle(s * 0.02, 0x2c2c54, 0.85);
+    g.strokeCircle(c + r * 0.05, c, r * 0.16);
+    g.fillStyle(0xf5c542);
+    g.fillTriangle(c - r * 0.85, c - r * 0.18, c - r * 0.85, c + r * 0.18, c - r * 1.02, c);
+  };
+  sp('sp-rocketH', (g) => rocketGlyph(g));
   sp('sp-rocketV', (g) => {
-    g.fillStyle(0x2c2c54);
-    g.fillTriangle(c, c - r, c - r * 0.4, c - r * 0.3, c + r * 0.4, c - r * 0.3);
-    g.fillTriangle(c, c + r, c - r * 0.4, c + r * 0.3, c + r * 0.4, c + r * 0.3);
-    g.fillRect(c - r * 0.12, c - r * 0.35, r * 0.24, r * 0.7);
+    // Same rocket rotated to point up: draw with swapped axes.
+    g.fillStyle(0xd8402e);
+    g.fillTriangle(c - r * 0.5, c + r * 0.85, c + r * 0.5, c + r * 0.85, c, c + r * 0.4);
+    g.fillStyle(0xf4f6fb);
+    g.fillRoundedRect(c - r * 0.3, c - r * 0.53, r * 0.6, r * 1.15, r * 0.28);
+    g.fillStyle(0xd8402e);
+    g.fillTriangle(c, c - r * 0.5, c - r * 0.32, c - r * 0.95, c + r * 0.32, c - r * 0.95);
+    g.fillStyle(0x54b8e8);
+    g.fillCircle(c, c - r * 0.05, r * 0.16);
+    g.lineStyle(s * 0.02, 0x2c2c54, 0.85);
+    g.strokeCircle(c, c - r * 0.05, r * 0.16);
+    g.fillStyle(0xf5c542);
+    g.fillTriangle(c - r * 0.18, c + r * 0.85, c + r * 0.18, c + r * 0.85, c, c + r * 1.02);
   });
   sp('sp-tnt', (g) => {
-    g.fillStyle(0x2c2c54);
-    g.fillCircle(c, c + r * 0.15, r * 0.6);
-    g.fillRect(c - r * 0.06, c - r * 0.75, r * 0.12, r * 0.45);
-    g.fillStyle(0xe67e22);
-    g.fillCircle(c, c - r * 0.8, r * 0.14);
+    // Red dynamite bundle: three sticks, cream band, sparking fuse.
+    g.fillStyle(0xd8402e);
+    for (const dx of [-0.42, 0, 0.42]) {
+      g.fillRoundedRect(c + dx * r - r * 0.19, c - r * 0.55, r * 0.38, r * 1.2, r * 0.12);
+    }
+    g.fillStyle(0xfff4e0);
+    g.fillRect(c - r * 0.62, c - r * 0.1, r * 1.24, r * 0.28);
+    g.lineStyle(s * 0.025, 0x8f2519);
+    g.strokeRect(c - r * 0.62, c - r * 0.1, r * 1.24, r * 0.28);
+    g.lineStyle(s * 0.03, 0x9c6b30);
+    g.beginPath();
+    g.moveTo(c, c - r * 0.55);
+    g.lineTo(c + r * 0.28, c - r * 0.85);
+    g.strokePath();
+    g.fillStyle(0xf5c542);
+    g.fillCircle(c + r * 0.32, c - r * 0.88, r * 0.12);
+    g.fillStyle(0xffffff, 0.9);
+    g.fillCircle(c + r * 0.32, c - r * 0.88, r * 0.05);
   });
   sp('sp-lightball', (g) => {
-    g.fillStyle(0xf1c40f);
-    for (let i = 0; i < 8; i++) {
-      const a = (i * Math.PI) / 4;
-      g.fillTriangle(
-        c + Math.cos(a) * r * 0.95, c + Math.sin(a) * r * 0.95,
-        c + Math.cos(a + 0.25) * r * 0.45, c + Math.sin(a + 0.25) * r * 0.45,
-        c + Math.cos(a - 0.25) * r * 0.45, c + Math.sin(a - 0.25) * r * 0.45,
-      );
-    }
-    g.fillCircle(c, c, r * 0.42);
+    // Color ball: six flat wedges in the piece colors + white hub — reads as
+    // 'hits every color' without any text.
+    const wedgeColors = [COLOR_HEX.red, COLOR_HEX.yellow, COLOR_HEX.green, COLOR_HEX.blue, COLOR_HEX.purple, 0xec7cb5];
+    wedgeColors.forEach((col, i) => {
+      const a0 = (i * Math.PI * 2) / 6 - Math.PI / 2;
+      const a1 = ((i + 1) * Math.PI * 2) / 6 - Math.PI / 2;
+      g.fillStyle(col);
+      g.beginPath();
+      g.moveTo(c, c);
+      g.arc(c, c, r * 0.82, a0, a1);
+      g.closePath();
+      g.fillPath();
+    });
+    g.lineStyle(s * 0.03, 0xffffff, 0.9);
+    g.strokeCircle(c, c, r * 0.82);
+    g.fillStyle(0xffffff);
+    g.fillCircle(c, c, r * 0.24);
   });
   sp('sp-propeller', (g) => {
     g.fillStyle(0x16a085);
@@ -380,6 +422,17 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillTriangle(c + r * 0.75, c - r * 0.45, c + r * 0.2, c - r * 0.55, c + r * 0.55, c - r * 0.05);
   });
   ui('ui-pip', (g) => { g.fillStyle(0xffffff); g.fillCircle(c, c, r * 0.3); });
+  // Light content panel (decision #60 polish): flat cream sheet with a soft
+  // grey rim, drawn to match Kenney UI Pack's rounded-flat language. This is
+  // the ground for every dark-text overlay (picker/pause/stats/wardrobe).
+  ui('ui-panel-cream', (g) => {
+    g.fillStyle(0xd9d3c8, 0.9);
+    g.fillRoundedRect(s * 0.02, s * 0.06, s * 0.96, s * 0.94, s * 0.14);
+    g.fillStyle(0xfff8ea);
+    g.fillRoundedRect(s * 0.02, s * 0.02, s * 0.96, s * 0.94, s * 0.14);
+    g.lineStyle(s * 0.02, 0xc9c2b4);
+    g.strokeRoundedRect(s * 0.02, s * 0.02, s * 0.96, s * 0.94, s * 0.14);
+  });
   // Saga-map round level nodes (block 5, RM-look): glossy circle buttons in
   // three states — current (blue), completed (gold), locked-ahead (grey).
   ui('ui-node-blue', (g) => circleButton(g, 0x3f7fd9));

@@ -4,13 +4,17 @@
 
 Game art was originally procedurally generated in this repository (see `scripts/make-icons.ts` and the render layer). As of the RM-look milestone, curated CC0 art packs are bundled under `public/assets/packs/` (see `public/assets/packs/MANIFEST.md` for the per-file texture-key mapping). The only other bundled third-party asset is the Fredoka typeface (below). Any future third-party assets must be CC0 (or an equally permissive license recorded here).
 
-### Art packs (all CC0 1.0, downloaded 2026-07-04)
+### Art packs (all CC0 1.0; the Kenney family since decision #60, 2026-07-10)
 
-- **Gem Match 3 Set** — Sylly — https://opengameart.org/content/gem-match-3-set — CC0 1.0 — glossy match-3 gems (`packs/gem-match-3-sylly/`).
-- **Candy Match 3** — MELLE (submitted by Luca Pixel) — https://opengameart.org/content/candy-match-3 — CC0 1.0 — candy pieces, striped boosters, obstacle tiles, candyland backgrounds (`packs/candy-match-3-melle/`).
-- **Free Game GUI** — pzUH — https://opengameart.org/content/free-game-gui — CC0 1.0 — cartoon buttons, panels, ribbons, stars, counters (`packs/free-game-gui-pzuh/`).
-- **Heart 1** — cdgramos (submitted by soulwolf) — https://opengameart.org/content/heart-1 — CC0 1.0 — glossy red heart icon (`packs/heart-cdgramos/`).
-- **Particle Pack** — Kenney (kenney.nl) — https://kenney.nl/assets/particle-pack — CC0 1.0 — sparkle/glow/burst particle sprites (`packs/kenney-particle-fx/`).
+All visual packs are by Kenney (kenney.nl); crediting Kenney is appreciated but not required by CC0. The 2026-07-04 OpenGameArt packs (Sylly gems, MELLE candy, pzUH GUI, cdgramos heart) were retired and removed in the full-Kenney pass — see `docs/ART-BIBLE.md`.
+
+- **UI Pack v2.0** — https://kenney.nl/assets/ui-pack — CC0 1.0 — themed buttons, panels, stars (`packs/kenney2/ui/`).
+- **Game Icons** — https://kenney.nl/assets/game-icons — CC0 1.0 — interface glyphs (`packs/kenney2/icons/`).
+- **Shape Characters** — https://kenney.nl/assets/shape-characters — CC0 1.0 — match-3 piece bodies + faces (`packs/kenney2/shape/`).
+- **Toon Characters** — https://kenney.nl/assets/toon-characters — CC0 1.0 — the sibling avatars (`packs/kenney2/toon/`).
+- **Puzzle Pack 2** — https://kenney.nl/assets/puzzle-pack-2 — CC0 1.0 — coin icon (`packs/kenney2/misc/coin.png`).
+- **Starter Kit Match-3 (assets)** — https://github.com/KenneyNL/Starter-Kit-Match-3 — assets CC0 1.0 (kit code is MIT and NOT used) — map background (`packs/kenney2/misc/bg-map.png`).
+- **Particle Pack** — https://kenney.nl/assets/particle-pack — CC0 1.0 — sparkle/glow/burst particle sprites (`packs/kenney-particle-fx/`).
 
 ### Sound effects (all CC0 1.0, downloaded 2026-07-04)
 

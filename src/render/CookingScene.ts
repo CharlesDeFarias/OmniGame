@@ -170,7 +170,7 @@ export class CookingScene extends Phaser.Scene {
     this.viewObjects.push(
       this.add.image(GAME_WIDTH / 2, 96, 'ui-panel').setDisplaySize(664, 128).setAlpha(0.45).setDepth(0),
       this.add.sprite(GAME_WIDTH / 2, 96, 'ui-pan-card').setDisplaySize(92, 92).setDepth(1),
-      this.add.sprite(530, 96, 'img-ui-coin').setDisplaySize(30, 44).setDepth(1),
+      this.add.sprite(530, 96, 'img-ui-coin').setDisplaySize(42, 42).setDepth(1),
       this.add
         .text(560, 96, String(this.wallet.data().coins), TS.number(32))
         .setOrigin(0, 0.5)
@@ -446,9 +446,9 @@ export class CookingScene extends Phaser.Scene {
         .setScale(0)
         .setDepth(3);
       this.viewObjects.push(st);
-      this.tweens.add({ targets: st, scale: 104 / 170, duration: 260, delay: 350 + i * 240, ease: 'Back.easeOut' });
+      this.tweens.add({ targets: st, displayWidth: 104, displayHeight: 98, duration: 260, delay: 350 + i * 240, ease: 'Back.easeOut' });
     }
-    const coinIcon = this.add.sprite(GAME_WIDTH / 2 - 40, 850, 'img-ui-coin').setDisplaySize(33, 48).setDepth(2);
+    const coinIcon = this.add.sprite(GAME_WIDTH / 2 - 40, 850, 'img-ui-coin').setDisplaySize(44, 44).setDepth(2);
     const coinText = this.add
       .text(GAME_WIDTH / 2 - 8, 850, String(this.wallet.data().coins), TS.number(36))
       .setOrigin(0, 0.5)
@@ -758,10 +758,10 @@ export class CookingScene extends Phaser.Scene {
         .setScale(0)
         .setDepth(3);
       this.viewObjects.push(st);
-      this.tweens.add({ targets: st, scale: 104 / 170, duration: 260, delay: 350 + i * 240, ease: 'Back.easeOut' });
+      this.tweens.add({ targets: st, displayWidth: 104, displayHeight: 98, duration: 260, delay: 350 + i * 240, ease: 'Back.easeOut' });
     }
     // Coin display + pips flying to it (payout already in the wallet).
-    const coinIcon = this.add.sprite(GAME_WIDTH / 2 - 40, 850, 'img-ui-coin').setDisplaySize(33, 48).setDepth(2);
+    const coinIcon = this.add.sprite(GAME_WIDTH / 2 - 40, 850, 'img-ui-coin').setDisplaySize(44, 44).setDepth(2);
     const coinText = this.add
       .text(GAME_WIDTH / 2 - 8, 850, String(this.wallet.data().coins), TS.number(36))
       .setOrigin(0, 0.5)
