@@ -18,6 +18,12 @@ export interface Pantry {
    * changes — all-or-nothing, so a half-stocked pantry is never silently drained.
    */
   consumeFor(recipe: Recipe): boolean;
+  /**
+   * Diner shield (run 6, decision #62 v1 simplification): consume one unit of
+   * ANY stocked item and return true; false when the pantry is empty. The
+   * diner's dish families aren't mapped to specific groceries yet (queue item).
+   */
+  consumeOne(): boolean;
   /** Spends GROCERY_PRICE coins for one unit of the item; false (no stock) when broke. */
   buyItem(id: IngredientId, wallet: Wallet): boolean;
 }
@@ -76,6 +82,13 @@ export function createPantry(storage: JournalStorage): Pantry {
       if (needed.length === 0) return false;
       if (!needed.every((id) => stockOf(id) >= 1)) return false;
       for (const id of needed) state.stock[id] = stockOf(id) - 1;
+      save();
+      return true;
+    },
+    consumeOne() {
+      const stocked = (Object.keys(state.stock) as IngredientId[]).find((id) => stockOf(id) >= 1);
+      if (stocked === undefined) return false;
+      state.stock[stocked] = stockOf(stocked) - 1;
       save();
       return true;
     },

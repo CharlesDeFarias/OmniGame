@@ -25,6 +25,15 @@ function richWallet(coins: number): ReturnType<typeof createWallet> {
 }
 
 describe('pantry (decision #52)', () => {
+  it('consumeOne takes one unit of any stocked item; false when empty (diner shield)', () => {
+    const p = createPantry(memStorage());
+    expect(p.consumeOne()).toBe(false);
+    p.addStock(['bread']);
+    expect(p.consumeOne()).toBe(true);
+    expect(p.stockOf('bread')).toBe(0);
+    expect(p.consumeOne()).toBe(false);
+  });
+
   it('starts empty and counts stock added per item', () => {
     const p = createPantry(memStorage());
     expect(p.stockOf('bread')).toBe(0);

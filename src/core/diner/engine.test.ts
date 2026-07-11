@@ -34,6 +34,32 @@ describe('diner engine', () => {
     expect(startShift(43, false).customers.map((c) => c.dish.id)).not.toEqual(a.customers.map((c) => c.dish.id));
   });
 
+  it('the shift always opens on a shortest dish and heights step by at most one', () => {
+    const shortest = Math.min(...DISHES.map((d) => d.stack.length));
+    for (const seed of [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]) {
+      const s = startShift(seed, false);
+      expect(s.customers[0]!.dish.stack.length).toBe(shortest);
+      for (let i = 1; i < s.customers.length; i++) {
+        const step = s.customers[i]!.dish.stack.length - s.customers[i - 1]!.dish.stack.length;
+        expect(step).toBeGreaterThanOrEqual(0);
+        expect(step).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('taps on a completed build are ignored: no mistakes, no shield loss (bell-mash safety)', () => {
+    const s = startShift(7, true);
+    const dish = s.customers[0]!.dish;
+    let state = s;
+    for (const ing of dish.stack) state = tapIngredient(state, ing).state;
+    expect(state.built).toBe(dish.stack.length);
+    const r = tapIngredient(state, dish.stack[0]!);
+    expect(r.events).toHaveLength(0);
+    expect(r.state).toBe(state);
+    expect(r.state.mistakes).toBe(0);
+    expect(r.state.shieldAvailable).toBe(true);
+  });
+
   it('correct taps stack layers in order and emit placed events, then ready', () => {
     const s = startShift(7, false);
     const dish = s.customers[0]!.dish;

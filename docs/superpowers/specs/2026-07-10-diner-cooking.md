@@ -8,7 +8,8 @@ is PRESERVED unrouted for future reuse per Charles.
 ## The loop (one "shift")
 
 1. A customer walks to the counter with an ORDER BUBBLE: a vertical stack of ingredient icons
-   (bottom-to-top, 2-6 layers by difficulty). Pictures only; textTier 'minimal' adds the dish word.
+   (bottom-to-top, 3-6 layers by difficulty). Pictures only; textTier 'minimal' adds a couple of
+   helper words (screen title, Serve!).
 2. The player taps ingredient buttons on the counter; each correct tap stacks that ingredient onto
    the build plate with a bounce. The NEXT ingredient needed is always the lowest unbuilt layer —
    order matters, exactly like stacking a real burger.

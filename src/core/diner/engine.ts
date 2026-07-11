@@ -14,12 +14,19 @@ export const TIP_THRESHOLD = 0.3;
  */
 export function startShift(seed: number, shieldAvailable: boolean): ShiftState {
   const rng = createRng(seed);
+  const shortest = Math.min(...DISHES.map((d) => d.stack.length));
   const customers: Customer[] = [];
-  let minHeight = 0;
+  let prev = shortest;
   for (let i = 0; i < CUSTOMERS_PER_SHIFT; i++) {
-    const pool = DISHES.filter((d) => d.stack.length >= minHeight);
-    const dish = pool.length > 0 ? rng.pick(pool) : rng.pick(DISHES);
-    minHeight = dish.stack.length;
+    // Spec ramp: the shift OPENS on a shortest-variant dish, then each
+    // customer's dish is between the previous height and one taller — gradual
+    // and varied, never jumping straight to the tallest.
+    const lo = i === 0 ? shortest : prev;
+    const hi = i === 0 ? shortest : prev + 1;
+    const pool = DISHES.filter((d) => d.stack.length >= lo && d.stack.length <= hi);
+    if (pool.length === 0) throw new Error(`diner ramp has no dish in heights [${lo}, ${hi}]`);
+    const dish = rng.pick(pool);
+    prev = dish.stack.length;
     customers.push({ dish, patience: 1, served: false, mistakes: 0, shieldUsed: false });
   }
   return { seed, customers, current: 0, built: 0, mistakes: 0, shieldAvailable, status: 'serving' };
@@ -30,6 +37,9 @@ export function tapIngredient(state: ShiftState, ingredient: Ingredient): { stat
   if (state.status !== 'serving') return { state, events: [] };
   const customer = state.customers[state.current];
   if (customer === undefined) return { state, events: [] };
+  // A finished build ignores further taps (never-strand: mashing buttons
+  // while the serve bell pulses must not cost mistakes or the shield).
+  if (state.built >= customer.dish.stack.length) return { state, events: [] };
   const needed = customer.dish.stack[state.built];
   if (needed === ingredient) {
     const built = state.built + 1;

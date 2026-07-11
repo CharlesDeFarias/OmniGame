@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { APP_IDENTITY } from '../config/appIdentity';
 import { PROFILE } from '../config/profile';
-import { createCooking } from '../services/cooking';
 import { createJournal, type Journal } from '../services/journal';
 import { createIdbBackend, createMusicStore, MAX_TRACK_BYTES, type MusicStore } from '../services/music';
 import { loadProgress } from '../services/progress';
@@ -79,14 +78,18 @@ export class HubScene extends Phaser.Scene {
     // Two big game cards, stacked (portrait): icon cluster left, progress
     // hint right (numbers only — stays inside the near-zero-text rule).
     const matchStars = Object.values(loadProgress(window.localStorage).stars).reduce((a, b) => a + b, 0);
-    const recipesDone = Object.keys(createCooking(window.localStorage).data().best).length;
+    // Diner card badge: completed shifts (the old recipesDone stat belongs to
+    // the unrouted recipe flow and would freeze forever).
+    const shiftsDone = this.journal.read().filter((e) => e.type === 'diner_shift_end').length;
     this.gameCard(510, 'map', { icon: 'img-ui-star', value: matchStars }, (x, y) => {
       // Match-3: piece cluster.
       this.add.sprite(x - 36, y + 8, 'img-shape-red').setDisplaySize(96, 96).setDepth(2);
       this.add.sprite(x + 50, y - 34, 'img-shape-blue').setDisplaySize(84, 84).setDepth(2);
       this.add.sprite(x + 40, y + 50, 'img-shape-green').setDisplaySize(76, 76).setDepth(2);
     }, 'Puzzle');
-    this.gameCard(830, 'cooking', { icon: 'ui-check', value: recipesDone }, (x, y) => {
+    // Decision #62: the Cooking card opens the DINER; the recipe flow stays
+    // in the codebase unrouted.
+    this.gameCard(830, 'diner', { icon: 'ui-check', value: shiftsDone }, (x, y) => {
       this.add.sprite(x, y, 'ui-pan-card').setDisplaySize(150, 150).setDepth(2);
     }, 'Cooking');
     // Gate-runner card (game #3): real once influencer level >= 2 (early treat);
