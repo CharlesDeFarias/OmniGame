@@ -490,7 +490,9 @@ export class MapScene extends Phaser.Scene {
       } else {
         objs.push(this.add.sprite(k.x - 26, SLOT_Y + 92, 'img-ui-coin').setDisplaySize(22, 22).setDepth(32));
         objs.push(
-          this.add.text(k.x - 10, SLOT_Y + 92, String(BOOSTER_PRICES[k.kind]), TS.numberTinted(26, '#0e1e3d')).setOrigin(0, 0.5).setDepth(32),
+          // onLight, not stroked Lilita: now that the display font actually
+          // renders, the same-color stroke reads as a thick blurry blob here.
+          this.add.text(k.x - 10, SLOT_Y + 92, String(BOOSTER_PRICES[k.kind]), TS.onLight(26)).setOrigin(0, 0.5).setDepth(32),
         );
       }
       const wiggle = (): void => {
