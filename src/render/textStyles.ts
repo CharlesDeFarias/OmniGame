@@ -57,13 +57,22 @@ export const TS = {
     fontStyle: '500',
     color,
   }),
-  /** Numbers on LIGHT panels (picker/stats/parent): dark ink, NO stroke —
-   *  the dark-on-dark stroke turns to mud on cream grounds. */
+  /** Hero numbers on LIGHT panels (the picker's big level number): chunky
+   *  display face, dark ink, NO stroke — strokes turn to mud on cream. */
   numberOnLight: (size: number): TextStyle => ({
     fontFamily: DISPLAY_FAMILY,
     fontSize: `${size}px`,
     fontStyle: '400',
     color: '#1d2a44',
+  }),
+  /** Dense text/numbers on LIGHT panels (stats, parent panel, picker counts):
+   *  Fredoka semibold dark ink, no stroke — the display face gets clumpy at
+   *  list sizes, and cream-with-stroke (the old bug) was unreadable here. */
+  onLight: (size: number): TextStyle => ({
+    fontFamily: FAMILY,
+    fontSize: `${size}px`,
+    fontStyle: '600',
+    color: '#22304d',
   }),
   /** Short helper words (textTier 'minimal'): small, friendly, readable on dark. */
   label: (size: number): TextStyle => ({

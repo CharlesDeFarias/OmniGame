@@ -272,8 +272,7 @@ export class HubScene extends Phaser.Scene {
       if (p.downTime > openedAt) this.closeParentPanel();
     });
     objs.push(dim);
-    // Parent-facing overlay: cream FGG panel (commit-3 GUI pass); the plum task
-    // chips + dark-outlined text keep their contrast on the light ground.
+    // Parent-facing overlay on the light cream sheet (dark unstroked ink).
     objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-panel-cream').setDisplaySize(620, 1000).setDepth(22));
     // The manager IS the brother (decision #61): he fronts his own panel,
     // reviewing his sister's stats. Toon Character, CC0 (docs/ART-BIBLE.md).
@@ -281,7 +280,8 @@ export class HubScene extends Phaser.Scene {
       // y 218: feet clear the 5th task chip (top edge 282) below him.
       objs.push(this.add.sprite(585, 218, 'img-toon-bro-idle').setDisplaySize(96, 122).setDepth(23));
     }
-    const textStyle = TS.number(32);
+    // Light panel => dark unstroked ink (same ghost-letter fix as the stats overlay).
+    const textStyle = TS.onLight(32);
     // Compact stats summary: plays / wins / win rate (full detail stays in PlayScene's overlay).
     const stats = summarize(this.journal.read());
     const summary: { icon: string | null; value: string }[] = [
@@ -397,7 +397,7 @@ export class HubScene extends Phaser.Scene {
         if (y > 1108) return;
         const name = track.name.length > 18 ? `${track.name.slice(0, 18)}\u2026` : track.name;
         objs.push(
-          this.add.text(110, y, name, TS.glyph(26, '#ffffff')).setOrigin(0, 0.5).setDepth(23),
+          this.add.text(110, y, name, TS.onLight(26)).setOrigin(0, 0.5).setDepth(23),
         );
         const removeTrack = this.add
           .text(586, y, '\u00d7', TS.glyph(44, '#777788'))

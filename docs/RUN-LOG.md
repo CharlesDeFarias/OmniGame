@@ -34,6 +34,12 @@
 - Adversarial review caught the dimensional-coupling class: star pops at 1/3 size, every coin squashed (15 sites), win stars/buttons shrunk 2x — all converted to explicit display sizes.
 - MERGED to main + deployed. Next (Charles's picks, research-backed): cooking rebuilt as a Burger-Party-style order-stack diner (design reference only — GPL code untouched; old recipe flow preserved for future reuse; economy stays), runner replaced with a jetpack-style game (Ourcade MIT template as design/stack reference).
 
+## Run 7 — match-3 MVP pass (2026-07-11, Charles's refocus)
+- TYPOGRAPHY ROOT CAUSE: Lilita One (the chunky display font) never rendered since run 3 — a duplicate CSS @font-face registered a second, forever-unloaded face, and canvas text silently fell back to Fredoka. Found by a new boot diagnostic, fixed by removing the CSS declaration, verified by canvas measurement. Every big number in the game changes appearance with this fix.
+- Ghost-letter popups killed at the class level: stats overlay, parent panel, playlist rows (review caught the third) were drawing cream/white text on the cream panel; all light-panel text now uses dark unstroked ink (TS.onLight).
+- Match-3-path polish: real flat ribbon banner for the win screen + chapter banner; map backdrop is a sharp horizon strip under a drawn sky (was a fuzzy 1.8x crop).
+- MVP-CHECKLIST.md defines done: Charles's 2-minute smoke protocol on the deployed build, then Luana plays levels 1-5 — the gate. Everything else (diner/jetpack polish, town backgrounds, queue #49 persistence) explicitly waits.
+
 ## Run 6 — mini-game rebuilds (2026-07-10, decision #62)
 - DINER MERGED as the cooking game: customers walk in with picture-stack orders, tap ingredients to build bottom-to-top, wrong taps bounce off harmlessly (pantry shield eats the first one), serve for coins + tips, 5-customer shifts, stars by mistakes. Same coin payout as the old flow; the 15-recipe system is preserved unrouted. Review caught bell-mash mistakes + a ramp that could open on the tallest dish — both fixed with tests.
 - JETPACK MERGED as the runner: hold anywhere to fly, release to fall; 3 fixed-length runs; coins thread the safe gaps; hits cost hearts with blink-invincibility; hearts-out ends the run early with everything kept (never a fail screen). Old gate-runner preserved unrouted.

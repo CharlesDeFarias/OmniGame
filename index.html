@@ -13,12 +13,12 @@
       font-weight: 300 700;
       font-display: swap;
     }
-    @font-face {
-      font-family: 'Lilita One';
-      src: url('fonts/lilita-latin.woff2') format('woff2');
-      font-weight: 400;
-      font-display: swap;
-    }
+    /* Lilita One is registered ONLY via the FontFace API in main.ts. A CSS
+       declaration here creates a second, forever-unloaded face for the same
+       family (no DOM text uses Lilita, and canvas text can't trigger CSS font
+       loading) — ambiguous matching sent Phaser's display numbers to the
+       Fredoka fallback since the font shipped. Fredoka's CSS face stays: the
+       splash title is DOM text and needs it before any JS runs. */
     html, body { margin: 0; padding: 0; background: #0e1e3d; height: 100%; overflow: hidden; }
     #app { width: 100%; height: 100%; }
     * { touch-action: none; user-select: none; -webkit-user-select: none; }

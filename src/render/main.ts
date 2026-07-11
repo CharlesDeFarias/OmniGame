@@ -50,8 +50,21 @@ async function loadBrandFonts(): Promise<void> {
       Promise.allSettled(faces.map((face) => face.load())),
       new Promise((resolve) => setTimeout(resolve, 2500)),
     ]);
+    reportFontStatus(faces);
   } catch {
     // Fonts are polish, not a dependency: boot with the fallback stack.
+  }
+}
+
+/** Diagnostic (match-3 MVP pass): a silent font failure makes every screen
+ *  render in the fallback stack and "the font looks bad" with no other
+ *  symptom. Checks the actual FontFace objects — document.fonts.check() has
+ *  false-negative quirks for canvas-only fonts. */
+function reportFontStatus(faces: FontFace[]): void {
+  for (const face of faces) {
+    if (face.status !== 'loaded') {
+      console.warn(`[fonts] ${face.family} status=${face.status} — text is rendering in the fallback stack`);
+    }
   }
 }
 

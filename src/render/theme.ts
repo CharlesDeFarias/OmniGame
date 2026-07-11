@@ -430,6 +430,26 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillTriangle(c + r * 0.75, c - r * 0.45, c + r * 0.2, c - r * 0.55, c + r * 0.55, c - r * 0.05);
   });
   ui('ui-pip', (g) => { g.fillStyle(0xffffff); g.fillCircle(c, c, r * 0.3); });
+  // Flat ribbon banner (MVP pass): baked WIDE (256x64) so the win overlay and
+  // chapter banner stretch it near its native aspect instead of smearing a
+  // square panel. Red band + darker under-tails, Kenney flat language.
+  {
+    const g = scene.add.graphics();
+    const W = 256;
+    const H = 64;
+    g.fillStyle(0x8f2519);
+    g.fillTriangle(0, H * 0.2, W * 0.16, H * 0.2, 0, H * 0.95);
+    g.fillTriangle(W, H * 0.2, W * 0.84, H * 0.2, W, H * 0.95);
+    g.fillStyle(0x6e1c13);
+    g.fillTriangle(W * 0.1, H * 0.2, W * 0.16, H * 0.2, W * 0.16, H * 0.42);
+    g.fillTriangle(W * 0.9, H * 0.2, W * 0.84, H * 0.2, W * 0.84, H * 0.42);
+    g.fillStyle(0xd8402e);
+    g.fillRoundedRect(W * 0.1, 0, W * 0.8, H * 0.72, H * 0.12);
+    g.fillStyle(0xffffff, 0.14);
+    g.fillRoundedRect(W * 0.1, 0, W * 0.8, H * 0.2, H * 0.12);
+    g.generateTexture('ui-banner-flat', W, H);
+    g.destroy();
+  }
   // Light content panel (decision #60 polish): flat cream sheet with a soft
   // grey rim, drawn to match Kenney UI Pack's rounded-flat language. This is
   // the ground for every dark-text overlay (picker/pause/stats/wardrobe).

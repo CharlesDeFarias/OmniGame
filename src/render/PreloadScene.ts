@@ -116,7 +116,8 @@ const FALLBACKS: ReadonlyArray<readonly [string, string]> = [
   ['img-sp-tnt', 'sp-tnt'], ['img-sp-lightball', 'sp-lightball'],
   ['img-ob-box1', 'ob-box1'], ['img-ob-box2', 'ob-box2'], ['img-ob-ice', 'ob-ice'],
   ['img-ui-heart', 'ui-heart'],
-  ['img-ui-panel-banner', 'ui-panel'], ['img-ui-banner', 'ui-panel'],
+  // The banner resolves to the baked flat ribbon (wide-aspect texture).
+  ['img-ui-banner', 'ui-banner-flat'],
   // Composited GUI buttons (round base + glyph): procedural equivalents cover
   // any missing input; the composite step skips when a part failed to load.
   ['img-ui-play', 'ui-play'], ['img-ui-retry', 'ui-retry'], ['img-ui-home', 'ui-home'],
