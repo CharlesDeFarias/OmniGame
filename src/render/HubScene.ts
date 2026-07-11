@@ -281,7 +281,8 @@ export class HubScene extends Phaser.Scene {
       // y 218: feet clear the 5th task chip (top edge 282) below him.
       objs.push(this.add.sprite(585, 218, 'img-toon-bro-idle').setDisplaySize(96, 122).setDepth(23));
     }
-    const textStyle = TS.number(32);
+    // Light panel => dark unstroked ink (same ghost-letter fix as the stats overlay).
+    const textStyle = TS.onLight(32);
     // Compact stats summary: plays / wins / win rate (full detail stays in PlayScene's overlay).
     const stats = summarize(this.journal.read());
     const summary: { icon: string | null; value: string }[] = [

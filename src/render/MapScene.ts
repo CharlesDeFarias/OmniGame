@@ -86,13 +86,35 @@ export class MapScene extends Phaser.Scene {
     }
   }
 
-  /** Candyland map art, cover-fit to 720x1280 (center crop), + dark vignette bands top/bottom for HUD readability. */
+  /** Map backdrop (MVP pass): the landscape art sits at the BOTTOM at near-native
+   *  scale (a sharp horizon strip) under a drawn sky gradient, instead of a fuzzy
+   *  1.8x cover-crop that showed 31% of the image. Vignette bands stay for HUD. */
   private buildBackdrop(): void {
     const src = this.textures.get('img-bg-map').getSourceImage();
-    const scale = Math.max(GAME_WIDTH / src.width, GAME_HEIGHT / src.height);
+    const w = GAME_WIDTH;
+    const h = (src.height / src.width) * w;
+    // Sky: vertical bands stepping from deep space blue down to the art's own
+    // sky tone at the horizon (Graphics gradients are WebGL-only; bands match
+    // the vignette technique below).
+    const skyTop = 0x11294f;
+    const skyHorizon = 0x74b8e8;
+    const steps = 8;
+    const skyH = GAME_HEIGHT - h;
+    for (let i = 0; i < steps; i++) {
+      const t = i / (steps - 1);
+      const mixCh = (shift: number): number => {
+        const a = (skyTop >> shift) & 0xff;
+        const b = (skyHorizon >> shift) & 0xff;
+        return Math.round(a + (b - a) * t) << shift;
+      };
+      const color = mixCh(16) | mixCh(8) | mixCh(0);
+      this.add
+        .rectangle(w / 2, (skyH * i) / steps + skyH / steps / 2, w, skyH / steps + 1, color)
+        .setDepth(-3);
+    }
     this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-bg-map')
-      .setDisplaySize(src.width * scale, src.height * scale)
+      .image(w / 2, GAME_HEIGHT - h / 2, 'img-bg-map')
+      .setDisplaySize(w, h)
       .setDepth(-3);
     // Vignette: stacked bands fading out (Graphics gradients are WebGL-only;
     // bands render identically under Canvas).
@@ -433,7 +455,7 @@ export class MapScene extends Phaser.Scene {
     objs.push(dim);
     objs.push(this.add.image(360, 600, 'img-ui-panel-cream').setDisplaySize(560, 700).setDepth(31).setInteractive());
     if (PROFILE.textTier !== 'none') {
-      objs.push(this.add.text(360, 292, 'Level', TS.numberOnLight(30)).setOrigin(0.5).setDepth(32));
+      objs.push(this.add.text(360, 292, 'Level', TS.onLight(30)).setOrigin(0.5).setDepth(32));
     }
     objs.push(this.add.text(360, 340, label, TS.numberOnLight(68)).setOrigin(0.5).setDepth(32));
     // Goal preview row: same icon mapping as PlayScene's HUD.
@@ -445,7 +467,7 @@ export class MapScene extends Phaser.Scene {
         : 'img-ob-ice';
       const cx = 360 + (i - (goals.length - 1) / 2) * 110;
       objs.push(this.add.sprite(cx, 432, iconKey).setDisplaySize(60, 60).setDepth(32));
-      objs.push(this.add.text(cx, 494, String(goal.count), TS.numberOnLight(34)).setOrigin(0.5).setDepth(32));
+      objs.push(this.add.text(cx, 494, String(goal.count), TS.onLight(34)).setOrigin(0.5).setDepth(32));
     });
     // Booster toggle slots.
     const kinds: { kind: ShopBoosterKind; x: number; icon: string }[] = [

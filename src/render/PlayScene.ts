@@ -582,7 +582,9 @@ export class PlayScene extends Phaser.Scene {
     // Parent-facing overlay: cream FGG panel (commit-3 GUI pass); the dark
     // text outline keeps TS.number legible on the light ground.
     objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-panel-cream').setDisplaySize(620, 1000).setDepth(22));
-    const textStyle = TS.number(32);
+    // Light panel => dark unstroked ink (cream TS.number here was the
+    // ghost-letter popup bug Charles kept hitting).
+    const textStyle = TS.onLight(32);
     const header: { icon: string | null; value: string }[] = [
       { icon: 'img-ui-play', value: String(stats.levelsPlayed) },
       { icon: 'img-ui-star', value: String(stats.wins) },
@@ -630,7 +632,7 @@ export class PlayScene extends Phaser.Scene {
         const gy = y + Math.floor(i / 5) * 44;
         objs.push(
           this.add
-            .text(gridX(i), gy, `${label(id)} ★${lv.bestStars}`, TS.number(22))
+            .text(gridX(i), gy, `${label(id)} ★${lv.bestStars}`, TS.onLight(22))
             .setOrigin(0.5)
             .setDepth(23),
         );
@@ -639,7 +641,7 @@ export class PlayScene extends Phaser.Scene {
       entries.forEach(([id, lv], i) => {
         const cx = gridX(i);
         const gy = y + Math.floor(i / 5) * 66;
-        objs.push(this.add.text(cx, gy, label(id), TS.number(24)).setOrigin(0.5).setDepth(23));
+        objs.push(this.add.text(cx, gy, label(id), TS.onLight(24)).setOrigin(0.5).setDepth(23));
         for (let st = 0; st < Math.min(3, lv.bestStars); st++) {
           objs.push(this.add.sprite(cx - 22 + st * 22, gy + 26, 'img-ui-star').setDisplaySize(18, 18).setDepth(23));
         }
