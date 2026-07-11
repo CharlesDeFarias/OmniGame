@@ -579,8 +579,7 @@ export class PlayScene extends Phaser.Scene {
       if (p.downTime > openedAt) this.closeStats();
     });
     objs.push(dim);
-    // Parent-facing overlay: cream FGG panel (commit-3 GUI pass); the dark
-    // text outline keeps TS.number legible on the light ground.
+    // Parent-facing overlay on the light cream sheet.
     objs.push(this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'img-ui-panel-cream').setDisplaySize(620, 1000).setDepth(22));
     // Light panel => dark unstroked ink (cream TS.number here was the
     // ghost-letter popup bug Charles kept hitting).
@@ -1594,7 +1593,7 @@ export class PlayScene extends Phaser.Scene {
     this.flyCoinPips();
     sfx(this, 'win-fanfare');
     this.overlay();
-    // Win banner (flat panel since the Kenney pass) sweeps in behind the
+    // Win banner (the baked flat ribbon) sweeps in behind the
     // stars (depth 10.5: between dim and stars). Star sizes are explicit
     // pixels — the old code scaled off the retired 170px star texture.
     const bannerW = GAME_WIDTH * 0.7;
