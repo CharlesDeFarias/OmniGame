@@ -4,13 +4,11 @@ import { PROFILE } from '../config/profile';
 import { createJournal, type Journal } from '../services/journal';
 import { createIdbBackend, createMusicStore, MAX_TRACK_BYTES, type MusicStore } from '../services/music';
 import { loadProgress } from '../services/progress';
-import { createRunner } from '../services/runner';
 import { summarize } from '../services/stats';
 import { createTasks, TASK_ICONS, type Tasks } from '../services/tasks';
 import { createWallet, type Wallet } from '../services/wallet';
 import { createBlips, type Blips } from './audio';
 import { buildBackground, fadeIn, goto, pressify } from './chrome';
-import { loadRunnerLevels } from './levels';
 import { TASK_ICON_TEXTURE } from './taskIcons';
 import { GAME_HEIGHT, GAME_WIDTH } from './config';
 import { PALETTE } from './palette';
@@ -126,9 +124,18 @@ export class HubScene extends Phaser.Scene {
         .setDepth(3);
       return;
     }
-    // Star-progress hint, bottom-right: total stars across runner levels.
-    const rp = createRunner(window.localStorage);
-    const runnerStars = loadRunnerLevels().reduce((a, l) => a + rp.bestFor(l.id), 0);
+    // Star-progress hint, bottom-right: best stars per JETPACK level from the
+    // journal (the old omnigame.runner.v1 bests belong to the unrouted
+    // gate-runner and would freeze forever — same fix as the diner badge).
+    const best = new Map<string, number>();
+    for (const e of this.journal.read()) {
+      if (e.type !== 'jet_run_end') continue;
+      const d = e.data as { level?: string; stars?: number };
+      if (typeof d.level === 'string' && typeof d.stars === 'number') {
+        best.set(d.level, Math.max(best.get(d.level) ?? 0, d.stars));
+      }
+    }
+    const runnerStars = [...best.values()].reduce((a, b) => a + b, 0);
     this.add
       .text(x + 40, y + 56, String(runnerStars), TS.number(30))
       .setOrigin(1, 0.5)
