@@ -51,6 +51,7 @@ flat textures (theme.ts) via PreloadScene FALLBACKS aliases — drawn to match t
 | icons/gear,home,audioOn,audioOff,locked,checkmark.png | glyph inputs (`k2-glyph-*`) for the composites |
 | misc/coin.png | `img-ui-coin` |
 | misc/bg-map.png | `img-bg-map` |
+| panel_brown.png (UI Pack Adventure, CC0 — https://kenney.nl/assets/ui-pack-adventure) | `img-board-frame` (match-3 board 9-slice frame) |
 
 ### Siblings (`kenney2/toon/`, decision #61)
 

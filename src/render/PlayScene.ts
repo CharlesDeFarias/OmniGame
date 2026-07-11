@@ -82,7 +82,7 @@ export class PlayScene extends Phaser.Scene {
   private retryCount = 0;
   private activeBoosters: readonly import('../core/match3/index').SpecialKind[] = [];
   private downAt: { cell: Coord; px: number; py: number } | null = null;
-  private backdrop: Phaser.GameObjects.Image[] = [];
+  private backdrop: Phaser.GameObjects.GameObject[] = [];
   private hudPanels: Phaser.GameObjects.GameObject[] = [];
   private markerTween: Phaser.Tweens.Tween | null = null;
   private hand: Phaser.GameObjects.Sprite | null = null;
@@ -238,27 +238,41 @@ export class PlayScene extends Phaser.Scene {
     for (let y = 0; y < def.board.height; y++) {
       for (let x = 0; x < def.board.width; x++) {
         const { px, py } = cellToXY(this.layout, x, y);
-        // Board grid readability (Kenney-look polish): the checkerboard needs
-        // real presence or the pieces float on the background.
+        // Board cells (Charles round-3): SOLID alternating navy cells with a
+        // visible dark stroke = real grid lines, instead of ghost-alpha tiles.
         const tile = this.add
-          .image(px, py, 'ui-tile')
-          .setDisplaySize(this.layout.cell * 0.98, this.layout.cell * 0.98)
-          .setAlpha((x + y) % 2 === 0 ? 0.14 : 0.22)
+          .rectangle(px, py, this.layout.cell, this.layout.cell, (x + y) % 2 === 0 ? 0x1c3868 : 0x24437a, 0.95)
+          .setStrokeStyle(2, 0x0e1e3d, 0.9)
           .setDepth(-1);
         this.backdrop.push(tile);
       }
     }
-    // Gold board frame (plan 7 design pass): one ui-tile-frame stretched over the board rect.
-    const framePad = this.layout.cell * 0.18;
+    // Board frame (Kenney UI Pack Adventure, decision #60): a warm brown
+    // 9-slice panel behind the grid + a darker inner well the tiles sit in —
+    // a DESIGNED board instead of the stretched gold hairline. 9-slice keeps
+    // the 64px source's corners crisp at any board size. Never-strand: if the
+    // panel didn't load, fall back to the old procedural frame.
+    const framePad = this.layout.cell * 0.3;
     const boardW = this.layout.cell * this.layout.cols;
     const boardH = this.layout.cell * this.layout.rows;
-    this.backdrop.push(
-      this.add
-        .image(this.layout.originX + boardW / 2, this.layout.originY + boardH / 2, 'ui-tile-frame')
-        .setDisplaySize(boardW + framePad * 2, boardH + framePad * 2)
-        .setAlpha(0.9)
-        .setDepth(-0.5),
-    );
+    const bcx = this.layout.originX + boardW / 2;
+    const bcy = this.layout.originY + boardH / 2;
+    if (this.textures.exists('img-board-frame')) {
+      // Brown Adventure frame; the inner well is a flat navy sheet the solid
+      // grid cells sit on (the brown-on-brown well read muddy — round 3).
+      this.backdrop.push(
+        this.add.nineslice(bcx, bcy, 'img-board-frame', undefined, boardW + framePad * 2, boardH + framePad * 2, 20, 20, 20, 20).setDepth(-0.6),
+        this.add.rectangle(bcx, bcy, boardW + framePad * 0.7, boardH + framePad * 0.7, 0x122647, 0.96).setDepth(-0.55),
+      );
+    } else {
+      this.backdrop.push(
+        this.add
+          .image(bcx, bcy, 'ui-tile-frame')
+          .setDisplaySize(boardW + framePad * 2, boardH + framePad * 2)
+          .setAlpha(0.9)
+          .setDepth(-0.5),
+      );
+    }
     this.journal.log('level_start', { level: def.id, chapter: this.chapter, retry: this.retryCount, tier: this.adaptive.state().tier, boosters });
     this.buildGoalHud();
     this.syncBoard();

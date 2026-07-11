@@ -83,6 +83,8 @@ export const ART_FILES: ReadonlyArray<readonly [string, string]> = [
   // --- Siblings (decision #61): only the wired pose loads; the rest of the
   // toon poses stay staged on disk for the wardrobe rebuild (queue #46).
   ['img-toon-bro-idle', `${K2}/toon/character_malePerson_idle.png`],
+  // --- Board frame (UI Pack Adventure): warm brown 9-slice ---
+  ['img-board-frame', `${K2}/ui/panel_brown.png`],
   // --- Backgrounds ---
   ['img-bg-map', `${K2}/misc/bg-map.png`],
   // --- Particles (Kenney, white, tint at runtime) ---
@@ -193,6 +195,7 @@ export class PreloadScene extends Phaser.Scene {
     // Composite step (decision #60): round button + glyph, shape body + face.
     // A missing input skips the recipe; the FALLBACKS loop then patches the key.
     for (const [key, base, glyph] of COMPOSITES) this.composite(key, base, glyph, 0.5);
+    this.decorateBrother();
     // Pieces bake with padding (body 0.8 of canvas) so a full-bleed square
     // body still sits INSIDE its board cell instead of kissing its neighbors.
     for (const color of PIECE_COLORS) this.composite(`img-shape-${color}`, `k2-body-${color}`, `k2-face-${color}`, 0.42, 96, 0.8);
@@ -202,6 +205,49 @@ export class PreloadScene extends Phaser.Scene {
       if (src instanceof HTMLCanvasElement) this.textures.addCanvas(img, src);
     }
     goto(this, 'hub');
+  }
+
+  /** The mayor wears rectangular glasses + a short beard (decision #61,
+   *  Charles's spec): baked onto the toon pose once at preload. Coordinates
+   *  are tuned to the 96x128 Kenney toon head; skipped if the pose is absent. */
+  private decorateBrother(): void {
+    const key = 'img-toon-bro-idle';
+    if (!this.textures.exists(key)) return;
+    const src = this.textures.get(key).getSourceImage();
+    if (!(src instanceof HTMLImageElement) && !(src instanceof HTMLCanvasElement)) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = src.width;
+    canvas.height = src.height;
+    const ctx = canvas.getContext('2d');
+    if (ctx === null) return;
+    ctx.drawImage(src, 0, 0);
+    const w = src.width;
+    const h = src.height;
+    // Short beard along the jaw, drawn first so the glasses sit above it.
+    ctx.fillStyle = '#4a3222';
+    ctx.beginPath();
+    ctx.moveTo(w * 0.31, h * 0.34);
+    ctx.quadraticCurveTo(w * 0.5, h * 0.5, w * 0.69, h * 0.34);
+    ctx.quadraticCurveTo(w * 0.5, h * 0.42, w * 0.31, h * 0.34);
+    ctx.closePath();
+    ctx.fill();
+    // Rectangular glasses.
+    ctx.strokeStyle = '#2c2c54';
+    ctx.lineWidth = Math.max(2, w * 0.03);
+    ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    const gy = h * 0.225;
+    const gh = h * 0.08;
+    const gw = w * 0.17;
+    for (const gx of [w * 0.29, w * 0.545]) {
+      ctx.fillRect(gx, gy, gw, gh);
+      ctx.strokeRect(gx, gy, gw, gh);
+    }
+    ctx.beginPath();
+    ctx.moveTo(w * 0.46, gy + gh * 0.35);
+    ctx.lineTo(w * 0.545, gy + gh * 0.35);
+    ctx.stroke();
+    this.textures.remove(key);
+    this.textures.addCanvas(key, canvas);
   }
 
   /** Bake base + centered glyph into one square canvas texture under `key`. */

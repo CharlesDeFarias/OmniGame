@@ -183,6 +183,14 @@ export function makeAvatarTexture(scene: Phaser.Scene, key: string, outfitColor:
   g.fillCircle(c - s * 0.05, s * 0.2, s * 0.017);
   g.fillCircle(c + s * 0.05, s * 0.2, s * 0.017);
   g.fillRoundedRect(c - s * 0.045, s * 0.255, s * 0.09, s * 0.02, s * 0.01);
+  // Rectangular glasses (Charles 2026-07-10: both siblings wear them).
+  g.lineStyle(s * 0.014, 0x2c2c54);
+  g.strokeRoundedRect(c - s * 0.098, s * 0.172, s * 0.088, s * 0.058, s * 0.012);
+  g.strokeRoundedRect(c + s * 0.01, s * 0.172, s * 0.088, s * 0.058, s * 0.012);
+  g.beginPath();
+  g.moveTo(c - s * 0.01, s * 0.198);
+  g.lineTo(c + s * 0.01, s * 0.198);
+  g.strokePath();
   g.generateTexture(key, s, s);
   g.destroy();
 }

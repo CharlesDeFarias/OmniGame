@@ -81,14 +81,14 @@ export class HubScene extends Phaser.Scene {
     const matchStars = Object.values(loadProgress(window.localStorage).stars).reduce((a, b) => a + b, 0);
     const recipesDone = Object.keys(createCooking(window.localStorage).data().best).length;
     this.gameCard(510, 'map', { icon: 'img-ui-star', value: matchStars }, (x, y) => {
-      // Match-3: gem cluster.
+      // Match-3: piece cluster.
       this.add.sprite(x - 36, y + 8, 'img-shape-red').setDisplaySize(96, 96).setDepth(2);
       this.add.sprite(x + 50, y - 34, 'img-shape-blue').setDisplaySize(84, 84).setDepth(2);
       this.add.sprite(x + 40, y + 50, 'img-shape-green').setDisplaySize(76, 76).setDepth(2);
-    });
+    }, 'Puzzle');
     this.gameCard(830, 'cooking', { icon: 'ui-check', value: recipesDone }, (x, y) => {
       this.add.sprite(x, y, 'ui-pan-card').setDisplaySize(150, 150).setDepth(2);
-    });
+    }, 'Cooking');
     // Gate-runner card (game #3): real once influencer level >= 2 (early treat);
     // below that it stays dimmed with a lock + level badge, chapter-strip style.
     this.runnerCard(210, 1090);
@@ -159,12 +159,18 @@ export class HubScene extends Phaser.Scene {
     target: string,
     hint: { icon: string; value: number },
     decorate: (x: number, y: number) => void,
+    label?: string,
   ): void {
     const x = GAME_WIDTH / 2;
     // Kenney-look pass: cards sit on the family's blue flat panel; the CTA
     // strip becomes the green pill (same texture the map's PLAY uses).
     const card = this.add.image(x, y, 'img-ui-panel-blue').setDisplaySize(560, 250).setDepth(1).setInteractive();
     const strip = this.add.image(x, y + 82, 'img-ui-btn-pill-green').setDisplaySize(480, 46).setAlpha(0.9).setDepth(1.5);
+    // textTier 'minimal' (Charles 2026-07-10): a single friendly word per card
+    // — pure icons overshot into confusing.
+    if (PROFILE.textTier !== 'none' && label !== undefined) {
+      this.add.text(x, y + 82, label, TS.label(28)).setOrigin(0.5).setDepth(2);
+    }
     this.tweens.add({
       targets: card,
       scaleX: card.scaleX * 1.02,
