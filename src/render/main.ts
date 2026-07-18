@@ -95,4 +95,6 @@ void loadBrandFonts().then(() => {
     splash.classList.add('splash-hide');
     window.setTimeout(() => splash.remove(), 350);
   });
+  // Dev handle for texture/state inspection during art passes (harmless in prod).
+  (window as unknown as { __game?: Phaser.Game }).__game = game;
 });

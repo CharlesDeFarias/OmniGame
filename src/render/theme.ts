@@ -295,73 +295,104 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
     g.fillCircle(c, c, r * 0.3);
   });
 
-  // Special badges: cream disc in a gold ring (gold-frame motif); glyphs keep their colors.
+  // Specials (run 8 look pass): BOLD flat stickers matching the Kenney
+  // shape-character pieces — thick dark outline, saturated fill, one gloss
+  // highlight. The old cream-disc-in-gold-ring badge was a studio-glam
+  // leftover that clashed with the flat family; dropped for a soft contact
+  // shadow so the icon still lifts off the board cell.
+  const OUTLINE = 0x27314d;
+  const OW = s * 0.05; // sticker outline weight
   const sp = (key: string, draw: (g: Phaser.GameObjects.Graphics) => void): void => {
     const g = scene.add.graphics();
-    softShadow(g, c, c + r * 0.18, r * 2.3, r * 2.1);
-    gradCircle(g, c, c, r * 1.05, lighten(PALETTE.cream, 0.4), darken(PALETTE.cream, 0.82));
-    g.lineStyle(s * 0.03, PALETTE.gold);
-    g.strokeCircle(c, c, r * 1.05);
+    softShadow(g, c, c + r * 0.32, r * 1.9, r * 1.7);
     draw(g);
     g.generateTexture(key, s, s);
     g.destroy();
   };
-
-  /** Flat cartoon rocket pointing +x: white capsule, red nose + fins, round window. */
-  const rocketGlyph = (g: Phaser.GameObjects.Graphics): void => {
-    g.fillStyle(0xd8402e);
-    g.fillTriangle(c - r * 0.85, c - r * 0.5, c - r * 0.85, c + r * 0.5, c - r * 0.4, c);
-    g.fillStyle(0xf4f6fb);
-    g.fillRoundedRect(c - r * 0.62, c - r * 0.3, r * 1.15, r * 0.6, r * 0.28);
-    g.fillStyle(0xd8402e);
-    g.fillTriangle(c + r * 0.5, c, c + r * 0.95, c - r * 0.32, c + r * 0.95, c + r * 0.32);
-    g.fillTriangle(c + r * 0.5, c, c + r * 0.95, c, c + r * 0.62, c + r * 0.42);
-    g.fillStyle(0x54b8e8);
-    g.fillCircle(c + r * 0.05, c, r * 0.16);
-    g.lineStyle(s * 0.02, 0x2c2c54, 0.85);
-    g.strokeCircle(c + r * 0.05, c, r * 0.16);
-    g.fillStyle(0xf5c542);
-    g.fillTriangle(c - r * 0.85, c - r * 0.18, c - r * 0.85, c + r * 0.18, c - r * 1.02, c);
+  /** One white top-gloss ellipse — the family's single-highlight convention. */
+  const gloss = (g: Phaser.GameObjects.Graphics, cx: number, cy: number, w: number, h: number): void => {
+    g.fillStyle(0xffffff, 0.32);
+    g.fillEllipse(cx, cy, w, h);
   };
-  sp('sp-rocketH', (g) => rocketGlyph(g));
-  sp('sp-rocketV', (g) => {
-    // Same rocket rotated to point up: draw with swapped axes.
-    g.fillStyle(0xd8402e);
-    g.fillTriangle(c - r * 0.5, c + r * 0.85, c + r * 0.5, c + r * 0.85, c, c + r * 0.4);
-    g.fillStyle(0xf4f6fb);
-    g.fillRoundedRect(c - r * 0.3, c - r * 0.53, r * 0.6, r * 1.15, r * 0.28);
-    g.fillStyle(0xd8402e);
-    g.fillTriangle(c, c - r * 0.5, c - r * 0.32, c - r * 0.95, c + r * 0.32, c - r * 0.95);
-    g.fillStyle(0x54b8e8);
-    g.fillCircle(c, c - r * 0.05, r * 0.16);
-    g.lineStyle(s * 0.02, 0x2c2c54, 0.85);
-    g.strokeCircle(c, c - r * 0.05, r * 0.16);
-    g.fillStyle(0xf5c542);
-    g.fillTriangle(c - r * 0.18, c + r * 0.85, c + r * 0.18, c + r * 0.85, c, c + r * 1.02);
-  });
-  sp('sp-tnt', (g) => {
-    // Red dynamite bundle: three sticks, cream band, sparking fuse.
-    g.fillStyle(0xd8402e);
-    for (const dx of [-0.42, 0, 0.42]) {
-      g.fillRoundedRect(c + dx * r - r * 0.19, c - r * 0.55, r * 0.38, r * 1.2, r * 0.12);
+
+  /** Bold outlined rocket. dir '+x' points right; 'up' points up. */
+  const rocket = (g: Phaser.GameObjects.Graphics, up: boolean): void => {
+    // Draw pointing +x then the caller rotates coordinates; here we branch so
+    // the outline strokes stay crisp (Graphics can't rotate mid-path cheaply).
+    if (!up) {
+      // Flame (behind body).
+      g.fillStyle(0xf5a623);
+      g.fillTriangle(c - r * 0.7, c - r * 0.34, c - r * 0.7, c + r * 0.34, c - r * 1.02, c);
+      g.fillStyle(0xf5c542);
+      g.fillTriangle(c - r * 0.72, c - r * 0.18, c - r * 0.72, c + r * 0.18, c - r * 0.92, c);
+      // Body capsule (bright red), thick outline.
+      g.lineStyle(OW, OUTLINE);
+      g.fillStyle(0xe23b2e);
+      g.fillRoundedRect(c - r * 0.68, c - r * 0.36, r * 1.2, r * 0.72, r * 0.34);
+      g.strokeRoundedRect(c - r * 0.68, c - r * 0.36, r * 1.2, r * 0.72, r * 0.34);
+      // Nose cone.
+      g.fillStyle(0xe23b2e);
+      g.fillTriangle(c + r * 0.9, c, c + r * 0.5, c - r * 0.36, c + r * 0.5, c + r * 0.36);
+      g.lineStyle(OW, OUTLINE);
+      g.strokeTriangle(c + r * 0.9, c, c + r * 0.5, c - r * 0.36, c + r * 0.5, c + r * 0.36);
+      // Fins.
+      g.fillStyle(0xc72f27);
+      g.fillTriangle(c - r * 0.5, c + r * 0.32, c - r * 0.5, c + r * 0.62, c - r * 0.1, c + r * 0.32);
+      g.fillTriangle(c - r * 0.5, c - r * 0.32, c - r * 0.5, c - r * 0.62, c - r * 0.1, c - r * 0.32);
+      // Window.
+      g.fillStyle(0x8fd3f0);
+      g.fillCircle(c + r * 0.06, c, r * 0.19);
+      g.lineStyle(OW * 0.8, OUTLINE);
+      g.strokeCircle(c + r * 0.06, c, r * 0.19);
+      gloss(g, c - r * 0.18, c - r * 0.14, r * 0.5, r * 0.22);
+    } else {
+      g.fillStyle(0xf5a623);
+      g.fillTriangle(c - r * 0.34, c + r * 0.7, c + r * 0.34, c + r * 0.7, c, c + r * 1.02);
+      g.fillStyle(0xf5c542);
+      g.fillTriangle(c - r * 0.18, c + r * 0.72, c + r * 0.18, c + r * 0.72, c, c + r * 0.92);
+      g.lineStyle(OW, OUTLINE);
+      g.fillStyle(0xe23b2e);
+      g.fillRoundedRect(c - r * 0.36, c - r * 0.52, r * 0.72, r * 1.2, r * 0.34);
+      g.strokeRoundedRect(c - r * 0.36, c - r * 0.52, r * 0.72, r * 1.2, r * 0.34);
+      g.fillStyle(0xe23b2e);
+      g.fillTriangle(c, c - r * 0.9, c - r * 0.36, c - r * 0.5, c + r * 0.36, c - r * 0.5);
+      g.lineStyle(OW, OUTLINE);
+      g.strokeTriangle(c, c - r * 0.9, c - r * 0.36, c - r * 0.5, c + r * 0.36, c - r * 0.5);
+      g.fillStyle(0xc72f27);
+      g.fillTriangle(c + r * 0.32, c - r * 0.5, c + r * 0.62, c - r * 0.5, c + r * 0.32, c - r * 0.1);
+      g.fillTriangle(c - r * 0.32, c - r * 0.5, c - r * 0.62, c - r * 0.5, c - r * 0.32, c - r * 0.1);
+      g.fillStyle(0x8fd3f0);
+      g.fillCircle(c, c - r * 0.06, r * 0.19);
+      g.lineStyle(OW * 0.8, OUTLINE);
+      g.strokeCircle(c, c - r * 0.06, r * 0.19);
+      gloss(g, c - r * 0.14, c - r * 0.24, r * 0.22, r * 0.5);
     }
-    g.fillStyle(0xfff4e0);
-    g.fillRect(c - r * 0.62, c - r * 0.1, r * 1.24, r * 0.28);
-    g.lineStyle(s * 0.025, 0x8f2519);
-    g.strokeRect(c - r * 0.62, c - r * 0.1, r * 1.24, r * 0.28);
-    g.lineStyle(s * 0.03, 0x9c6b30);
+  };
+  sp('sp-rocketH', (g) => rocket(g, false));
+  sp('sp-rocketV', (g) => rocket(g, true));
+  sp('sp-tnt', (g) => {
+    // Bold round bomb: black-navy sphere, big lit fuse spark, thick outline.
+    g.fillStyle(0x2c3350);
+    g.fillCircle(c, c + r * 0.12, r * 0.7);
+    g.lineStyle(OW, OUTLINE);
+    g.strokeCircle(c, c + r * 0.12, r * 0.7);
+    gloss(g, c - r * 0.24, c - r * 0.18, r * 0.44, r * 0.3);
+    // Fuse cap + fuse.
+    g.fillStyle(0x9c6b30);
+    g.fillRoundedRect(c - r * 0.14, c - r * 0.68, r * 0.28, r * 0.24, r * 0.06);
+    g.lineStyle(s * 0.05, 0x7a5225);
     g.beginPath();
-    g.moveTo(c, c - r * 0.55);
-    g.lineTo(c + r * 0.28, c - r * 0.85);
+    g.moveTo(c, c - r * 0.64);
+    g.lineTo(c + r * 0.26, c - r * 0.92);
     g.strokePath();
+    // Spark.
     g.fillStyle(0xf5c542);
-    g.fillCircle(c + r * 0.32, c - r * 0.88, r * 0.12);
-    g.fillStyle(0xffffff, 0.9);
-    g.fillCircle(c + r * 0.32, c - r * 0.88, r * 0.05);
+    g.fillCircle(c + r * 0.3, c - r * 0.95, r * 0.16);
+    g.fillStyle(0xffffff, 0.95);
+    g.fillCircle(c + r * 0.26, c - r * 0.99, r * 0.06);
   });
   sp('sp-lightball', (g) => {
-    // Color ball: six flat wedges in the piece colors + white hub — reads as
-    // 'hits every color' without any text.
+    // Color ball: six saturated wedges + white glossy hub, thick outline ring.
     const wedgeColors = [COLOR_HEX.red, COLOR_HEX.yellow, COLOR_HEX.green, COLOR_HEX.blue, COLOR_HEX.purple, 0xec7cb5];
     wedgeColors.forEach((col, i) => {
       const a0 = (i * Math.PI * 2) / 6 - Math.PI / 2;
@@ -369,23 +400,32 @@ export function makeTextures(scene: Phaser.Scene, size: number): void {
       g.fillStyle(col);
       g.beginPath();
       g.moveTo(c, c);
-      g.arc(c, c, r * 0.82, a0, a1);
+      g.arc(c, c, r * 0.84, a0, a1);
       g.closePath();
       g.fillPath();
     });
-    g.lineStyle(s * 0.03, 0xffffff, 0.9);
-    g.strokeCircle(c, c, r * 0.82);
+    g.lineStyle(OW, OUTLINE);
+    g.strokeCircle(c, c, r * 0.84);
     g.fillStyle(0xffffff);
-    g.fillCircle(c, c, r * 0.24);
+    g.fillCircle(c, c, r * 0.26);
+    g.lineStyle(OW * 0.7, OUTLINE);
+    g.strokeCircle(c, c, r * 0.26);
+    gloss(g, c - r * 0.34, c - r * 0.34, r * 0.34, r * 0.2);
   });
   sp('sp-propeller', (g) => {
-    g.fillStyle(0x16a085);
+    // Bright pinwheel: 3 outlined blades + navy hub.
     for (let i = 0; i < 3; i++) {
       const a = -Math.PI / 2 + (i * 2 * Math.PI) / 3;
-      g.fillEllipse(c + Math.cos(a) * r * 0.5, c + Math.sin(a) * r * 0.5, r * 0.75, r * 0.32);
+      g.fillStyle(0x18b39a);
+      g.fillEllipse(c + Math.cos(a) * r * 0.5, c + Math.sin(a) * r * 0.5, r * 0.8, r * 0.36);
+      g.lineStyle(OW * 0.85, OUTLINE);
+      g.strokeEllipse(c + Math.cos(a) * r * 0.5, c + Math.sin(a) * r * 0.5, r * 0.8, r * 0.36);
     }
-    g.fillStyle(0x2c2c54);
-    g.fillCircle(c, c, r * 0.16);
+    g.fillStyle(0x2c3350);
+    g.fillCircle(c, c, r * 0.2);
+    g.lineStyle(OW * 0.8, OUTLINE);
+    g.strokeCircle(c, c, r * 0.2);
+    gloss(g, c - r * 0.06, c - r * 0.06, r * 0.14, r * 0.1);
   });
 
   const ui = (key: string, draw: (g: Phaser.GameObjects.Graphics) => void): void => {
