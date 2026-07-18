@@ -199,9 +199,10 @@ export class PreloadScene extends Phaser.Scene {
     // A missing input skips the recipe; the FALLBACKS loop then patches the key.
     for (const [key, base, glyph] of COMPOSITES) this.composite(key, base, glyph, 0.5);
     this.decorateBrother();
-    // Pieces bake with padding (body 0.8 of canvas) so a full-bleed square
-    // body still sits INSIDE its board cell instead of kissing its neighbors.
-    for (const color of PIECE_COLORS) this.composite(`img-shape-${color}`, `k2-body-${color}`, `k2-face-${color}`, 0.42, 96, 0.8);
+    // Pieces bake with padding (body 0.78 of canvas) so a full-bleed square
+    // body still sits INSIDE its board cell, leaving room for the baked soft
+    // drop shadow (run 8b: presence — pieces ground/lift like RM's).
+    for (const color of PIECE_COLORS) this.composite(`img-shape-${color}`, `k2-body-${color}`, `k2-face-${color}`, 0.4, 96, 0.78, true);
     for (const [img, proc] of FALLBACKS) {
       if (this.textures.exists(img) || !this.textures.exists(proc)) continue;
       const src = this.textures.get(proc).getSourceImage();
@@ -253,8 +254,9 @@ export class PreloadScene extends Phaser.Scene {
     this.textures.addCanvas(key, canvas);
   }
 
-  /** Bake base + centered glyph into one square canvas texture under `key`. */
-  private composite(key: string, baseKey: string, glyphKey: string, glyphRatio: number, size = 96, baseRatio = 0.98): void {
+  /** Bake base + centered glyph into one square canvas texture under `key`.
+   *  `shadow` bakes a real soft drop shadow under the BASE only (run 8b). */
+  private composite(key: string, baseKey: string, glyphKey: string, glyphRatio: number, size = 96, baseRatio = 0.98, shadow = false): void {
     if (this.textures.exists(key)) return;
     if (!this.textures.exists(baseKey) || !this.textures.exists(glyphKey)) return;
     const canvas = document.createElement('canvas');
@@ -270,7 +272,19 @@ export class PreloadScene extends Phaser.Scene {
       const h = img.height * scale;
       ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
     };
-    draw(baseKey, baseRatio);
+    if (shadow) {
+      // Real blurred drop shadow following the body silhouette (fits inside
+      // the ~11% margin baseRatio leaves). Cleared before the face draws.
+      ctx.shadowColor = 'rgba(20,26,45,0.34)';
+      ctx.shadowBlur = size * 0.05;
+      ctx.shadowOffsetY = size * 0.035;
+      draw(baseKey, baseRatio);
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+    } else {
+      draw(baseKey, baseRatio);
+    }
     draw(glyphKey, glyphRatio);
     this.textures.addCanvas(key, canvas);
   }
